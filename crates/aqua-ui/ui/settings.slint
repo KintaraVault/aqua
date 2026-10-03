@@ -1,0 +1,1224 @@
+import "fonts/AquaKeys.ttf";
+import { Theme, Glyphs, SymbolTile, SidebarRow, Card, SectionHeader, Separator, Toggle, Checkbox, Row, NavRow, PillButton, IconButton, Segmented, Field, SliderBar, PopupSelect, UpDown, TrafficLights, GlassSurround } from "common.slint";
+
+export struct WifiNet { ssid: string, signal: int, secure: bool, active: bool, known: bool }
+export struct BtDev { path: string, name: string, kind: string, connected: bool, paired: bool, battery: int }
+export struct KV { key: string, value: string }
+export struct OutputInfo { name: string, label: string, mode: string, scale-idx: int, enabled: bool, primary: bool, resolutions: [string], res-idx: int, rates: [string], rate-idx: int, vrr: bool, can-modeset: bool }
+export struct LayoutRow { code: string, name: string, variants: [string], variant-idx: int }
+export struct WallItem { path: string, label: string, img: image }
+export struct PaneDef { id: string, label: string, tint: color, glyph: image, gap: bool }
+export struct Volume { name: string, mount: string, detail: string, used: float }
+export struct LoginItem { name: string, detail: string, enabled: bool, removable: bool }
+export struct ShortcutRow { id: string, label: string, keys: string, enabled: bool, is-default: bool, conflict: string }
+export struct CustomRow { keys: string, action-idx: int, command: string, conflict: string }
+export struct IconApp { id: string, name: string, apple: string, enabled: bool }
+export struct UserRow { name: string, login: string, kind: string, current: bool, initials: string }
+
+export global S {
+    in-out property <string> pane: "appearance";
+    in property <bool> can-back;
+    in property <bool> can-forward;
+    callback navigate(string);
+    callback go-back();
+    callback go-forward();
+    in property <bool> active: true;
+    callback win-close();
+    callback win-minimize();
+    callback win-zoom();
+    callback win-title-double();
+    callback win-drag();
+    callback win-resize(int);
+    in-out property <string> sheet;
+    in-out property <[bool]> matches;
+    in property <string> user-name: "User";
+    in property <string> login-name: "user";
+    in property <image> avatar;
+    in property <bool> has-avatar;
+    in property <string> host-name: "aqua";
+    in property <string> os-name;
+    in-out property <int> appearance: 0;
+    in-out property <int> accent: 0;
+    in-out property <int> minimize-idx: 0;
+    in-out property <bool> show-widgets: true;
+    in-out property <bool> clock-24h: true;
+    in-out property <bool> clock-seconds: false;
+    in-out property <bool> clock-date: true;
+    in-out property <bool> menubar-bg: false;
+    in-out property <bool> mb-wifi: true;
+    in-out property <bool> mb-battery: true;
+    in-out property <bool> mb-input: true;
+    in-out property <bool> mb-search: true;
+    in-out property <int> menubar-size: 1;
+    in-out property <bool> alert-sound: true;
+    in-out property <float> window-radius: 0.5;
+    in-out property <float> dock-size: 0.5;
+    in-out property <bool> dock-magnify: true;
+    in-out property <float> dock-mag: 0.5;
+    in-out property <bool> dock-autohide: false;
+    in-out property <int> menubar-autohide-idx: 0;
+    in-out property <int> apple-icons-idx: 0;
+    in-out property <int> icon-style-idx: 0;
+    in-out property <bool> icon-glass: true;
+    in property <[IconApp]> icon-apps;
+    callback toggle-icon-app(string, bool);
+    in-out property <int> hc0; in-out property <int> hc1; in-out property <int> hc2; in-out property <int> hc3;
+    in property <bool> has-wifi;
+    in-out property <bool> wifi-enabled;
+    in property <string> net-backend;
+    in property <[WifiNet]> networks;
+    in property <string> wired;
+    in-out property <string> wifi-status;
+    in-out property <string> ask-ssid;
+    callback wifi-toggle(bool);
+    callback wifi-connect(string, string);
+    callback wifi-disconnect();
+    callback wifi-scan();
+    in property <bool> bt-available;
+    in-out property <bool> bt-powered;
+    in-out property <bool> bt-discovering;
+    in property <string> bt-adapter;
+    in property <[BtDev]> bt-devices;
+    callback bt-power(bool);
+    callback bt-discover(bool);
+    callback bt-toggle(string, bool);
+    in property <bool> has-battery;
+    in property <float> battery-level;
+    in property <bool> charging;
+    in property <string> power-text;
+    in-out property <bool> low-power;
+    callback set-low-power(bool);
+    in property <bool> audio-available;
+    in property <string> audio-device;
+    in property <string> audio-backend;
+    in-out property <float> volume;
+    in-out property <bool> muted;
+    in-out property <float> input-volume;
+    callback set-volume(float);
+    callback set-muted(bool);
+    callback set-input(float);
+    in property <bool> has-brightness;
+    in-out property <float> brightness;
+    callback set-brightness(float);
+    in property <[OutputInfo]> outputs;
+    in-out property <int> display-sel;
+    callback set-scale(string, int);
+    callback set-resolution(string, int);
+    callback set-rate(string, int);
+    callback set-vrr(string, bool);
+    in property <string> display-status;
+    in property <bool> mode-pending;
+    callback keep-mode();
+    callback revert-mode();
+    callback set-output-enabled(string, bool);
+    callback set-primary(string);
+    in property <[WallItem]> wallpapers;
+    in-out property <int> wallpaper-idx;
+    callback set-wallpaper(int);
+    in-out property <int> dim-idx; in-out property <int> off-idx; in-out property <int> lock-idx; in-out property <int> suspend-idx;
+    in-out property <bool> lock-on-sleep;
+    in-out property <bool> lock-on-start;
+    callback lock-now();
+    in property <[UserRow]> users;
+    callback change-password();
+    callback open-users-tool();
+    in-out property <string> layouts;
+    in property <[LayoutRow]> layout-rows;
+    in property <[string]> all-layouts;
+    in-out property <int> add-layout-idx: -1;
+    callback add-layout(int);
+    callback remove-layout(int);
+    callback set-variant(int, int);
+    callback move-layout-up(int);
+    in property <string> kb-status;
+    in property <bool> kb-busy;
+    in property <string> kb-missing;
+    callback install-kb-deps();
+    callback apply-system-keymap();
+    in-out property <int> switch-idx;
+    in-out property <float> repeat-delay;
+    in-out property <float> repeat-rate;
+    in-out property <bool> numlock;
+    in-out property <string> xkb-options;
+    in property <[string]> sc-groups;
+    in-out property <int> sc-group: 0;
+    in property <[ShortcutRow]> sc-rows;
+    in property <[CustomRow]> sc-custom;
+    in property <[string]> sc-actions;
+    in-out property <string> sc-recording;
+    in-out property <string> sc-live;
+    in-out property <string> sc-message;
+    callback sc-select-group(int);
+    callback sc-record(string);
+    callback sc-key(string, bool, bool, bool, bool) -> bool;
+    callback sc-mods(bool, bool, bool, bool);
+    callback sc-toggle(string, bool) -> bool;
+    callback sc-reset(string);
+    callback sc-reset-all();
+    callback sc-add();
+    callback sc-remove(int);
+    callback sc-set-action(int, int);
+    callback sc-set-command(int, string);
+    in-out property <int> dock-click-idx;
+    in-out property <bool> dock-bounce: true;
+    in-out property <bool> dock-keep-order: true;
+    in-out property <int> title-dbl-idx;
+    in-out property <bool> animate-windows: true;
+    in-out property <bool> reduce-motion;
+    in-out property <float> cursor-size;
+    in-out property <bool> dnd;
+    in-out property <bool> note-previews: true;
+    in-out property <bool> natural-scroll;
+    in-out property <bool> tap-to-click;
+    in-out property <float> tp-speed;
+    in-out property <bool> gestures;
+    in-out property <bool> dwt;
+    in-out property <bool> mouse-natural;
+    in-out property <float> mouse-speed;
+    in-out property <float> scroll-speed;
+    in-out property <bool> pointer-accel;
+    in-out property <int> tp-tab;
+    in property <[KV]> about;
+    in property <[Volume]> volumes;
+    in property <string> update-status: @tr("Checking for updates…");
+    in property <string> update-detail;
+    in property <bool> update-busy;
+    in property <int> update-count;
+    in property <[string]> update-list;
+    callback check-updates();
+    callback install-updates();
+    in-out property <bool> ntp;
+    in property <bool> can-ntp;
+    in property <string> now-text;
+    in property <[string]> timezones;
+    in-out property <int> tz-idx;
+    in property <string> dt-status;
+    callback set-ntp(bool);
+    callback set-timezone(int);
+    in property <[string]> locales;
+    in-out property <int> locale-idx;
+    in property <string> region-text;
+    in property <string> locale-example;
+    in property <string> lang-status;
+    callback set-locale(int);
+    in property <[LoginItem]> login-items;
+    in property <[string]> app-names;
+    in-out property <int> add-login-idx: -1;
+    callback toggle-login(int, bool);
+    callback remove-login(int);
+    callback add-login(int);
+    in property <string> status;
+    callback search(string);
+    callback commit();
+    callback power-action(string);
+
+    public pure function title(id: string) -> string {
+        if id == "wifi" { return @tr("Wi-Fi"); }
+        if id == "bluetooth" { return @tr("Bluetooth"); }
+        if id == "network" { return @tr("Network"); }
+        if id == "battery" { return has-battery ? @tr("Battery") : @tr("Energy"); }
+        if id == "general" { return @tr("General"); }
+        if id == "about" { return @tr("About"); }
+        if id == "update" { return @tr("Software Update"); }
+        if id == "storage" { return @tr("Storage"); }
+        if id == "datetime" { return @tr("Date & Time"); }
+        if id == "language" { return @tr("Language & Region"); }
+        if id == "login" { return @tr("Login Items & Extensions"); }
+        if id == "appearance" { return @tr("Appearance"); }
+        if id == "menubar" { return @tr("Menu Bar"); }
+        if id == "dock" { return @tr("Desktop & Dock"); }
+        if id == "displays" { return @tr("Displays"); }
+        if id == "wallpaper" { return @tr("Wallpaper"); }
+        if id == "sound" { return @tr("Sound"); }
+        if id == "lock" { return @tr("Lock Screen"); }
+        if id == "users" { return @tr("Users & Groups"); }
+        if id == "keyboard" { return @tr("Keyboard"); }
+        if id == "mouse" { return @tr("Mouse"); }
+        if id == "trackpad" { return @tr("Trackpad"); }
+        if id == "notifications" { return @tr("Notifications"); }
+        if id == "accessibility" { return @tr("Accessibility"); }
+        return @tr("System Settings");
+    }
+    public pure function parent-of(id: string) -> string {
+        if id == "about" || id == "update" || id == "storage" || id == "datetime" || id == "language" || id == "login" { return "general"; }
+        return id;
+    }
+}
+
+component Caption inherits Text {
+    font-size: 11px; color: Theme.text-secondary; wrap: word-wrap;
+}
+component Value inherits Text {
+    font-size: 13px; color: Theme.text-secondary; vertical-alignment: center; overflow: elide;
+}
+
+component PaneHeader inherits Card {
+    in property <image> glyph; in property <color> tint; in property <string> name; in property <string> desc;
+    VerticalLayout {
+        padding: 18px; padding-top: 20px; spacing: 6px; alignment: center;
+        HorizontalLayout { alignment: center; SymbolTile { glyph: glyph; tint: tint; size: 52px; } }
+        Text { text: name; font-size: 20px; font-weight: 700; color: Theme.text; horizontal-alignment: center; }
+        Text { text: desc; font-size: 12px; color: Theme.text-secondary; horizontal-alignment: center; wrap: word-wrap; }
+    }
+}
+
+component MasterRow inherits Rectangle {
+    in property <image> glyph; in property <color> tint; in property <string> title; in property <string> subtitle;
+    in-out property <bool> checked; in property <bool> enabled: true;
+    callback toggled(bool);
+    height: subtitle == "" ? 44px : 52px;
+    HorizontalLayout { padding-left: 10px; padding-right: 12px; spacing: 10px;
+        VerticalLayout { alignment: center; SymbolTile { glyph: glyph; tint: tint; size: 28px; } }
+        VerticalLayout { alignment: center; horizontal-stretch: 1; spacing: 1px;
+            Text { text: title; font-size: 13px; font-weight: 500; color: Theme.text; }
+            if subtitle != "": Text { text: subtitle; font-size: 11px; color: Theme.text-secondary; overflow: elide; }
+        }
+        VerticalLayout { alignment: center; Toggle { checked <=> root.checked; enabled: root.enabled; toggled(v) => { root.toggled(v); } } }
+    }
+}
+
+component AppearanceTile inherits VerticalLayout {
+    in property <string> label; in property <int> kind; in property <bool> selected;
+    callback clicked();
+    spacing: 5px; alignment: start;
+    Rectangle {
+        width: 74px; height: 50px; border-radius: 8px;
+        border-width: selected ? 3px : 0px;
+        border-color: Theme.accent;
+        background: selected ? Theme.accent : transparent;
+        Rectangle {
+            x: 3px; y: 3px; width: parent.width - 6px; height: parent.height - 6px; border-radius: 6px; clip: true;
+            border-width: selected ? 0px : 0.5px; border-color: #00000026;
+            Rectangle { background: kind == 2 ? @linear-gradient(160deg, #0b2a6b 0%, #2a175e 100%) : @linear-gradient(160deg, #7fb7ff 0%, #b9a2ff 100%); }
+            if kind == 0: Rectangle { x: parent.width / 2; width: parent.width / 2; background: @linear-gradient(160deg, #0b2a6b 0%, #2a175e 100%); }
+            Rectangle { y: 0; height: 5px; background: kind == 2 ? #00000066 : #ffffff99; }
+            Rectangle { x: 10px; y: 10px; width: 46px; height: 28px; border-radius: 4px;
+                background: kind == 2 ? #2d2d30 : white; drop-shadow-blur: 3px; drop-shadow-color: #0003; clip: true;
+                if kind == 0: Rectangle { x: parent.width / 2 - 5px; width: parent.width / 2 + 5px; background: #2d2d30; }
+                Rectangle { x: 3px; y: 3px; width: 14px; height: 22px; border-radius: 2px; background: kind == 2 ? #3c3c40 : #eceef1; }
+                for i in 3: Rectangle { x: 5px + i * 4px; y: 5px; width: 2.5px; height: 2.5px; border-radius: 1.25px; background: i == 0 ? #ff5f57 : i == 1 ? #febc2e : #28c840; }
+                Rectangle { x: 21px; y: 7px; width: 18px; height: 3px; border-radius: 1.5px; background: Theme.accent; }
+                Rectangle { x: 21px; y: 13px; width: 14px; height: 2px; border-radius: 1px; background: kind == 1 ? #0000001f : #ffffff33; }
+            }
+        }
+        TouchArea { clicked => { root.clicked(); } }
+    }
+    Text { text: label; font-size: 11px; color: Theme.text; font-weight: selected ? 600 : 400; horizontal-alignment: center; }
+}
+
+component AccentPicker inherits Rectangle {
+    in property <[color]> colors: [#000000, #007aff, #a550a7, #f74f9e, #ff5257, #f7821b, #ffc600, #62ba46, #8c8c8c];
+    in property <[string]> names: [@tr("Multicolour"), @tr("Blue"), @tr("Purple"), @tr("Pink"), @tr("Red"), @tr("Orange"), @tr("Yellow"), @tr("Green"), @tr("Graphite")];
+    width: 9 * 24px;
+    height: 40px;
+    for c[i] in colors: Rectangle {
+        x: i * 24px; y: 4px; width: 20px; height: 20px; border-radius: 10px;
+        border-width: S.accent == i ? 2px : 0px;
+        border-color: i == 0 ? Theme.text-tertiary : c.with-alpha(0.55);
+        Rectangle {
+            width: 15px; height: 15px; border-radius: 7.5px;
+            background: i == 0 ? @linear-gradient(135deg, #ff5f57 0%, #febc2e 30%, #28c840 55%, #007aff 80%, #a550a7 100%) : c;
+            border-width: 0.5px; border-color: #00000026;
+        }
+        TouchArea { clicked => { S.accent = i; S.commit(); } }
+    }
+    Text {
+        x: S.accent * 24px + 10px - 45px; y: 27px; width: 90px;
+        text: names[S.accent]; font-size: 10px; color: Theme.text-secondary; horizontal-alignment: center;
+    }
+}
+
+component AppearancePane inherits VerticalLayout {
+    spacing: 10px;
+    Card { VerticalLayout {
+        Row { title: @tr("Appearance"); last: true;
+            HorizontalLayout { spacing: 12px; padding-top: 8px; padding-bottom: 6px;
+                AppearanceTile { label: @tr("Auto"); kind: 0; selected: S.appearance == 0; clicked => { S.appearance = 0; S.commit(); } }
+                AppearanceTile { label: @tr("Light"); kind: 1; selected: S.appearance == 1; clicked => { S.appearance = 1; S.commit(); } }
+                AppearanceTile { label: @tr("Dark"); kind: 2; selected: S.appearance == 2; clicked => { S.appearance = 2; S.commit(); } }
+            }
+        }
+    } }
+    SectionHeader { text: @tr("Theme"); }
+    Card { VerticalLayout {
+        Row { title: @tr("Colour"); last: true; AccentPicker {} }
+    } }
+    SectionHeader { text: @tr("App Icons"); }
+    Card { VerticalLayout {
+        Row { title: @tr("Icon & widget style"); subtitle: @tr("Dark, Clear and Tinted recolour every app icon; Automatic switches to Dark in Dark Mode");
+            PopupSelect { items: [@tr("Default"), @tr("Automatic"), @tr("Dark"), @tr("Clear"), @tr("Tinted")]; current <=> S.icon-style-idx; changed => { S.commit(); } } }
+        Row { title: @tr("Liquid Glass edges"); subtitle: @tr("Add the glass highlight to the rims of app icons");
+            Toggle { checked <=> S.icon-glass; toggled => { S.commit(); } } }
+        Row { title: @tr("Use macOS app icons"); subtitle: @tr("Show Linux apps as their macOS counterparts, e.g. Firefox as Safari, Files as Finder"); last: S.apple-icons-idx != 1;
+            PopupSelect { items: [@tr("For all apps"), @tr("For selected apps"), @tr("Off")]; current <=> S.apple-icons-idx; changed => { S.commit(); } } }
+        if S.apple-icons-idx == 1: VerticalLayout {
+            for a[i] in S.icon-apps: Row { title: a.name; subtitle: @tr("Shown as ") + a.apple; last: i == S.icon-apps.length - 1;
+                Toggle { checked: a.enabled; toggled(v) => { S.toggle-icon-app(a.id, v); } } }
+            if S.icon-apps.length == 0: Row { title: @tr("No installed app has a macOS counterpart"); dim: true; last: true; }
+        }
+    } }
+    SectionHeader { text: @tr("Windows"); }
+    Card { VerticalLayout {
+        Row { title: @tr("Window corner radius"); last: true;
+            HorizontalLayout { spacing: 8px; Caption { text: @tr("Square"); vertical-alignment: center; } SliderBar { width: 180px; value <=> S.window-radius; released => { S.commit(); } } Caption { text: @tr("Round"); vertical-alignment: center; } } }
+    } }
+}
+
+component MenuBarControl inherits Rectangle {
+    in property <string> title;
+    in property <image> glyph;
+    in property <color> tint;
+    in property <bool> fixed: false;
+    in property <bool> last: false;
+    in-out property <bool> checked;
+    callback toggled();
+    height: 40px;
+    HorizontalLayout {
+        padding-left: 12px; padding-right: 12px; spacing: 10px; alignment: start;
+        VerticalLayout { alignment: center;
+            if !fixed: Checkbox { checked <=> root.checked; toggled => { root.toggled(); } }
+            if fixed: Rectangle { width: 15px; height: 15px; }
+        }
+        VerticalLayout { alignment: center; SymbolTile { glyph: root.glyph; tint: root.tint; size: 22px; } }
+        Text { text: root.title; font-size: 13px; color: Theme.text; vertical-alignment: center; }
+    }
+    if !last: Rectangle { x: 12px; y: parent.height - 1px; width: parent.width - 24px; height: 1px; background: Theme.separator; }
+}
+
+component MenuBarPane inherits VerticalLayout {
+    spacing: 10px;
+    Card { VerticalLayout {
+        Row { title: @tr("Menu bar size"); PopupSelect { items: [@tr("Small"), @tr("Medium"), @tr("Large")]; current <=> S.menubar-size; changed => { S.commit(); } } }
+        Row { title: @tr("Automatically hide and show the menu bar"); PopupSelect { items: [@tr("In Full Screen Only"), @tr("Always"), @tr("Never")]; current <=> S.menubar-autohide-idx; changed => { S.commit(); } } }
+        Row { title: @tr("Show menu bar background"); last: true; Toggle { checked <=> S.menubar-bg; toggled => { S.commit(); } } }
+    } }
+    SectionHeader { text: @tr("Menu Bar Controls"); }
+    HorizontalLayout { padding-left: 10px; padding-right: 10px;
+        Caption { text: @tr("Choose which status items appear on the right of the menu bar. Control Centre and the clock are always shown."); wrap: word-wrap; }
+    }
+    Card { VerticalLayout {
+        MenuBarControl { title: @tr("Control Centre"); glyph: Glyphs.switches; tint: #8e8e93; fixed: true; }
+        MenuBarControl { title: @tr("Clock"); glyph: Glyphs.clock; tint: #8e8e93; fixed: true; }
+        MenuBarControl { title: @tr("Spotlight"); glyph: Glyphs.search; tint: #8e8e93; checked <=> S.mb-search; toggled => { S.commit(); } }
+        MenuBarControl { title: @tr("Wi-Fi"); glyph: Glyphs.wifi; tint: #0a84ff; checked <=> S.mb-wifi; toggled => { S.commit(); } }
+        MenuBarControl { title: @tr("Battery"); glyph: Glyphs.battery; tint: #34c759; checked <=> S.mb-battery; toggled => { S.commit(); } }
+        MenuBarControl { title: @tr("Keyboard Input"); glyph: Glyphs.keyboard; tint: #8e8e93; last: true; checked <=> S.mb-input; toggled => { S.commit(); } }
+    } }
+    SectionHeader { text: @tr("Clock"); }
+    Card { VerticalLayout {
+        Row { title: @tr("Show the date"); Toggle { checked <=> S.clock-date; toggled => { S.commit(); } } }
+        Row { title: @tr("Use a 24-hour clock"); Toggle { checked <=> S.clock-24h; toggled => { S.commit(); } } }
+        Row { title: @tr("Display the time with seconds"); last: true; Toggle { checked <=> S.clock-seconds; toggled => { S.commit(); } } }
+    } }
+}
+
+component DockPane inherits VerticalLayout {
+    spacing: 10px;
+    SectionHeader { text: @tr("Dock"); }
+    Card { VerticalLayout {
+        Row { title: @tr("Size"); HorizontalLayout { spacing: 8px; Caption { text: @tr("Small"); vertical-alignment: center; } SliderBar { width: 180px; value <=> S.dock-size; released => { S.commit(); } } Caption { text: @tr("Large"); vertical-alignment: center; } } }
+        Row { title: @tr("Magnification"); HorizontalLayout { spacing: 8px; Caption { text: @tr("Off"); vertical-alignment: center; }
+            SliderBar { width: 180px; value: S.dock-magnify ? S.dock-mag : 0; released(v) => { S.dock-magnify = v > 0.02; S.dock-mag = v; S.commit(); } }
+            Caption { text: @tr("Large"); vertical-alignment: center; } } }
+        Row { title: @tr("Minimise windows using"); PopupSelect { items: [@tr("Genie Effect"), @tr("Scale Effect")]; current <=> S.minimize-idx; changed => { S.commit(); } } }
+        Row { title: @tr("Automatically hide and show the Dock"); Toggle { checked <=> S.dock-autohide; toggled => { S.commit(); } } }
+        Row { title: @tr("Click on an open app's icon to"); subtitle: @tr("What happens when you click an app that is already running");
+            PopupSelect { width: 210px; items: [@tr("Bring its windows forward"), @tr("Minimise if in front"), @tr("Cycle through its windows"), @tr("Show all its windows"), @tr("Open a new window")]; current <=> S.dock-click-idx; changed => { S.commit(); } } }
+        Row { title: @tr("Animate opening applications"); Toggle { checked <=> S.dock-bounce; toggled => { S.commit(); } } }
+        Row { title: @tr("Keep app icons in place"); subtitle: @tr("Off: the app you used last moves next to the pinned apps"); last: true; Toggle { checked <=> S.dock-keep-order; toggled => { S.commit(); } } }
+    } }
+    SectionHeader { text: @tr("Windows"); }
+    Card { VerticalLayout {
+        Row { title: @tr("Double-click a window's title bar to"); PopupSelect { width: 150px; items: [@tr("Zoom"), @tr("Minimise"), @tr("Do Nothing")]; current <=> S.title-dbl-idx; changed => { S.commit(); } } }
+        Row { title: @tr("Animate zoom and full screen"); subtitle: @tr("Windows grow smoothly into their new size"); last: true; Toggle { checked <=> S.animate-windows; toggled => { S.commit(); } } }
+    } }
+    SectionHeader { text: @tr("Desktop & Widgets"); }
+    Card { VerticalLayout {
+        Row { title: @tr("Show Widgets"); subtitle: @tr("Clock and calendar widgets on the desktop"); Toggle { checked <=> S.show-widgets; toggled => { S.commit(); } } }
+        Row { title: @tr("Hot Corners"); subtitle: @tr("Move the pointer to a screen corner to start an action"); last: true; PillButton { text: @tr("Hot Corners…"); clicked => { S.sheet = "hot-corners"; } } }
+    } }
+}
+
+component Bars inherits Image {
+    in property <int> signal;
+    width: 15px; height: 12px;
+    source: signal >= 70 ? Glyphs.wifi-3 : signal >= 35 ? Glyphs.wifi-2 : Glyphs.wifi-1;
+    colorize: Theme.text;
+}
+
+component NetRow inherits Rectangle {
+    in property <WifiNet> n; in property <bool> last;
+    height: 36px;
+    background: ta.pressed ? Theme.hover : transparent;
+    HorizontalLayout { padding-left: 12px; padding-right: 12px; spacing: 8px;
+        if n.active: VerticalLayout { alignment: center; Image { width: 12px; height: 12px; source: Glyphs.checkmark; colorize: Theme.accent; } }
+        Text { text: n.ssid; font-size: 13px; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+        if n.active: Value { text: @tr("Connected"); font-size: 11px; }
+        if n.secure: VerticalLayout { alignment: center; Image { width: 10px; height: 12px; source: Glyphs.lock; colorize: Theme.text-secondary; } }
+        VerticalLayout { alignment: center; Bars { signal: n.signal; } }
+        if n.active: VerticalLayout { alignment: center; PillButton { text: @tr("Disconnect"); clicked => { S.wifi-disconnect(); } } }
+    }
+    if !last: Rectangle { x: 12px; y: parent.height - 1px; width: parent.width - 24px; height: 1px; background: Theme.separator; }
+    ta := TouchArea { clicked => {
+        if (!n.active) {
+            if (n.secure && !n.known) { S.ask-ssid = n.ssid; } else { S.wifi-connect(n.ssid, ""); }
+        }
+    } }
+}
+
+component WifiPane inherits VerticalLayout {
+    spacing: 10px;
+    Card { VerticalLayout {
+        MasterRow { glyph: Glyphs.wifi; tint: #1a8cff; title: @tr("Wi-Fi"); subtitle: S.has-wifi ? S.wifi-status : "No Wi-Fi hardware found (" + S.net-backend + ")"; enabled: S.has-wifi; checked <=> S.wifi-enabled; toggled(v) => { S.wifi-toggle(v); } }
+    } }
+    if S.wifi-enabled: SectionHeader { text: @tr("Known Networks"); }
+    if S.wifi-enabled: Card { VerticalLayout {
+        for n[i] in S.networks: VerticalLayout { if n.known || n.active: NetRow { n: n; last: false; } }
+        Row { title: @tr("Ethernet"); subtitle: S.wired != "" ? S.wired : @tr("Not connected"); last: true; dim: S.wired == ""; }
+    } }
+    if S.wifi-enabled: SectionHeader { text: @tr("Other Networks");
+        PillButton { text: @tr("Scan"); clicked => { S.wifi-scan(); } }
+    }
+    if S.wifi-enabled: Card { VerticalLayout {
+        for n[i] in S.networks: VerticalLayout { if !n.known && !n.active: NetRow { n: n; last: false; } }
+        Row { title: S.networks.length == 0 ? @tr("No networks found") : @tr("Other…"); dim: true; last: true; }
+    } }
+}
+
+component BluetoothPane inherits VerticalLayout {
+    spacing: 10px;
+    Card { VerticalLayout {
+        MasterRow { glyph: Glyphs.bluetooth; tint: #1a8cff; title: @tr("Bluetooth"); enabled: S.bt-available;
+            subtitle: !S.bt-available ? @tr("No Bluetooth adapter found (BlueZ)") : S.bt-powered && S.bt-adapter != "" ? "Now discoverable as “" + S.bt-adapter + "”." : "";
+            checked <=> S.bt-powered; toggled(v) => { S.bt-power(v); } }
+    } }
+    if S.bt-powered: SectionHeader { text: @tr("My Devices"); }
+    if S.bt-powered: Card { VerticalLayout {
+        for d[i] in S.bt-devices: VerticalLayout { if d.paired: Row {
+            title: d.name; subtitle: (d.connected ? @tr("Connected") : @tr("Not Connected")) + (d.battery >= 0 ? " · " + d.battery + "%" : "");
+            PillButton { text: d.connected ? @tr("Disconnect") : @tr("Connect"); clicked => { S.bt-toggle(d.path, !d.connected); } }
+        } }
+        Row { title: S.bt-devices.length == 0 ? @tr("No devices") : @tr("Devices you pair appear here"); dim: true; last: true; }
+    } }
+    if S.bt-powered: SectionHeader { text: @tr("Nearby Devices");
+        PillButton { text: S.bt-discovering ? @tr("Stop") : @tr("Search"); clicked => { S.bt-discovering = !S.bt-discovering; S.bt-discover(S.bt-discovering); } }
+    }
+    if S.bt-powered: Card { VerticalLayout {
+        for d[i] in S.bt-devices: VerticalLayout { if !d.paired: Row {
+            title: d.name;
+            PillButton { text: @tr("Connect"); clicked => { S.bt-toggle(d.path, true); } }
+        } }
+        Row { title: S.bt-discovering ? @tr("Searching…") : @tr("Click Search to find nearby devices"); dim: true; last: true; }
+    } }
+}
+
+component NetworkPane inherits VerticalLayout {
+    spacing: 10px;
+    Card { VerticalLayout {
+        NavRow { title: @tr("Wi-Fi"); glyph: Glyphs.wifi; tint: #1a8cff; value: S.wifi-status; clicked => { S.navigate("wifi"); } }
+        NavRow { title: @tr("Ethernet"); glyph: Glyphs.globe; tint: #1a8cff; value: S.wired != "" ? @tr("Connected") : @tr("Not connected"); last: true; clicked => {} }
+    } }
+    Card { VerticalLayout {
+        Row { title: @tr("Network service"); last: true; Value { text: S.net-backend; } }
+    } }
+}
+
+component BatteryPane inherits VerticalLayout {
+    spacing: 10px;
+    PaneHeader { glyph: S.has-battery ? Glyphs.battery : Glyphs.energy; tint: #34c759; name: S.has-battery ? @tr("Battery") : @tr("Energy"); desc: S.power-text; }
+    if S.has-battery: Card { VerticalLayout {
+        Row { title: @tr("Battery level"); Value { text: round(S.battery-level * 100) + "%" + (S.charging ? " — Charging" : ""); } }
+        Rectangle { height: 26px;
+            Rectangle { x: 12px; y: 4px; width: parent.width - 24px; height: 10px; border-radius: 5px; background: Theme.track;
+                Rectangle { x: 0; width: parent.width * S.battery-level; height: 10px; border-radius: 5px; background: S.battery-level < 0.2 ? #ff3b30 : #34c759; animate width { duration: 400ms; easing: ease-out; } }
+            }
+        }
+        Row { title: @tr("Low Power Mode"); subtitle: @tr("Reduces energy usage"); last: true; Toggle { checked <=> S.low-power; toggled(v) => { S.set-low-power(v); } } }
+    } }
+    if !S.has-battery: Card { VerticalLayout {
+        Row { title: @tr("Low Power Mode"); subtitle: @tr("Reduces energy usage"); last: true; Toggle { checked <=> S.low-power; toggled(v) => { S.set-low-power(v); } } }
+    } }
+    if S.has-brightness: Card { VerticalLayout { Row { title: @tr("Display brightness"); last: true; SliderBar { width: 200px; value <=> S.brightness; moved(v) => { S.set-brightness(v); } } } } }
+}
+
+component VolumeSlider inherits HorizontalLayout {
+    in-out property <float> value;
+    callback moved(float);
+    callback released(float);
+    spacing: 8px;
+    VerticalLayout { alignment: center; Image { width: 11px; height: 11px; source: Glyphs.speaker-low; colorize: Theme.text-secondary; } }
+    SliderBar { width: 200px; value <=> root.value; moved(v) => { root.moved(v); } released(v) => { root.released(v); } }
+    VerticalLayout { alignment: center; Image { width: 15px; height: 13px; source: Glyphs.speaker-high; colorize: Theme.text-secondary; } }
+}
+
+component SoundPane inherits VerticalLayout {
+    spacing: 10px;
+    property <int> tab: 0;
+    SectionHeader { text: @tr("Sound Effects"); }
+    Card { VerticalLayout {
+        Row { title: @tr("Play feedback and alert sounds"); last: true; Toggle { checked <=> S.alert-sound; toggled => { S.commit(); } } }
+    } }
+    SectionHeader { text: @tr("Output & Input"); }
+    Card { VerticalLayout {
+        HorizontalLayout { alignment: center; padding: 10px; Segmented { items: [@tr("Output"), @tr("Input")]; current <=> tab; } }
+        Rectangle { x: 12px; width: parent.width - 24px; height: 1px; background: Theme.separator; }
+        if !S.audio-available: Row { title: @tr("No sound server (PipeWire/PulseAudio) found"); dim: true; last: true; }
+        if S.audio-available: Row { title: S.audio-device != "" ? S.audio-device : (tab == 0 ? @tr("Default output") : @tr("Default input")); subtitle: S.audio-backend;
+            Image { width: 12px; height: 12px; source: Glyphs.checkmark; colorize: Theme.accent; } }
+        if S.audio-available && tab == 0: Row { title: @tr("Output volume"); VolumeSlider { value <=> S.volume; moved(v) => { S.set-volume(v); } } }
+        if S.audio-available && tab == 0: Row { title: @tr("Mute"); last: true; Toggle { checked <=> S.muted; toggled(v) => { S.set-muted(v); } } }
+        if S.audio-available && tab == 1: Row { title: @tr("Input volume"); last: true; VolumeSlider { value <=> S.input-volume; released(v) => { S.set-input(v); } } }
+    } }
+}
+
+component DisplaysPane inherits VerticalLayout {
+    spacing: 10px;
+    Card { height: 150px;
+        HorizontalLayout { alignment: center; spacing: 26px; padding-top: 18px;
+            for o[i] in S.outputs: VerticalLayout { spacing: 6px; alignment: start;
+                Rectangle { width: 120px; height: 76px; border-radius: 7px;
+                    background: #1d1d1f;
+                    border-width: S.display-sel == i ? 3px : 0px; border-color: Theme.accent;
+                    opacity: o.enabled ? 1 : 0.45;
+                    Rectangle { x: 4px; y: 4px; width: parent.width - 8px; height: parent.height - 8px; border-radius: 4px;
+                        background: @linear-gradient(160deg, #3d8bff 0%, #6d5cff 55%, #d27bff 100%);
+                        if o.primary: Rectangle { y: 0; height: 5px; background: #ffffffcc; border-radius: 2px; }
+                    }
+                    TouchArea { clicked => { S.display-sel = i; } }
+                }
+                Text { text: o.label; font-size: 12px; font-weight: S.display-sel == i ? 600 : 400; color: Theme.text; horizontal-alignment: center; overflow: elide; width: 140px; }
+            }
+            if S.outputs.length == 0: Text { text: @tr("No displays reported by the compositor"); color: Theme.text-secondary; font-size: 12px; vertical-alignment: center; }
+        }
+    }
+    if S.display-status != "" || S.mode-pending: Card { VerticalLayout {
+        Row { title: S.mode-pending ? @tr("Keep these display settings?") : @tr("Displays"); subtitle: S.display-status; last: true;
+            HorizontalLayout { spacing: 6px;
+                if S.mode-pending: PillButton { text: @tr("Revert"); clicked => { S.revert-mode(); } }
+                if S.mode-pending: PillButton { text: @tr("Keep"); primary: true; clicked => { S.keep-mode(); } }
+            }
+        }
+    } }
+    for o[i] in S.outputs: VerticalLayout { spacing: 10px; if i == S.display-sel: VerticalLayout { spacing: 10px;
+        Card { VerticalLayout {
+            Row { title: @tr("Use as"); PopupSelect { items: [@tr("Main display"), @tr("Extended display")]; current: o.primary ? 0 : 1; changed(v) => { if (v == 0) { S.set-primary(o.name); } } } }
+            Row { title: @tr("Resolution"); PopupSelect { items: o.resolutions; current: o.res-idx; changed(v) => { S.set-resolution(o.name, v); } } }
+            Row { title: @tr("Scale"); subtitle: @tr("Larger text ↔ more space"); last: true; Segmented { items: [@tr("Auto"), "100%", "125%", "150%", "175%", "200%"]; current: o.scale-idx; changed(v) => { S.set-scale(o.name, v); } } }
+        } }
+        Card { VerticalLayout {
+            Row { title: @tr("Refresh rate"); PopupSelect { items: o.rates; current: o.rate-idx; changed(v) => { S.set-rate(o.name, v); } } }
+            if o.can-modeset: Row { title: @tr("Variable refresh rate"); subtitle: @tr("Adaptive-Sync / FreeSync / G-SYNC Compatible"); Toggle { checked: o.vrr; toggled(v) => { S.set-vrr(o.name, v); } } }
+            Row { title: @tr("Enabled"); subtitle: o.name + " · " + o.mode; last: true; Toggle { checked: o.enabled; toggled(v) => { S.set-output-enabled(o.name, v); } } }
+        } }
+    } }
+}
+
+component WallpaperPane inherits VerticalLayout {
+    spacing: 10px;
+    Card { HorizontalLayout { padding: 14px; spacing: 16px; alignment: start;
+        Rectangle { width: 168px; height: 105px; border-radius: 8px; clip: true;
+            background: @linear-gradient(160deg, #1f5fd6 0%, #8a4fff 60%, #f58ab8 100%);
+            drop-shadow-blur: 4px; drop-shadow-color: #0003;
+            if S.wallpaper-idx >= 0 && S.wallpaper-idx < S.wallpapers.length: Image { source: S.wallpapers[S.wallpaper-idx].img; width: parent.width; height: parent.height; image-fit: cover; }
+        }
+        VerticalLayout { alignment: center; spacing: 4px;
+            Text { text: S.wallpaper-idx >= 0 && S.wallpaper-idx < S.wallpapers.length ? S.wallpapers[S.wallpaper-idx].label : ""; font-size: 13px; font-weight: 600; color: Theme.text; }
+            Caption { text: @tr("Shown on the desktop and the lock screen"); }
+        }
+    } }
+    SectionHeader { text: @tr("Pictures"); }
+    VerticalLayout { spacing: 12px; padding-left: 4px;
+        for row in (S.wallpapers.length + 3) / 4: HorizontalLayout { spacing: 12px; alignment: start;
+            for col in 4: Rectangle {
+                property <int> idx: row * 4 + col;
+                width: 116px; height: 72px;
+                if idx < S.wallpapers.length: Rectangle {
+                    border-radius: 9px;
+                    background: S.wallpaper-idx == idx ? Theme.accent : transparent;
+                    Rectangle { x: S.wallpaper-idx == idx ? 3px : 0px; y: self.x; width: parent.width - 2 * self.x; height: parent.height - 2 * self.x;
+                        border-radius: S.wallpaper-idx == idx ? 6px : 9px; clip: true;
+                        background: @linear-gradient(160deg, #1f5fd6 0%, #8a4fff 60%, #f58ab8 100%);
+                        Image { source: S.wallpapers[idx].img; width: parent.width; height: parent.height; image-fit: cover; }
+                    }
+                    TouchArea { clicked => { S.wallpaper-idx = idx; S.set-wallpaper(idx); } }
+                }
+            }
+        }
+    }
+}
+
+component LockPane inherits VerticalLayout {
+    spacing: 10px;
+    in property <[string]> times: ["Never", "For 1 minute", "For 2 minutes", "For 5 minutes", "For 10 minutes", "For 20 minutes", "For 30 minutes", "For 1 hour"];
+    in property <[string]> after: ["Never", "After 1 minute", "After 2 minutes", "After 5 minutes", "After 10 minutes", "After 20 minutes", "After 30 minutes", "After 1 hour"];
+    Card { VerticalLayout {
+        Row { title: @tr("Dim the display when inactive"); PopupSelect { items: times; current <=> S.dim-idx; changed => { S.commit(); } } }
+        Row { title: @tr("Turn display off when inactive"); PopupSelect { items: times; current <=> S.off-idx; changed => { S.commit(); } } }
+        Row { title: @tr("Put the computer to sleep when inactive"); last: true; PopupSelect { items: times; current <=> S.suspend-idx; changed => { S.commit(); } } }
+    } }
+    Card { VerticalLayout {
+        Row { title: @tr("Require password after screen saver begins or display is turned off"); PopupSelect { items: after; current <=> S.lock-idx; changed => { S.commit(); } } }
+        Row { title: @tr("Lock the screen before sleep"); Toggle { checked <=> S.lock-on-sleep; toggled => { S.commit(); } } }
+        Row { title: @tr("Show lock screen at login"); last: true; Toggle { checked <=> S.lock-on-start; toggled => { S.commit(); } } }
+    } }
+}
+
+component Avatar inherits Rectangle {
+    in property <string> initials; in property <bool> photo; in property <length> size: 32px;
+    width: size; height: size; border-radius: size / 2; clip: true;
+    background: @linear-gradient(180deg, #a6a6ab 0%, #78787d 100%);
+    if !photo && initials != "": Text { text: initials; color: white; font-size: size * 0.4; font-weight: 600; }
+    if !photo && initials == "": Image { width: size * 0.62; height: size * 0.62; source: Glyphs.person; colorize: white; }
+    if photo: Image { source: S.avatar; width: size; height: size; image-fit: cover; }
+}
+
+component UsersPane inherits VerticalLayout {
+    spacing: 10px;
+    Card { VerticalLayout {
+        for u[i] in S.users: Rectangle { height: 52px;
+            HorizontalLayout { padding-left: 12px; padding-right: 12px; spacing: 10px;
+                VerticalLayout { alignment: center; Avatar { initials: u.initials; photo: u.current && S.has-avatar; } }
+                VerticalLayout { alignment: center; horizontal-stretch: 1;
+                    Text { text: u.name + (u.current ? " (You)" : ""); font-size: 13px; font-weight: 500; color: Theme.text; }
+                    Text { text: u.kind; font-size: 11px; color: Theme.text-secondary; }
+                }
+                if u.current: VerticalLayout { alignment: center; PillButton { text: @tr("Change Password…"); clicked => { S.change-password(); } } }
+            }
+            if i < S.users.length - 1: Rectangle { x: 54px; y: parent.height - 1px; width: parent.width - 66px; height: 1px; background: Theme.separator; }
+        }
+    } }
+    Card { VerticalLayout {
+        Row { title: @tr("Add or remove users"); subtitle: @tr("Requires an administrator password"); last: true; PillButton { text: @tr("Add User…"); clicked => { S.open-users-tool(); } } }
+    } }
+}
+
+component KeyboardPane inherits VerticalLayout {
+    spacing: 10px;
+    Card { VerticalLayout {
+        Row { title: @tr("Key repeat rate"); HorizontalLayout { spacing: 8px; Caption { text: @tr("Slow"); vertical-alignment: center; } SliderBar { width: 180px; ticks: 8; value <=> S.repeat-rate; released => { S.commit(); } } Caption { text: @tr("Fast"); vertical-alignment: center; } } }
+        Row { title: @tr("Delay until repeat"); HorizontalLayout { spacing: 8px; Caption { text: @tr("Long"); vertical-alignment: center; } SliderBar { width: 180px; ticks: 6; value <=> S.repeat-delay; released => { S.commit(); } } Caption { text: @tr("Short"); vertical-alignment: center; } } }
+        Row { title: @tr("Turn Num Lock on at login"); Toggle { checked <=> S.numlock; toggled => { S.commit(); } } }
+        Row { title: @tr("Keyboard Shortcuts"); last: true; PillButton { text: @tr("Keyboard Shortcuts…"); clicked => { S.sheet = "shortcuts"; } } }
+    } }
+    SectionHeader { text: @tr("Text Input"); }
+    Card { VerticalLayout {
+        Row { title: @tr("Input Sources"); subtitle: S.layouts; PillButton { text: @tr("Edit…"); clicked => { S.sheet = "input-sources"; } } }
+        Row { title: @tr("Switch input source"); PopupSelect { items: [@tr("Control-Space"), @tr("Super-Space"), @tr("Alt-Shift"), @tr("Caps Lock")]; current <=> S.switch-idx; changed => { S.commit(); } } }
+        Row { title: @tr("Advanced XKB options"); subtitle: @tr("For example caps:escape,compose:ralt"); last: true; Field { width: 190px; text <=> S.xkb-options; accepted => { S.commit(); } } }
+    } }
+    if S.kb-missing != "": Card { VerticalLayout {
+        Row { title: @tr("Additional components are needed"); subtitle: S.kb-missing; last: true; PillButton { text: S.kb-busy ? @tr("Installing…") : @tr("Install"); enabled: !S.kb-busy; clicked => { S.install-kb-deps(); } } }
+    } }
+}
+
+component MousePane inherits VerticalLayout {
+    spacing: 10px;
+    Card { VerticalLayout {
+        Row { title: @tr("Tracking speed"); HorizontalLayout { spacing: 8px; Caption { text: @tr("Slow"); vertical-alignment: center; } SliderBar { width: 180px; ticks: 10; value <=> S.mouse-speed; released => { S.commit(); } } Caption { text: @tr("Fast"); vertical-alignment: center; } } }
+        Row { title: @tr("Natural scrolling"); subtitle: @tr("Content tracks finger movement"); Toggle { checked <=> S.mouse-natural; toggled => { S.commit(); } } }
+        Row { title: @tr("Scrolling speed"); HorizontalLayout { spacing: 8px; Caption { text: @tr("Slow"); vertical-alignment: center; } SliderBar { width: 180px; ticks: 10; value <=> S.scroll-speed; released => { S.commit(); } } Caption { text: @tr("Fast"); vertical-alignment: center; } } }
+        Row { title: @tr("Pointer acceleration"); subtitle: @tr("Faster movements move the pointer further"); last: true; Toggle { checked <=> S.pointer-accel; toggled => { S.commit(); } } }
+    } }
+}
+
+component TrackpadPane inherits VerticalLayout {
+    spacing: 10px;
+    HorizontalLayout { alignment: center; Segmented { items: [@tr("Point & Click"), @tr("Scroll & Zoom"), @tr("More Gestures")]; current <=> S.tp-tab; } }
+    if S.tp-tab == 0: Card { VerticalLayout {
+        Row { title: @tr("Tracking speed"); HorizontalLayout { spacing: 8px; Caption { text: @tr("Slow"); vertical-alignment: center; } SliderBar { width: 180px; ticks: 10; value <=> S.tp-speed; released => { S.commit(); } } Caption { text: @tr("Fast"); vertical-alignment: center; } } }
+        Row { title: @tr("Tap to click"); subtitle: @tr("Tap with one finger"); Toggle { checked <=> S.tap-to-click; toggled => { S.commit(); } } }
+        Row { title: @tr("Ignore trackpad while typing"); last: true; Toggle { checked <=> S.dwt; toggled => { S.commit(); } } }
+    } }
+    if S.tp-tab == 1: Card { VerticalLayout {
+        Row { title: @tr("Natural scrolling"); subtitle: @tr("Content tracks finger movement"); last: true; Toggle { checked <=> S.natural-scroll; toggled => { S.commit(); } } }
+    } }
+    if S.tp-tab == 2: Card { VerticalLayout {
+        Row { title: @tr("Swipe between full-screen applications"); subtitle: @tr("Swipe left or right with three fingers"); Toggle { checked <=> S.gestures; toggled => { S.commit(); } } }
+        Row { title: @tr("Mission Control"); subtitle: @tr("Swipe up with three fingers"); dim: !S.gestures; }
+        Row { title: @tr("Launchpad"); subtitle: @tr("Pinch with thumb and three fingers"); dim: !S.gestures; last: true; }
+    } }
+}
+
+component GeneralPane inherits VerticalLayout {
+    spacing: 10px;
+    PaneHeader { glyph: Glyphs.gear; tint: #8e8e93; name: @tr("General"); desc: @tr("Manage your overall setup and preferences for your computer, such as software updates, device language and more."); }
+    Card { VerticalLayout {
+        NavRow { title: @tr("About"); glyph: Glyphs.laptop; tint: #8e8e93; clicked => { S.navigate("about"); } }
+        NavRow { title: @tr("Software Update"); glyph: Glyphs.update; tint: #8e8e93; value: S.update-count > 0 ? S.update-count + "" : ""; clicked => { S.navigate("update"); } }
+        NavRow { title: @tr("Storage"); glyph: Glyphs.disk; tint: #8e8e93; last: true; clicked => { S.navigate("storage"); } }
+    } }
+    Card { VerticalLayout {
+        NavRow { title: @tr("Date & Time"); glyph: Glyphs.calendar; tint: #1a8cff; clicked => { S.navigate("datetime"); } }
+        NavRow { title: @tr("Language & Region"); glyph: Glyphs.globe; tint: #1a8cff; last: true; clicked => { S.navigate("language"); } }
+    } }
+    Card { VerticalLayout {
+        NavRow { title: @tr("Login Items & Extensions"); glyph: Glyphs.listbullet; tint: #8e8e93; last: true; clicked => { S.navigate("login"); } }
+    } }
+}
+
+component AboutPane inherits VerticalLayout {
+    spacing: 10px;
+    VerticalLayout { padding-top: 10px; padding-bottom: 8px; spacing: 4px; alignment: center;
+        HorizontalLayout { alignment: center; Image { width: 110px; height: 110px; source: Glyphs.laptop; colorize: @linear-gradient(180deg, #9a9aa0 0%, #5d5d63 100%); } }
+        Text { text: S.host-name; font-size: 22px; font-weight: 700; color: Theme.text; horizontal-alignment: center; }
+        Text { text: S.os-name; font-size: 12px; color: Theme.text-secondary; horizontal-alignment: center; }
+    }
+    Card { VerticalLayout {
+        for kv[i] in S.about: Row { title: kv.key; last: i == S.about.length - 1; Value { text: kv.value; max-width: 330px; horizontal-alignment: right; } }
+    } }
+    SectionHeader { text: @tr("Storage"); }
+    Card { VerticalLayout {
+        for v[i] in S.volumes: VerticalLayout { if i == 0: Row { title: v.name; subtitle: v.detail; PillButton { text: @tr("Storage Settings…"); clicked => { S.navigate("storage"); } } } }
+        if S.volumes.length == 0: Row { title: @tr("No disks found"); dim: true; last: true; }
+    } }
+}
+
+component UpdatePane inherits VerticalLayout {
+    spacing: 10px;
+    Card { HorizontalLayout { padding: 16px; spacing: 14px;
+        VerticalLayout { alignment: center; SymbolTile { glyph: Glyphs.update; tint: #8e8e93; size: 44px; } }
+        VerticalLayout { alignment: center; spacing: 3px; horizontal-stretch: 1;
+            Text { text: S.update-status; font-size: 14px; font-weight: 600; color: Theme.text; wrap: word-wrap; }
+            if S.update-detail != "": Caption { text: S.update-detail; }
+        }
+        VerticalLayout { alignment: center; spacing: 6px;
+            if S.update-count > 0: PillButton { text: @tr("Update Now"); primary: true; enabled: !S.update-busy; clicked => { S.install-updates(); } }
+            PillButton { text: S.update-busy ? @tr("Checking…") : @tr("Check Now"); enabled: !S.update-busy; clicked => { S.check-updates(); } }
+        }
+    } }
+    if S.update-list.length > 0: SectionHeader { text: @tr("Available Updates"); }
+    if S.update-list.length > 0: Card { VerticalLayout {
+        for u[i] in S.update-list: Row { title: u; last: i == S.update-list.length - 1; }
+    } }
+}
+
+component StoragePane inherits VerticalLayout {
+    spacing: 10px;
+    for v[i] in S.volumes: Card { VerticalLayout { padding: 14px; spacing: 8px;
+        HorizontalLayout { spacing: 10px;
+            SymbolTile { glyph: Glyphs.disk; tint: #8e8e93; size: 28px; }
+            VerticalLayout { alignment: center; horizontal-stretch: 1;
+                Text { text: v.name; font-size: 13px; font-weight: 600; color: Theme.text; }
+                Text { text: v.mount; font-size: 11px; color: Theme.text-secondary; }
+            }
+            Value { text: v.detail; }
+        }
+        Rectangle { height: 14px; border-radius: 4px; background: Theme.track; clip: true;
+            Rectangle { x: 0; width: parent.width * clamp(v.used, 0, 1); background: v.used > 0.9 ? #ff3b30 : @linear-gradient(90deg, Theme.accent 0%, Theme.accent.brighter(25%) 100%); }
+        }
+    } }
+    if S.volumes.length == 0: Card { VerticalLayout { Row { title: @tr("No disks found"); dim: true; last: true; } } }
+}
+
+component DateTimePane inherits VerticalLayout {
+    spacing: 10px;
+    Card { VerticalLayout {
+        Row { title: @tr("Set time and date automatically"); subtitle: S.can-ntp ? @tr("Uses network time (systemd-timesyncd)") : "timedatectl is not available"; Toggle { checked <=> S.ntp; enabled: S.can-ntp; toggled(v) => { S.set-ntp(v); } } }
+        Row { title: @tr("Date and time"); Value { text: S.now-text; } }
+        Row { title: @tr("Time zone"); last: true; PopupSelect { items: S.timezones; current <=> S.tz-idx; changed(v) => { S.set-timezone(v); } } }
+    } }
+    Card { VerticalLayout {
+        Row { title: "24-hour time"; Toggle { checked <=> S.clock-24h; toggled => { S.commit(); } } }
+        Row { title: @tr("Show the time with seconds"); last: true; Toggle { checked <=> S.clock-seconds; toggled => { S.commit(); } } }
+    } }
+    if S.dt-status != "": Caption { text: S.dt-status; horizontal-alignment: center; }
+}
+
+component LanguagePane inherits VerticalLayout {
+    spacing: 10px;
+    SectionHeader { text: @tr("Preferred Language"); }
+    Card { VerticalLayout {
+        Row { title: @tr("System language"); subtitle: @tr("Applies to apps and the login screen after you log out"); last: true; PopupSelect { items: S.locales; current <=> S.locale-idx; changed(v) => { S.set-locale(v); } } }
+    } }
+    Card { VerticalLayout {
+        Row { title: @tr("Region"); Value { text: S.region-text; } }
+        Row { title: @tr("Format example"); last: true; Value { text: S.locale-example; } }
+    } }
+    if S.lang-status != "": Caption { text: S.lang-status; horizontal-alignment: center; }
+}
+
+component LoginPane inherits VerticalLayout {
+    spacing: 10px;
+    SectionHeader { text: @tr("Open at Login"); }
+    Card { VerticalLayout {
+        for it[i] in S.login-items: Row { title: it.name; subtitle: it.detail;
+            HorizontalLayout { spacing: 6px;
+                Toggle { checked: it.enabled; toggled(v) => { S.toggle-login(i, v); } }
+                if it.removable: IconButton { glyph: Glyphs.minus; clicked => { S.remove-login(i); } }
+            }
+        }
+        if S.login-items.length == 0: Row { title: @tr("No login items"); dim: true; }
+        Row { title: @tr("Add an app"); last: true; PopupSelect { placeholder: @tr("Choose…"); items: S.app-names; current <=> S.add-login-idx; changed(v) => { S.add-login(v); S.add-login-idx = -1; } } }
+    } }
+    Caption { text: @tr("Apps opened when you log in to Aqua. Entries from ~/.config/autostart are shown too."); horizontal-alignment: center; }
+}
+
+component NotificationsPane inherits VerticalLayout {
+    spacing: 10px;
+    Card { VerticalLayout {
+        MasterRow { glyph: Glyphs.moon; tint: #5e5ce6; title: @tr("Do Not Disturb"); subtitle: S.dnd ? @tr("Notifications are silenced") : @tr("Silence banners and sounds"); checked <=> S.dnd; toggled => { S.commit(); } }
+    } }
+    SectionHeader { text: @tr("Notification Centre"); }
+    Card { VerticalLayout {
+        Row { title: @tr("Show previews"); subtitle: @tr("Show the message text in banners and Notification Centre"); Toggle { checked <=> S.note-previews; toggled => { S.commit(); } } }
+        Row { title: @tr("Play sound for notifications"); last: true; Toggle { checked <=> S.alert-sound; toggled => { S.commit(); } } }
+    } }
+    Caption { text: @tr("Do Not Disturb can also be switched from Control Centre → Focus."); horizontal-alignment: center; }
+}
+
+component AccessibilityPane inherits VerticalLayout {
+    spacing: 10px;
+    SectionHeader { text: @tr("Display"); }
+    Card { VerticalLayout {
+        Row { title: @tr("Reduce motion"); subtitle: @tr("Turns off window, Dock and Mission Control animations"); Toggle { checked <=> S.reduce-motion; toggled => { S.commit(); } } }
+        Row { title: @tr("Pointer size"); last: true;
+            HorizontalLayout { spacing: 8px; Caption { text: @tr("Normal"); vertical-alignment: center; } SliderBar { width: 180px; ticks: 7; value <=> S.cursor-size; released => { S.commit(); } } Caption { text: @tr("Large"); vertical-alignment: center; } } }
+    } }
+    HorizontalLayout { alignment: center; padding-top: 4px;
+        Rectangle { width: 120px; height: 64px; border-radius: 10px; background: Theme.control-bg;
+            Path { width: 14px * (1 + S.cursor-size * 3) * 0.75; height: 20px * (1 + S.cursor-size * 3) * 0.75;
+                x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+                viewbox-width: 12.6; viewbox-height: 19.6;
+                commands: "M 0.3 0.3 L 0.3 16.9 L 4.2 13.2 L 6.9 19.5 L 9.6 18.3 L 7 12.2 L 12.3 12.2 Z";
+                fill: black; stroke: white; stroke-width: 1.2px; }
+        }
+    }
+}
+
+component Sheet inherits Rectangle {
+    in property <length> sheet-w: 460px;
+    in property <length> sheet-h: 380px;
+    callback done();
+    background: #00000033;
+    TouchArea {}
+    Rectangle {
+        width: sheet-w; height: sheet-h; x: (parent.width - self.width) / 2; y: 40px;
+        background: Theme.window-bg; border-radius: 18px;
+        border-width: 0.5px; border-color: Theme.sidebar-border;
+        drop-shadow-blur: 30px; drop-shadow-color: #00000059; drop-shadow-offset-y: 10px;
+        VerticalLayout { padding: 18px; spacing: 12px;
+            @children
+            HorizontalLayout { alignment: end; PillButton { text: @tr("Done"); primary: true; min-w: 72px; clicked => { root.done(); } } }
+        }
+    }
+}
+
+component HotCornersSheet inherits Sheet {
+    in property <[string]> corners: ["—", "Mission Control", "Desktop", "Launchpad", "Notification Centre", "Lock Screen"];
+    sheet-w: 560px; sheet-h: 300px;
+    Text { text: @tr("Hot Corners"); font-size: 13px; font-weight: 700; color: Theme.text; }
+    HorizontalLayout { spacing: 12px; vertical-stretch: 1;
+        VerticalLayout { alignment: space-between; PopupSelect { width: 160px; bezel: true; items: corners; current <=> S.hc0; changed => { S.commit(); } } PopupSelect { width: 160px; bezel: true; items: corners; current <=> S.hc2; changed => { S.commit(); } } }
+        Rectangle { horizontal-stretch: 1; border-radius: 8px; background: #1d1d1f;
+            Rectangle { x: 5px; y: 5px; width: parent.width - 10px; height: parent.height - 10px; border-radius: 5px; background: @linear-gradient(160deg, #3d8bff 0%, #6d5cff 55%, #d27bff 100%); }
+        }
+        VerticalLayout { alignment: space-between; PopupSelect { width: 160px; bezel: true; items: corners; current <=> S.hc1; changed => { S.commit(); } } PopupSelect { width: 160px; bezel: true; items: corners; current <=> S.hc3; changed => { S.commit(); } } }
+    }
+}
+
+component KeyPill inherits Rectangle {
+    in property <string> keys;
+    in property <bool> recording;
+    in property <bool> warn;
+    callback clicked();
+    min-width: max(64px, kt.preferred-width + 16px); height: 22px; border-radius: 5px;
+    background: recording ? Theme.accent.with-alpha(0.14) : ta.has-hover ? Theme.hover : Theme.control-bg;
+    border-width: recording ? 1.5px : warn ? 1px : 0px;
+    border-color: recording ? Theme.accent : #ff9f0a;
+    kt := Text { font-family: "Aqua Keys"; text: recording ? (S.sc-live != "" ? S.sc-live : @tr("Type shortcut")) : keys == "" ? @tr("None") : keys;
+        font-size: 12px; color: recording ? Theme.accent : keys == "" ? Theme.text-tertiary : Theme.text; }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+component ShortcutsSheet inherits Sheet {
+    sheet-w: 680px; sheet-h: 520px;
+    property <bool> custom: S.sc-group == S.sc-groups.length - 1;
+    Text { text: @tr("Keyboard Shortcuts"); font-size: 13px; font-weight: 700; color: Theme.text; vertical-stretch: 0; }
+    Rectangle { height: 372px;
+        Rectangle {
+            VerticalLayout { x: 0; y: 0; width: 170px; height: parent.height; spacing: 1px;
+                for g[i] in S.sc-groups: Rectangle { height: 26px; border-radius: 6px;
+                    background: S.sc-group == i ? Theme.accent : gta.has-hover ? Theme.hover : transparent;
+                    Text { x: 10px; text: g; font-size: 13px; color: S.sc-group == i ? white : Theme.text; vertical-alignment: center; height: parent.height; }
+                    gta := TouchArea { clicked => { S.sc-select-group(i); } }
+                }
+                Rectangle { vertical-stretch: 1; }
+            }
+            Card { x: 182px; y: 0; width: parent.width - 182px; height: parent.height; clip: true;
+                fs := FocusScope {
+                    width: 0px; height: 0px;
+                    key-pressed(e) => {
+                        if S.sc-recording == "" { return reject; }
+                        return S.sc-key(e.text, e.modifiers.control, e.modifiers.alt, e.modifiers.shift, e.modifiers.meta) ? accept : reject;
+                    }
+                    key-released(e) => {
+                        if S.sc-recording != "" { S.sc-mods(e.modifiers.control, e.modifiers.alt, e.modifiers.shift, e.modifiers.meta); }
+                        accept
+                    }
+                }
+                VerticalLayout {
+                    Flickable { vertical-stretch: 1; content-height: lst.preferred-height;
+                        lst := VerticalLayout { width: parent.width;
+                            if !custom: VerticalLayout {
+                                for r[i] in S.sc-rows: Rectangle { height: 36px;
+                                    HorizontalLayout { padding-left: 10px; padding-right: 10px; spacing: 8px;
+                                        VerticalLayout { alignment: center; Checkbox { checked: r.enabled; toggled(v) => { if S.sc-toggle(r.id, v) { S.sc-record("sys:" + r.id); fs.focus(); } } } }
+                                        Text { text: r.label; font-size: 13px; color: r.enabled ? Theme.text : Theme.text-tertiary; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+                                        if r.conflict != "": VerticalLayout { alignment: center; Text { text: "⚠"; font-size: 12px; color: #ff9f0a; } }
+                                        VerticalLayout { alignment: center;
+                                            KeyPill { keys: r.keys; warn: r.conflict != ""; recording: S.sc-recording == "sys:" + r.id;
+                                                clicked => { S.sc-record("sys:" + r.id); fs.focus(); } } }
+                                        VerticalLayout { alignment: center; width: 22px;
+                                            if !r.is-default: IconButton { glyph: Glyphs.restart; size: 22px; clicked => { S.sc-reset(r.id); } } }
+                                    }
+                                    if i < S.sc-rows.length - 1: Rectangle { x: 10px; y: parent.height - 1px; width: parent.width - 20px; height: 1px; background: Theme.separator; }
+                                }
+                            }
+                            if custom: VerticalLayout {
+                                if S.sc-custom.length == 0: Rectangle { height: 80px;
+                                    Text { text: @tr("No custom shortcuts yet.\nClick + to add one."); font-size: 12px; color: Theme.text-secondary; horizontal-alignment: center; vertical-alignment: center; } }
+                                for c[i] in S.sc-custom: Rectangle { height: c.action-idx == S.sc-actions.length - 1 ? 68px : 38px;
+                                    VerticalLayout { padding-left: 10px; padding-right: 10px; padding-top: 7px; padding-bottom: 7px; spacing: 6px;
+                                        HorizontalLayout { spacing: 8px; height: 24px;
+                                            VerticalLayout { alignment: center;
+                                                KeyPill { keys: c.keys; warn: c.conflict != ""; recording: S.sc-recording == "custom:" + i;
+                                                    clicked => { S.sc-record("custom:" + i); fs.focus(); } } }
+                                            if c.conflict != "": VerticalLayout { alignment: center; Text { text: "⚠"; font-size: 12px; color: #ff9f0a; } }
+                                            PopupSelect { horizontal-stretch: 1; items: S.sc-actions; current: c.action-idx; changed(v) => { S.sc-set-action(i, v); } }
+                                            IconButton { glyph: Glyphs.minus; clicked => { S.sc-remove(i); } }
+                                        }
+                                        if c.action-idx == S.sc-actions.length - 1: Field { placeholder: @tr("Command to run, e.g. firefox --private-window"); text: c.command; edited(t) => { S.sc-set-command(i, t); } }
+                                    }
+                                    if i < S.sc-custom.length - 1: Rectangle { x: 10px; y: parent.height - 1px; width: parent.width - 20px; height: 1px; background: Theme.separator; }
+                                }
+                            }
+                        }
+                    }
+                    if custom: Rectangle { height: 1px; background: Theme.separator; }
+                    if custom: HorizontalLayout { padding: 4px; spacing: 2px; alignment: start;
+                        IconButton { glyph: Glyphs.plus; clicked => { S.sc-add(); fs.focus(); } }
+                    }
+                }
+            }
+        }
+    }
+    HorizontalLayout { spacing: 8px;
+        Caption { vertical-alignment: center; horizontal-stretch: 1; font-family: "Aqua Keys";
+            text: S.sc-message != "" ? S.sc-message : S.sc-recording != "" ? @tr("Press the new shortcut. ⎋ cancels, ⌫ removes the shortcut.") : @tr("Click a shortcut to change it. Untick to turn it off.");
+            color: S.sc-message != "" ? #ff9f0a : Theme.text-secondary; }
+        PillButton { text: @tr("Restore Defaults"); clicked => { S.sc-reset-all(); } }
+    }
+}
+
+component InputSourcesSheet inherits Sheet {
+    sheet-w: 560px; sheet-h: 470px;
+    Text { text: @tr("Input Sources"); font-size: 13px; font-weight: 700; color: Theme.text; }
+    Card { vertical-stretch: 1; clip: true;
+        VerticalLayout {
+            Flickable { vertical-stretch: 1; content-height: lst.preferred-height;
+                lst := VerticalLayout { width: parent.width;
+                    for l[i] in S.layout-rows: Row { title: l.name; subtitle: i == 0 ? l.code + " · used at login" : l.code;
+                        HorizontalLayout { spacing: 4px;
+                            if l.variants.length > 1: PopupSelect { width: 180px; items: l.variants; current: l.variant-idx; changed(v) => { S.set-variant(i, v); } }
+                            if i > 0: IconButton { glyph: Glyphs.arrow-up; clicked => { S.move-layout-up(i); } }
+                            IconButton { glyph: Glyphs.minus; enabled: S.layout-rows.length > 1; clicked => { S.remove-layout(i); } }
+                        }
+                    }
+                }
+            }
+            Rectangle { height: 1px; background: Theme.separator; }
+            HorizontalLayout { padding: 6px; padding-left: 8px; spacing: 6px;
+                VerticalLayout { alignment: center; Image { width: 12px; height: 12px; source: Glyphs.plus; colorize: Theme.text; } }
+                PopupSelect { horizontal-stretch: 1; placeholder: @tr("Add input source…"); items: S.all-layouts; current <=> S.add-layout-idx; changed(v) => { S.add-layout(v); S.add-layout-idx = -1; } }
+            }
+        }
+    }
+    if S.kb-missing != "": HorizontalLayout { spacing: 8px;
+        Caption { text: @tr("Missing: ") + S.kb-missing; vertical-alignment: center; horizontal-stretch: 1; }
+        PillButton { text: S.kb-busy ? @tr("Installing…") : @tr("Install"); enabled: !S.kb-busy; clicked => { S.install-kb-deps(); } }
+    }
+    HorizontalLayout { spacing: 8px;
+        Caption { text: S.kb-status != "" ? S.kb-status : @tr("Use these input sources for the login screen and the text console too."); vertical-alignment: center; horizontal-stretch: 1; }
+        PillButton { text: @tr("Apply to Login Screen"); clicked => { S.apply-system-keymap(); } }
+    }
+}
+
+export component SettingsWindow inherits Window {
+    title: @tr("System Settings");
+    no-frame: true;
+    preferred-width: 820px; preferred-height: 640px;
+    min-width: 720px; min-height: 500px;
+    background: glass ? transparent : Theme.window-bg;
+    default-font-family: Theme.font;
+    in property <bool> glass;
+    in property <[PaneDef]> panes: [
+        { id: "wifi", label: @tr("Wi-Fi"), tint: #1a8cff, glyph: Glyphs.wifi },
+        { id: "bluetooth", label: @tr("Bluetooth"), tint: #1a8cff, glyph: Glyphs.bluetooth },
+        { id: "network", label: @tr("Network"), tint: #1a8cff, glyph: Glyphs.globe },
+        { id: "battery", label: @tr("Battery"), tint: #34c759, glyph: Glyphs.battery },
+        { id: "general", label: @tr("General"), tint: #8e8e93, glyph: Glyphs.gear, gap: true },
+        { id: "appearance", label: @tr("Appearance"), tint: #1c1c1e, glyph: Glyphs.appearance },
+        { id: "accessibility", label: @tr("Accessibility"), tint: #1a8cff, glyph: Glyphs.accessibility },
+        { id: "menubar", label: @tr("Menu Bar"), tint: #1a8cff, glyph: Glyphs.menubar },
+        { id: "dock", label: @tr("Desktop & Dock"), tint: #1c1c1e, glyph: Glyphs.dock },
+        { id: "displays", label: @tr("Displays"), tint: #1a8cff, glyph: Glyphs.display },
+        { id: "wallpaper", label: @tr("Wallpaper"), tint: #32ade6, glyph: Glyphs.wallpaper },
+        { id: "notifications", label: @tr("Notifications"), tint: #ff3b30, glyph: Glyphs.bell, gap: true },
+        { id: "sound", label: @tr("Sound"), tint: #ff2d55, glyph: Glyphs.sound },
+        { id: "lock", label: @tr("Lock Screen"), tint: #1c1c1e, glyph: Glyphs.lock, gap: true },
+        { id: "users", label: @tr("Users & Groups"), tint: #8e8e93, glyph: Glyphs.users },
+        { id: "keyboard", label: @tr("Keyboard"), tint: #8e8e93, glyph: Glyphs.keyboard, gap: true },
+        { id: "mouse", label: @tr("Mouse"), tint: #8e8e93, glyph: Glyphs.mouse },
+        { id: "trackpad", label: @tr("Trackpad"), tint: #8e8e93, glyph: Glyphs.trackpad },
+    ];
+    in property <int> repaint;
+    property <length> side-w: 222px;
+    property <length> content-x: side-w + 16px;
+    Rectangle { background: mod(repaint, 2) == 0 ? #00000000 : #00000001; }
+    if glass: GlassSurround { width: root.width; height: root.height; color: Theme.window-bg;
+        hole-x: 8px; hole-y: 8px; hole-w: side-w; hole-h: root.height - 16px; hole-r: 18px; }
+
+    flick := Flickable {
+        x: content-x; y: 52px; width: root.width - content-x; height: root.height - 52px;
+        content-height: content.preferred-height + 24px;
+        content := VerticalLayout {
+            width: flick.width;
+            padding-left: 12px; padding-right: 20px; padding-top: 2px; padding-bottom: 16px;
+            spacing: 10px;
+            if S.pane == "appearance": AppearancePane {}
+            if S.pane == "menubar": MenuBarPane {}
+            if S.pane == "dock": DockPane {}
+            if S.pane == "wifi": WifiPane {}
+            if S.pane == "bluetooth": BluetoothPane {}
+            if S.pane == "network": NetworkPane {}
+            if S.pane == "battery": BatteryPane {}
+            if S.pane == "sound": SoundPane {}
+            if S.pane == "displays": DisplaysPane {}
+            if S.pane == "wallpaper": WallpaperPane {}
+            if S.pane == "lock": LockPane {}
+            if S.pane == "users": UsersPane {}
+            if S.pane == "keyboard": KeyboardPane {}
+            if S.pane == "mouse": MousePane {}
+            if S.pane == "trackpad": TrackpadPane {}
+            if S.pane == "notifications": NotificationsPane {}
+            if S.pane == "accessibility": AccessibilityPane {}
+            if S.pane == "general": GeneralPane {}
+            if S.pane == "about": AboutPane {}
+            if S.pane == "update": UpdatePane {}
+            if S.pane == "storage": StoragePane {}
+            if S.pane == "datetime": DateTimePane {}
+            if S.pane == "language": LanguagePane {}
+            if S.pane == "login": LoginPane {}
+            if S.status != "": Caption { text: S.status; horizontal-alignment: center; }
+        }
+    }
+
+    Rectangle {
+        x: content-x - 4px; y: 0; width: root.width - self.x; height: 52px;
+        background: flick.content-y < -2px ? Theme.window-bg.with-alpha(0.94) : transparent;
+        TouchArea {
+            pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { S.win-drag(); } }
+        }
+        Rectangle { x: 7px; y: 8px; width: 72px; height: 36px; border-radius: 18px;
+            background: Theme.dark ? #ffffff17 : #ffffffd9;
+            border-width: 0.5px; border-color: Theme.dark ? #ffffff1f : #0000000f;
+            drop-shadow-blur: 8px; drop-shadow-color: #0000001c; drop-shadow-offset-y: 1px;
+            for d in 2: Rectangle { x: d * 36px; width: 36px; height: 36px; border-radius: 18px;
+                property <bool> on: d == 0 ? S.can-back : S.can-forward;
+                background: nta.pressed && on ? Theme.control-pressed : transparent;
+                Image { x: d == 0 ? 14px : 13px; width: 9px; height: 15px; source: d == 0 ? Glyphs.nav-back : Glyphs.nav-forward; colorize: on ? Theme.text : Theme.text-tertiary; }
+                nta := TouchArea { enabled: on; clicked => { if (d == 0) { S.go-back(); } else { S.go-forward(); } } }
+            }
+            Rectangle { x: 36px; y: 9px; width: 1px; height: 18px; background: Theme.dark ? #ffffff14 : #0000000d; }
+        }
+        Text { x: 93px; height: 52px; vertical-alignment: center; font-size: 15px; font-weight: 700; color: Theme.text; text: S.title(S.pane); }
+    }
+
+    Rectangle {
+        x: 8px; y: 8px; width: side-w; height: root.height - 16px;
+        border-radius: 18px;
+        background: root.glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%);
+        border-width: 0.5px; border-color: Theme.sidebar-border;
+        drop-shadow-blur: 10px; drop-shadow-color: #00000017; drop-shadow-offset-y: 2px;
+        TouchArea { height: 40px;
+            pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { S.win-drag(); } }
+        }
+        TrafficLights { x: 13px; y: 13px; active: S.active; close => { S.win-close(); } minimize => { S.win-minimize(); } zoom => { S.win-zoom(); } }
+        Field { x: 10px; y: 42px; width: parent.width - 20px; search: true; placeholder: @tr("Search"); edited(t) => { S.search(t); } }
+        sideflick := Flickable {
+            x: 0; y: 78px; width: parent.width; height: parent.height - 84px;
+            content-height: side.preferred-height + 8px;
+            function reveal(top: length, bottom: length) {
+                if bottom + 8px > -self.content-y + self.height { self.content-y = min(0px, self.height - bottom - 8px); }
+                if top < -self.content-y { self.content-y = -top; }
+            }
+            side := VerticalLayout {
+                width: parent.width;
+                padding-left: 10px; padding-right: 10px; spacing: 1px;
+                Rectangle { height: 48px; border-radius: 10px; background: S.pane == "users" ? Theme.hover : transparent;
+                    HorizontalLayout { spacing: 9px; padding-left: 6px;
+                        VerticalLayout { alignment: center; Avatar { size: 32px; initials: ""; photo: S.has-avatar; } }
+                        VerticalLayout { alignment: center;
+                            Text { text: S.user-name; font-size: 13px; font-weight: 600; color: Theme.text; overflow: elide; }
+                            Text { text: @tr("Local Account · ") + S.login-name; font-size: 11px; color: Theme.text-secondary; overflow: elide; }
+                        }
+                    }
+                    TouchArea { clicked => { S.navigate("users"); } }
+                }
+                Rectangle { height: 8px; }
+                for p[i] in panes: pv := VerticalLayout {
+                    property <bool> show: i >= S.matches.length || S.matches[i];
+                    property <bool> sel: S.parent-of(S.pane) == p.id;
+                    changed sel => { if self.sel { sideflick.reveal(self.y, self.y + self.height); } }
+                    property <bool> revealed: false;
+                    Timer { interval: 60ms; running: pv.sel && !pv.revealed; triggered => { pv.revealed = true; sideflick.reveal(pv.y, pv.y + pv.height); } }
+                    if show && p.gap: Rectangle { height: 10px; }
+                    if show: SidebarRow { label: p.id == "battery" ? S.title("battery") : p.label; tint: p.tint; glyph: p.id == "battery" && !S.has-battery ? Glyphs.energy : p.glyph; selected: S.parent-of(S.pane) == p.id; clicked => { S.navigate(p.id); } }
+                }
+            }
+        }
+    }
+
+    for e[i] in [
+        { x: 10px, y: 0px, w: root.width - 20px, h: 4px, c: MouseCursor.ns-resize },
+        { x: 10px, y: root.height - 4px, w: root.width - 20px, h: 4px, c: MouseCursor.ns-resize },
+        { x: 0px, y: 10px, w: 4px, h: root.height - 20px, c: MouseCursor.ew-resize },
+        { x: root.width - 4px, y: 10px, w: 4px, h: root.height - 20px, c: MouseCursor.ew-resize },
+        { x: 0px, y: 0px, w: 10px, h: 10px, c: MouseCursor.nwse-resize },
+        { x: root.width - 10px, y: 0px, w: 10px, h: 10px, c: MouseCursor.nesw-resize },
+        { x: 0px, y: root.height - 10px, w: 10px, h: 10px, c: MouseCursor.nesw-resize },
+        { x: root.width - 10px, y: root.height - 10px, w: 10px, h: 10px, c: MouseCursor.nwse-resize },
+    ]: TouchArea {
+        x: e.x; y: e.y; width: e.w; height: e.h; mouse-cursor: e.c;
+        pointer-event(ev) => { if ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left { S.win-resize(i); } }
+    }
+
+    if S.sheet == "hot-corners": HotCornersSheet { done => { S.sheet = ""; } }
+    if S.sheet == "shortcuts": ShortcutsSheet { done => { S.sc-record(""); S.sheet = ""; } }
+    if S.sheet == "input-sources": InputSourcesSheet { done => { S.sheet = ""; } }
+
+    if S.ask-ssid != "": Rectangle {
+        background: #00000033;
+        TouchArea {}
+        Rectangle {
+            width: 400px; height: 200px; x: (parent.width - self.width) / 2; y: 40px;
+            background: Theme.window-bg; border-radius: 18px;
+            border-width: 0.5px; border-color: Theme.sidebar-border;
+            drop-shadow-blur: 30px; drop-shadow-color: #00000059; drop-shadow-offset-y: 10px;
+            VerticalLayout { padding: 20px; spacing: 12px;
+                HorizontalLayout { spacing: 12px;
+                    SymbolTile { glyph: Glyphs.wifi; tint: #1a8cff; size: 44px; }
+                    VerticalLayout { spacing: 4px;
+                        Text { text: @tr("The Wi-Fi network “") + S.ask-ssid + "” requires a password."; font-size: 13px; font-weight: 700; color: Theme.text; wrap: word-wrap; }
+                        Caption { text: @tr("Enter the password for this network."); }
+                    }
+                }
+                pw := Field { password: true; placeholder: @tr("Password"); accepted(t) => { S.wifi-connect(S.ask-ssid, t); S.ask-ssid = ""; } }
+                HorizontalLayout { alignment: end; spacing: 8px;
+                    PillButton { text: @tr("Cancel"); clicked => { S.ask-ssid = ""; } }
+                    PillButton { text: @tr("Join"); primary: true; clicked => { S.wifi-connect(S.ask-ssid, pw.text); S.ask-ssid = ""; } }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,14 @@
+#!/bin/sh
+# Aqua screenshot utility.
+#   aqua-screenshot            show the screenshot toolbar (⌘⇧5)
+#   aqua-screenshot full       capture the whole screen (⌘⇧3)
+#   aqua-screenshot area       drag to select a region (⌘⇧4)
+#   aqua-screenshot window     click a window (⌘⇧4, then Space)
+# The picture is copied to the clipboard and saved to ~/Pictures/Screenshots
+# (see the Options menu of the toolbar). Must run inside an Aqua session.
+case "${1:-ui}" in
+    -h|--help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    ui|full|area|window) ;;
+    *) echo "usage: aqua-screenshot [ui|full|area|window]" >&2; exit 2 ;;
+esac
+exec aqua msg screenshot "${1:-ui}"

@@ -1,0 +1,669 @@
+import { Palette } from "std-widgets.slint";
+
+export global Theme {
+    in-out property <bool> dark: false;
+    in-out property <color> accent: #007aff;
+    out property <color> window-bg: dark ? #1f1f21 : #ffffff;
+    out property <color> sidebar-bg: dark ? #2b2b2e : #eef0f3;
+    out property <color> sidebar-bg2: dark ? #28282b : #e9ebef;
+    out property <color> sidebar-border: dark ? #ffffff17 : #00000012;
+    out property <color> card-bg: dark ? #2a2a2c : #f5f5f6;
+    out property <color> card-border: dark ? #ffffff0d : #00000008;
+    out property <color> separator: dark ? #ffffff14 : #0000000f;
+    out property <color> text: dark ? #ffffffde : #000000d9;
+    out property <color> text-secondary: dark ? #ffffff85 : #00000080;
+    out property <color> text-tertiary: dark ? #ffffff47 : #00000040;
+    out property <color> field-bg: dark ? #ffffff14 : #0000000a;
+    out property <color> control-bg: dark ? #ffffff24 : #0000000f;
+    out property <color> control-pressed: dark ? #ffffff38 : #0000001f;
+    out property <color> control-border: dark ? #ffffff0f : #00000014;
+    out property <color> hover: dark ? #ffffff12 : #0000000a;
+    out property <color> track: dark ? #ffffff29 : #00000017;
+    out property <color> menu-bg: dark ? #323234f7 : #f7f7f8fa;
+    out property <color> selection: accent;
+    out property <length> radius: 12px;
+    out property <string> font: "SF Pro Display";
+}
+
+export component SymbolTile inherits Rectangle {
+    in property <color> tint: #8e8e93;
+    in property <image> glyph;
+    in property <length> size: 22px;
+    in property <bool> stroke-glyph: false;
+    width: size;
+    height: size;
+    border-radius: size * 0.26;
+    property <color> fill: Theme.dark && tint.to-hsv().value < 0.3 ? #48484c : tint;
+    background: @linear-gradient(180deg, fill.brighter(18%) 0%, fill 100%);
+    Image {
+        width: parent.width * 0.66;
+        height: parent.height * 0.66;
+        source: glyph;
+        colorize: white;
+        image-fit: contain;
+    }
+}
+
+export global Glyphs {
+    out property <image> wifi: @image-url("icons/wifi.svg");
+    out property <image> bluetooth: @image-url("icons/bluetooth.svg");
+    out property <image> globe: @image-url("icons/globe.svg");
+    out property <image> battery: @image-url("icons/battery.svg");
+    out property <image> gear: @image-url("icons/gear.svg");
+    out property <image> appearance: @image-url("icons/appearance.svg");
+    out property <image> dock: @image-url("icons/dock.svg");
+    out property <image> display: @image-url("icons/display.svg");
+    out property <image> wallpaper: @image-url("icons/wallpaper.svg");
+    out property <image> sound: @image-url("icons/sound.svg");
+    out property <image> lock: @image-url("icons/lock.svg");
+    out property <image> keyboard: @image-url("icons/keyboard.svg");
+    out property <image> trackpad: @image-url("icons/trackpad.svg");
+    out property <image> mouse: @image-url("icons/mouse.svg");
+    out property <image> person: @image-url("icons/person.svg");
+    out property <image> bell: @image-url("icons/bell.svg");
+    out property <image> accessibility: @image-url("icons/accessibility.svg");
+    out property <image> hand: @image-url("icons/hand.svg");
+    out property <image> folder: @image-url("icons/folder.svg");
+    out property <image> doc: @image-url("icons/doc.svg");
+    out property <image> clock: @image-url("icons/clock.svg");
+    out property <image> house: @image-url("icons/house.svg");
+    out property <image> desktop: @image-url("icons/desktop.svg");
+    out property <image> download: @image-url("icons/download.svg");
+    out property <image> disk: @image-url("icons/disk.svg");
+    out property <image> chevron-right: @image-url("icons/chevron-right.svg");
+    out property <image> chevron-left: @image-url("icons/chevron-left.svg");
+    out property <image> nav-back: @image-url("icons/f-back.svg");
+    out property <image> nav-forward: @image-url("icons/f-forward.svg");
+    out property <image> grid: @image-url("icons/grid.svg");
+    out property <image> list: @image-url("icons/list.svg");
+    out property <image> search: @image-url("icons/search.svg");
+    out property <image> picture: @image-url("icons/picture.svg");
+    out property <image> music: @image-url("icons/music.svg");
+    out property <image> film: @image-url("icons/film.svg");
+    out property <image> moon: @image-url("icons/moon.svg");
+    out property <image> power: @image-url("icons/power.svg");
+    out property <image> restart: @image-url("icons/restart.svg");
+    out property <image> sleep: @image-url("icons/sleep.svg");
+    out property <image> menubar: @image-url("icons/menubar.svg");
+    out property <image> switches: @image-url("icons/switches.svg");
+    out property <image> users: @image-url("icons/users.svg");
+    out property <image> calendar: @image-url("icons/calendar.svg");
+    out property <image> update: @image-url("icons/update.svg");
+    out property <image> info: @image-url("icons/info.svg");
+    out property <image> listbullet: @image-url("icons/listbullet.svg");
+    out property <image> laptop: @image-url("icons/laptop.svg");
+    out property <image> energy: @image-url("icons/energy.svg");
+    out property <image> checkmark: @image-url("icons/checkmark.svg");
+    out property <image> plus: @image-url("icons/plus.svg");
+    out property <image> minus: @image-url("icons/minus.svg");
+    out property <image> speaker-low: @image-url("icons/speaker-low.svg");
+    out property <image> speaker-high: @image-url("icons/speaker-high.svg");
+    out property <image> shield: @image-url("icons/shield.svg");
+    out property <image> arrow-up: @image-url("icons/arrow-up.svg");
+    out property <image> wifi-3: @image-url("icons/wifi-3.svg");
+    out property <image> wifi-2: @image-url("icons/wifi-2.svg");
+    out property <image> wifi-1: @image-url("icons/wifi-1.svg");
+    out property <image> tl-zoom: @image-url("icons/tl-zoom.svg");
+    public pure function named(n: string) -> image {
+        if n == "wifi" { return wifi; }
+        if n == "bluetooth" { return bluetooth; }
+        if n == "globe" { return globe; }
+        if n == "battery" { return battery; }
+        if n == "gear" { return gear; }
+        if n == "appearance" { return appearance; }
+        if n == "dock" { return dock; }
+        if n == "display" { return display; }
+        if n == "wallpaper" { return wallpaper; }
+        if n == "sound" { return sound; }
+        if n == "lock" { return lock; }
+        if n == "keyboard" { return keyboard; }
+        if n == "trackpad" { return trackpad; }
+        if n == "mouse" { return mouse; }
+        if n == "person" { return person; }
+        if n == "bell" { return bell; }
+        if n == "hand" { return hand; }
+        if n == "folder" { return folder; }
+        if n == "doc" { return doc; }
+        if n == "clock" { return clock; }
+        if n == "house" { return house; }
+        if n == "desktop" { return desktop; }
+        if n == "download" { return download; }
+        if n == "disk" { return disk; }
+        if n == "chevron-right" { return chevron-right; }
+        if n == "chevron-left" { return chevron-left; }
+        if n == "grid" { return grid; }
+        if n == "list" { return list; }
+        if n == "search" { return search; }
+        if n == "picture" { return picture; }
+        if n == "music" { return music; }
+        if n == "film" { return film; }
+        if n == "moon" { return moon; }
+        if n == "power" { return power; }
+        if n == "restart" { return restart; }
+        if n == "sleep" { return sleep; }
+        if n == "menubar" { return menubar; }
+        if n == "switches" { return switches; }
+        if n == "users" { return users; }
+        if n == "calendar" { return calendar; }
+        if n == "update" { return update; }
+        if n == "info" { return info; }
+        if n == "listbullet" { return listbullet; }
+        if n == "laptop" { return laptop; }
+        if n == "energy" { return energy; }
+        if n == "checkmark" { return checkmark; }
+        if n == "plus" { return plus; }
+        if n == "minus" { return minus; }
+        if n == "speaker-low" { return speaker-low; }
+        if n == "speaker-high" { return speaker-high; }
+        if n == "shield" { return shield; }
+        if n == "arrow-up" { return arrow-up; }
+        if n == "wifi-3" { return wifi-3; }
+        if n == "wifi-2" { return wifi-2; }
+        if n == "wifi-1" { return wifi-1; }
+        if n == "tl-zoom" { return tl-zoom; }
+        return doc;
+    }
+}
+
+export component SidebarRow inherits Rectangle {
+    in property <string> label;
+    in property <color> tint;
+    in property <image> glyph;
+    in property <bool> selected;
+    in property <bool> plain-icon: false;
+    callback clicked();
+    height: 28px;
+    border-radius: 8px;
+    background: selected ? Theme.accent : (ta.pressed ? Theme.control-bg : (ta.has-hover ? Theme.hover : transparent));
+    animate background { duration: 120ms; easing: ease-out; }
+    HorizontalLayout {
+        padding-left: 7px;
+        padding-right: 8px;
+        spacing: 7px;
+        alignment: start;
+        if !plain-icon: VerticalLayout {
+            alignment: center;
+            SymbolTile { tint: tint; glyph: glyph; size: 20px; }
+        }
+        if plain-icon: VerticalLayout {
+            alignment: center;
+            Image {
+                width: 17px;
+                height: 17px;
+                source: glyph; colorize: selected ? white : Theme.accent;
+            }
+        }
+        Text {
+            text: label;
+            vertical-alignment: center;
+            font-size: 13px;
+            color: selected ? white : Theme.text;
+            overflow: elide;
+        }
+    }
+    ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+export component Card inherits Rectangle {
+    background: Theme.card-bg;
+    border-radius: 12px;
+    border-width: 0.5px;
+    border-color: Theme.card-border;
+}
+
+export component SectionHeader inherits HorizontalLayout {
+    in property <string> text;
+    padding-left: 10px;
+    padding-right: 4px;
+    padding-top: 12px;
+    padding-bottom: 0px;
+    spacing: 8px;
+    Text { text: root.text; font-size: 13px; font-weight: 700; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
+    @children
+}
+
+export component Separator inherits Rectangle {
+    height: 1px;
+    background: Theme.separator;
+}
+
+export component Toggle inherits Rectangle {
+    in-out property <bool> checked;
+    in property <bool> enabled: true;
+    callback toggled(bool);
+    width: 40px;
+    height: 22px;
+    border-radius: 11px;
+    opacity: enabled ? 1 : 0.4;
+    background: checked ? Theme.accent : Theme.track;
+    animate background { duration: 180ms; easing: ease-in-out; }
+    knob := Rectangle {
+        width: ta.pressed ? 28px : 25px;
+        height: 18px;
+        y: 2px;
+        x: checked ? parent.width - self.width - 2px : 2px;
+        animate x, width { duration: 220ms; easing: cubic-bezier(0.25, 1.3, 0.5, 1); }
+        border-radius: 9px;
+        background: white;
+        drop-shadow-blur: 3px;
+        drop-shadow-color: #00000038;
+        drop-shadow-offset-y: 1px;
+    }
+    ta := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            root.checked = !root.checked;
+            root.toggled(root.checked);
+        }
+    }
+}
+
+export component Checkbox inherits Rectangle {
+    in-out property <bool> checked;
+    callback toggled(bool);
+    width: 15px;
+    height: 15px;
+    border-radius: 4px;
+    background: checked ? Theme.accent : (Theme.dark ? #ffffff1f : #ffffff);
+    border-width: checked ? 0px : 0.5px;
+    border-color: #00000040;
+    drop-shadow-blur: 1px;
+    drop-shadow-color: #0000001f;
+    if checked: Image { width: 11px; height: 11px; source: Glyphs.checkmark; colorize: white; }
+    TouchArea { clicked => { root.checked = !root.checked; root.toggled(root.checked); } }
+}
+
+export component Row inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle;
+    in property <bool> last: false;
+    in property <bool> dim: false;
+    min-height: subtitle == "" ? 38px : 52px;
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            spacing: 1px;
+            Text { text: title; font-size: 13px; color: dim ? Theme.text-secondary : Theme.text; overflow: elide; }
+            if subtitle != "": Text { text: subtitle; font-size: 11px; color: Theme.text-secondary; wrap: word-wrap; }
+        }
+        HorizontalLayout {
+            alignment: end;
+            spacing: 8px;
+            VerticalLayout { alignment: center; @children }
+        }
+    }
+    if !last: Rectangle {
+        x: 12px;
+        y: parent.height - 1px;
+        width: parent.width - 24px;
+        height: 1px;
+        background: Theme.separator;
+    }
+}
+
+export component NavRow inherits Rectangle {
+    in property <string> title;
+    in property <image> glyph;
+    in property <color> tint: #8e8e93;
+    in property <string> value;
+    in property <bool> last: false;
+    callback clicked();
+    height: 38px;
+    background: ta.pressed ? Theme.hover : transparent;
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 12px;
+        spacing: 9px;
+        VerticalLayout { alignment: center; SymbolTile { glyph: glyph; tint: tint; size: 20px; } }
+        Text { text: title; font-size: 13px; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+        if value != "": Text { text: value; font-size: 13px; color: Theme.text-secondary; vertical-alignment: center; }
+        VerticalLayout { alignment: center;
+            Image { width: 11px; height: 11px; source: Glyphs.chevron-right; colorize: Theme.text-tertiary; }
+        }
+    }
+    if !last: Rectangle { x: 39px; y: parent.height - 1px; width: parent.width - 51px; height: 1px; background: Theme.separator; }
+    ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+export component PillButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> primary: false;
+    in property <bool> destructive: false;
+    in property <bool> enabled: true;
+    in property <length> min-w: 60px;
+    callback clicked();
+    min-width: max(min-w, label.preferred-width + 24px);
+    height: 24px;
+    border-radius: self.height / 2;
+    opacity: enabled ? 1.0 : 0.45;
+    background: primary ? (ta.pressed ? Theme.accent.darker(15%) : Theme.accent) : (ta.pressed ? Theme.control-pressed : Theme.control-bg);
+    border-width: primary ? 0px : 0.5px;
+    border-color: Theme.control-border;
+    animate background { duration: 100ms; }
+    label := Text {
+        text: root.text;
+        font-size: 13px;
+        font-weight: primary ? 500 : 400;
+        color: primary ? white : (destructive ? #ff3b30 : Theme.text);
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    ta := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component IconButton inherits Rectangle {
+    in property <image> glyph;
+    in property <bool> enabled: true;
+    in property <length> size: 24px;
+    callback clicked();
+    width: size;
+    height: size;
+    border-radius: size / 2;
+    opacity: enabled ? 1 : 0.35;
+    background: ta.pressed ? Theme.control-pressed : (ta.has-hover ? Theme.control-bg : transparent);
+    Image { width: size * 0.5; height: size * 0.5; source: glyph; colorize: Theme.text; }
+    ta := TouchArea { enabled: root.enabled; clicked => { root.clicked(); } }
+}
+
+export component Segmented inherits Rectangle {
+    in property <[string]> items;
+    in-out property <int> current;
+    callback changed(int);
+    height: 26px;
+    border-radius: 13px;
+    background: Theme.dark ? #ffffff1a : #0000000f;
+    min-width: seg.preferred-width;
+    preferred-width: seg.preferred-width;
+    seg := HorizontalLayout {
+        padding: 2px;
+        spacing: 2px;
+        for it[i] in items: Rectangle {
+            border-radius: 11px;
+            background: i == current ? (Theme.dark ? #ffffff38 : white) : transparent;
+            drop-shadow-blur: i == current ? 3px : 0px;
+            drop-shadow-color: #00000026;
+            drop-shadow-offset-y: 1px;
+            animate background { duration: 150ms; }
+            min-width: t.preferred-width + 22px;
+            t := Text { text: it; font-size: 12px; font-weight: i == current ? 500 : 400; color: Theme.text; horizontal-alignment: center; vertical-alignment: center; }
+            TouchArea { clicked => { root.current = i; root.changed(i); } }
+        }
+    }
+}
+
+export component Field inherits Rectangle {
+    in property <string> placeholder;
+    in-out property <string> text <=> input.text;
+    in property <bool> password: false;
+    in property <bool> search: false;
+    in property <length> font-size: 13px;
+    callback accepted(string);
+    callback edited(string);
+    forward-focus: input;
+    height: 28px;
+    border-radius: search ? 14px : 7px;
+    background: Theme.field-bg;
+    border-width: input.has-focus ? 3px : 0.5px;
+    border-color: input.has-focus ? Theme.accent.with-alpha(0.45) : Theme.control-border;
+    HorizontalLayout {
+        padding-left: search ? 10px : 8px;
+        padding-right: 8px;
+        spacing: 6px;
+        if search: VerticalLayout {
+            alignment: center;
+            Image { width: 13px; height: 13px; source: Glyphs.search; colorize: Theme.text-secondary; }
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+            input := TextInput {
+                width: 100%;
+                height: 100%;
+                vertical-alignment: center;
+                font-size: root.font-size;
+                color: Theme.text;
+                input-type: password ? InputType.password : InputType.text;
+                single-line: true;
+                accepted => { root.accepted(self.text); }
+                edited => { root.edited(self.text); }
+            }
+            if input.text == "": Text {
+                width: 100%;
+                height: 100%;
+                text: placeholder;
+                vertical-alignment: center;
+                font-size: root.font-size;
+                color: Theme.text-secondary;
+            }
+        }
+    }
+}
+
+export component SliderBar inherits Rectangle {
+    in-out property <float> value;
+    in property <int> ticks: 0;
+    callback moved(float);
+    callback released(float);
+    height: ticks > 0 ? 28px : 22px;
+    Rectangle {
+        y: 9px;
+        height: 4px;
+        border-radius: 2px;
+        background: Theme.track;
+        Rectangle {
+            x: 0;
+            width: (parent.width - 24px) * clamp(root.value, 0, 1) + 12px;
+            border-radius: 2px;
+            background: Theme.accent;
+        }
+    }
+    for t in ticks: Rectangle {
+        x: 12px + (root.width - 24px) * t / max(1, ticks - 1) - 0.5px;
+        y: 20px;
+        width: 1px;
+        height: 5px;
+        background: Theme.text-tertiary;
+    }
+    Rectangle {
+        width: ta.pressed ? 30px : 24px;
+        height: 16px;
+        y: 3px;
+        x: (parent.width - 24px) * clamp(root.value, 0, 1) - (self.width - 24px) / 2;
+        animate width { duration: 150ms; }
+        border-radius: 8px;
+        background: white;
+        drop-shadow-blur: 4px;
+        drop-shadow-color: #00000040;
+        drop-shadow-offset-y: 1px;
+        border-width: 0.5px;
+        border-color: #0000001a;
+    }
+    ta := TouchArea {
+        moved => {
+            if self.pressed {
+                root.value = clamp((self.mouse-x - 12px) / (root.width - 24px), 0, 1);
+                root.moved(root.value);
+            }
+        }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down {
+                root.value = clamp((self.mouse-x - 12px) / (root.width - 24px), 0, 1);
+                root.moved(root.value);
+            }
+            if e.kind == PointerEventKind.up {
+                root.released(root.value);
+            }
+        }
+    }
+}
+
+export component UpDown inherits Path {
+    width: 7px;
+    height: 11px;
+    viewbox-width: 7;
+    viewbox-height: 11;
+    fill-rule: evenodd; commands: "M0.8 4 3.5 1.2 6.2 4M0.8 7 3.5 9.8 6.2 7";
+    stroke: Theme.text-secondary;
+    stroke-width: 1.4px;
+    fill: transparent;
+}
+
+export global Backdrop {
+    in property <image> image;
+    in property <length> win-w;
+    in property <length> win-h;
+    in property <bool> valid;
+    callback capture();
+}
+
+export component GlassMenu inherits Rectangle {
+    in property <length> ox;
+    in property <length> oy;
+    in property <length> radius: 12px;
+    border-radius: radius;
+    drop-shadow-blur: 22px;
+    drop-shadow-color: Theme.dark ? #00000070 : #0000002e;
+    drop-shadow-offset-y: 8px;
+    background: Backdrop.valid ? transparent : Theme.menu-bg;
+    Rectangle {
+        border-radius: root.radius;
+        clip: true;
+        if Backdrop.valid: Image {
+            x: -root.ox; y: -root.oy; width: Backdrop.win-w; height: Backdrop.win-h;
+            source: Backdrop.image; image-fit: fill;
+        }
+        if Backdrop.valid: Rectangle { background: Theme.dark ? #1e1e22a6 : #fbfbfdb0; }
+        Rectangle {
+            border-radius: root.radius; border-width: 1px;
+            border-color: Theme.dark ? #ffffff24 : #ffffffd9;
+        }
+    }
+    Rectangle { border-radius: root.radius; border-width: 0.5px; border-color: Theme.dark ? #00000080 : #0000001f; }
+    @children
+}
+
+export component PopupSelect inherits Rectangle {
+    in property <[string]> items;
+    in-out property <int> current;
+    in property <string> placeholder;
+    in property <bool> bezel: false;
+    callback changed(int);
+    property <length> row-h: 24px;
+    property <length> list-h: items.length * row-h + 10px;
+    min-width: lbl.preferred-width + 30px;
+    height: 24px;
+    border-radius: 7px;
+    background: bezel ? Theme.control-bg : (ta.pressed ? Theme.control-bg : (ta.has-hover ? Theme.hover : transparent));
+    lbl := Text {
+        x: 8px;
+        text: current >= 0 && current < items.length ? items[current] : placeholder;
+        font-size: 13px;
+        color: current >= 0 && current < items.length ? Theme.text : Theme.text-secondary;
+        vertical-alignment: center;
+        horizontal-alignment: right;
+        height: parent.height;
+        width: parent.width - 28px;
+        overflow: elide;
+    }
+    UpDown { x: parent.width - 16px; y: (parent.height - self.height) / 2; }
+    ta := TouchArea { clicked => { Backdrop.capture(); menu.show(); } }
+    menu := PopupWindow {
+        width: max(root.width + 30px, 180px);
+        x: root.width - self.width + 6px;
+        y: current >= 0 && list-h <= 360px ? (root.height - row-h) / 2 - 5px - current * row-h : root.height + 4px;
+        height: min(list-h, 360px);
+        GlassMenu {
+            ox: root.absolute-position.x + menu.x;
+            oy: root.absolute-position.y + menu.y;
+            Flickable {
+                width: parent.width;
+                height: parent.height;
+                content-height: list-h;
+                content-y: current > 6 && list-h > 360px ? max(-(current - 6) * row-h, 360px - list-h) : 0px;
+                VerticalLayout {
+                    padding: 5px;
+                    for it[i] in items: Rectangle {
+                        height: row-h;
+                        border-radius: 6px;
+                        background: mta.has-hover ? Theme.accent : transparent;
+                        Text { x: 24px; text: it; font-size: 13px; color: mta.has-hover ? white : Theme.text; vertical-alignment: center; height: parent.height; width: parent.width - 30px; overflow: elide; }
+                        if i == current: Image { x: 7px; width: 11px; height: 11px; y: (parent.height - 11px) / 2; source: Glyphs.checkmark; colorize: mta.has-hover ? white : Theme.text; }
+                        mta := TouchArea { clicked => { root.current = i; root.changed(i); } }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component Light inherits Rectangle {
+    in property <int> kind;
+    in property <bool> lit;
+    in property <bool> glyphs;
+    out property <bool> hover: ta.has-hover;
+    callback clicked();
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    background: !lit ? (Theme.dark ? #ffffff2e : #0000001f) : (kind == 0 ? #ff5f57 : kind == 1 ? #febc2e : #28c840);
+    border-width: 0.5px;
+    border-color: !lit ? transparent : (kind == 0 ? #e0443e : kind == 1 ? #dea123 : #1aab29);
+    if glyphs && kind == 0: Path { width: 8px; height: 8px; viewbox-width: 10; viewbox-height: 10; fill-rule: evenodd; commands: "M2 2 8 8M8 2 2 8"; stroke: #4d0000; stroke-width: 1.3px; fill: transparent; }
+    if glyphs && kind == 1: Path { width: 8px; height: 8px; viewbox-width: 10; viewbox-height: 10; fill-rule: evenodd; commands: "M1.5 5h7"; stroke: #995700; stroke-width: 1.4px; fill: transparent; }
+    if glyphs && kind == 2: Image { width: 8px; height: 8px; source: Glyphs.tl-zoom; colorize: #006500; }
+    ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+export component TrafficLights inherits Rectangle {
+    in property <bool> active: true;
+    callback close();
+    callback minimize();
+    callback zoom();
+    width: 58px;
+    height: 14px;
+    property <bool> hot: a.hover || b.hover || c.hover;
+    a := Light { x: 0; kind: 0; lit: root.active || root.hot; glyphs: root.hot; clicked => { root.close(); } }
+    b := Light { x: 22px; kind: 1; lit: root.active || root.hot; glyphs: root.hot; clicked => { root.minimize(); } }
+    c := Light { x: 44px; kind: 2; lit: root.active || root.hot; glyphs: root.hot; clicked => { root.zoom(); } }
+}
+
+export component GlassSurround inherits Path {
+    in property <length> hole-x;
+    in property <length> hole-y;
+    in property <length> hole-w;
+    in property <length> hole-h;
+    in property <length> hole-r;
+    in property <color> color;
+    x: 0; y: 0;
+    property <float> W: max(1, self.width / 1px);
+    property <float> H: max(1, self.height / 1px);
+    property <float> hx: hole-x / 1px;
+    property <float> hy: hole-y / 1px;
+    property <float> hw: hole-w / 1px;
+    property <float> hh: hole-h / 1px;
+    property <float> r: min(hole-r / 1px, min(hw, hh) / 2);
+    viewbox-x: 0; viewbox-y: 0;
+    viewbox-width: W; viewbox-height: H;
+    fill-rule: evenodd;
+    fill: color;
+    stroke-width: 0;
+    commands: "M0 0 L" + W + " 0 L" + W + " " + H + " L0 " + H + " Z "
+        + "M" + (hx + r) + " " + hy
+        + " L" + (hx + hw - r) + " " + hy
+        + " A" + r + " " + r + " 0 0 1 " + (hx + hw) + " " + (hy + r)
+        + " L" + (hx + hw) + " " + (hy + hh - r)
+        + " A" + r + " " + r + " 0 0 1 " + (hx + hw - r) + " " + (hy + hh)
+        + " L" + (hx + r) + " " + (hy + hh)
+        + " A" + r + " " + r + " 0 0 1 " + hx + " " + (hy + hh - r)
+        + " L" + hx + " " + (hy + r)
+        + " A" + r + " " + r + " 0 0 1 " + (hx + r) + " " + hy + " Z";
+}
+

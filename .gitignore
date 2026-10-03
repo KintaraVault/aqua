@@ -1,0 +1,26 @@
+# Rust build artifacts
+target/
+target-ui/
+**/*.rs.bk
+*.pdb
+
+# Logs & temp
+*.log
+/tmp/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+debian/cargo-home/
+debian/.debhelper/
+debian/aqua-desktop/
+debian/files
+debian/*.substvars
+debian/*.log

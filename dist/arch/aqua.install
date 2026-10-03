@@ -1,0 +1,17 @@
+_stale() {
+  for f in /usr/local/bin/aqua /usr/local/bin/aqua-settings /usr/local/bin/aqua-filechooser /usr/local/bin/aqua-finder \
+           /usr/local/bin/aqua-polkit-agent /usr/local/bin/aqua-greeter /usr/local/bin/aqua-session \
+           /usr/local/bin/aqua-screenshot; do
+    [ -e "$f" ] && echo "  warning: $f (from dist/install.sh) shadows /usr/bin — remove it: sudo ./dist/install.sh --uninstall, then reinstall this package"
+  done
+  return 0
+}
+post_install() {
+  _stale
+  echo "  Pick \"Aqua\" on the login screen, or run aqua-session from a TTY."
+}
+post_upgrade() {
+  _stale
+  pkill -x aqua-settings 2>/dev/null || true
+  echo "  Log out and back in to start the updated compositor."
+}

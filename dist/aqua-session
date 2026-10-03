@@ -1,0 +1,35 @@
+#!/bin/sh
+# Aqua session launcher. Started by greetd (aqua-greeter), GDM/SDDM (aqua.desktop) or by
+# hand from a TTY. Sets up the environment, a D-Bus session bus if missing, and restarts
+# the compositor if it crashes (at most 3 times within a minute).
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=Aqua
+export XDG_SESSION_DESKTOP=aqua
+export MOZ_ENABLE_WAYLAND=1
+export QT_QPA_PLATFORM="wayland;xcb"
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+export SDL_VIDEODRIVER="wayland,x11"
+export _JAVA_AWT_WM_NONREPARENTING=1
+export ELECTRON_OZONE_PLATFORM_HINT=auto
+export GDK_BACKEND="wayland,x11"
+export CLUTTER_BACKEND=wayland
+[ -f "$HOME/.config/aqua/env" ] && . "$HOME/.config/aqua/env"
+
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ] && command -v dbus-run-session >/dev/null; then
+    exec dbus-run-session -- "$0" "$@"
+fi
+
+crashes=0
+start=$(date +%s)
+while :; do
+    aqua --tty "$@"
+    code=$?
+    # 0 = normal logout, 130/143 = terminated by the system
+    [ $code -eq 0 ] || [ $code -eq 130 ] || [ $code -eq 143 ] && exit 0
+    now=$(date +%s)
+    if [ $((now - start)) -gt 60 ]; then crashes=0; start=$now; fi
+    crashes=$((crashes + 1))
+    echo "aqua exited with $code, restarting ($crashes)" >&2
+    [ $crashes -ge 3 ] && exit $code
+    sleep 1
+done

@@ -1,0 +1,37 @@
+#!/usr/bin/make -f
+# Build from a checkout:  dpkg-buildpackage -us -uc -b   (or: debuild -b -uc -us)
+# Needs network access for crates.io and the Smithay git dependency unless a
+# `cargo vendor` directory plus .cargo/config.toml are present in the source tree.
+export DH_VERBOSE = 1
+export CARGO_HOME = $(CURDIR)/debian/cargo-home
+export CARGO_TARGET_DIR = $(CURDIR)/target
+
+# Ubuntu LTS ships newer toolchains as cargo-1.xx / rustc-1.xx
+CARGO := $(or $(lastword $(sort $(wildcard /usr/bin/cargo-1.*))),cargo)
+RUSTC := $(or $(lastword $(sort $(wildcard /usr/bin/rustc-1.*))),rustc)
+export RUSTC
+
+OFFLINE := $(if $(wildcard vendor),--offline,)
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+
+override_dh_auto_build:
+	$(CARGO) build --release --locked $(OFFLINE) -p aqua-compositor -p aqua-ui
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	$(CARGO) test --release --locked $(OFFLINE) -p aqua-i18n -p aqua-config -p aqua-wm -p aqua-apps --lib
+endif
+
+override_dh_auto_install:
+	dist/stage-install.sh $(CURDIR)/debian/aqua-desktop --prefix /usr --target target/release --pam common
+	# Debian keeps the licence in debian/copyright
+	rm -rf $(CURDIR)/debian/aqua-desktop/usr/share/licenses
+
+override_dh_auto_clean:
+	rm -rf target debian/cargo-home
+
+override_dh_dwz:

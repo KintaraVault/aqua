@@ -1,0 +1,13 @@
+[package]
+name = "aqua-sys"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Real system state for Aqua: NetworkManager/iwd, BlueZ, UPower, PipeWire (wpctl), backlight, logind"
+
+[dependencies]
+zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"] }
+tracing.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,55 @@
+Source: aqua-desktop
+Section: x11
+Priority: optional
+Maintainer: Aqua contributors <aqua@localhost>
+Build-Depends: debhelper-compat (= 13),
+               cargo (>= 1.88) | cargo-1.88,
+               rustc (>= 1.88) | rustc-1.88,
+               clang,
+               libclang-dev,
+               pkgconf,
+               libinput-dev,
+               libudev-dev,
+               libseat-dev,
+               libgbm-dev,
+               libegl-dev,
+               libdrm-dev,
+               libxkbcommon-dev,
+               libwayland-dev,
+               libpipewire-0.3-dev,
+               libfontconfig-dev,
+               libfreetype-dev,
+               libdbus-1-dev,
+               libpam0g-dev
+Standards-Version: 4.7.0
+Homepage: https://github.com/aqua-desktop/aqua
+Rules-Requires-Root: no
+
+Package: aqua-desktop
+Architecture: amd64 arm64
+Depends: ${shlibs:Depends}, ${misc:Depends},
+         dbus,
+         fontconfig,
+         libpam-runtime,
+         polkitd | policykit-1,
+         xkb-data,
+         xwayland,
+         xdg-desktop-portal,
+         xdg-desktop-portal-gtk,
+         xdg-utils,
+         pipewire,
+         wireplumber
+Recommends: pipewire-pulse,
+            network-manager,
+            bluez,
+            upower,
+            fonts-noto-color-emoji,
+            sound-theme-freedesktop,
+            ffmpeg
+Suggests: greetd, cage, brightnessctl, pciutils, fcitx5, gnome-calculator
+Description: macOS-style (Liquid Glass) Wayland compositor and desktop shell
+ Aqua is a Wayland compositor and desktop shell written in Rust on top of
+ Smithay. It recreates the macOS "Liquid Glass" look: menu bar, Dock, Control
+ Center, Launchpad, Spotlight, Mission Control and Spaces, rounded windows with
+ shader shadows, plus its own Finder, System Settings, polkit agent and greetd
+ greeter.

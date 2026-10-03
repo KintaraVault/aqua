@@ -1,0 +1,4 @@
+#%PAM-1.0
+# Used by the Aqua lock screen to verify the user's password (copy to /etc/pam.d/aqua).
+auth     include  system-auth
+account  include  system-auth

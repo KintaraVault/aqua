@@ -1,0 +1,63 @@
+# Maintainer: Aqua contributors
+# Build from a checkout:  cd dist/arch && makepkg -si
+pkgname=aqua-desktop-git
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="macOS-style (Liquid Glass) Wayland compositor and desktop shell written in Rust"
+arch=('x86_64' 'aarch64')
+url="https://github.com/aqua-desktop/aqua"
+license=('MIT')
+depends=(
+  'libinput' 'libxkbcommon' 'mesa' 'libglvnd' 'libdrm' 'wayland' 'seatd' 'systemd-libs'
+  'pam' 'dbus' 'fontconfig' 'freetype2' 'polkit' 'xkeyboard-config'
+  'xorg-xwayland' 'xdg-desktop-portal' 'xdg-desktop-portal-gtk' 'xdg-utils'
+  'pipewire' 'wireplumber' 'pipewire-pulse'
+)
+makedepends=('rust' 'cargo' 'clang' 'pkgconf' 'git')
+optdepends=(
+  'networkmanager: Wi-Fi menu and settings'
+  'iwd: Wi-Fi without NetworkManager'
+  'bluez: Bluetooth'
+  'upower: battery status'
+  'brightnessctl: display brightness without logind'
+  'greetd: Aqua login screen (aqua-greeter)'
+  'cage: kiosk compositor for aqua-greeter'
+  'nautilus: file manager'
+  'gnome-calculator: Control Centre calculator'
+  'pciutils: graphics card names in About This Computer'
+  'fcitx5: Japanese/Korean/Chinese input sources'
+  'nvidia-utils: NVIDIA proprietary driver (needs nvidia_drm.modeset=1)'
+  'libva-nvidia-driver: VA-API video decoding on NVIDIA'
+  'egl-wayland: NVIDIA EGL Wayland platform for clients'
+  'noto-fonts-emoji: colour emoji in Emoji & Symbols, menus and notifications'
+  'noto-fonts: symbol fallback fonts (arrows, math, technical symbols)'
+  'sound-theme-freedesktop: screenshot shutter and alert sounds'
+  'ffmpeg: screen recording'
+)
+install=aqua.install
+provides=('aqua-desktop')
+conflicts=('aqua-desktop')
+backup=('etc/pam.d/aqua')
+options=('!lto' '!debug')
+
+_root() { cd "$startdir/../.."; pwd; }
+
+build() {
+  cd "$(_root)"
+  export CARGO_TARGET_DIR="$srcdir/target"
+  cargo build --release --locked -p aqua-compositor
+  cargo build --release --locked -p aqua-ui
+}
+
+check() {
+  cd "$(_root)"
+  export CARGO_TARGET_DIR="$srcdir/target"
+  cargo test --release --locked -p aqua-i18n -p aqua-config -p aqua-wm -p aqua-apps -p aqua-shell --lib
+}
+
+package() {
+  cd "$(_root)"
+  dist/stage-install.sh "$pkgdir" --prefix /usr --target "$srcdir/target/release" --pam system-auth
+  # the licence goes under the package name on Arch
+  mv "$pkgdir/usr/share/licenses/aqua-desktop" "$pkgdir/usr/share/licenses/$pkgname"
+}

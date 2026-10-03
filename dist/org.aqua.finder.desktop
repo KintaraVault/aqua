@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Finder
+GenericName=File Manager
+Comment=Browse and organize files
+Exec=aqua-finder %U
+TryExec=aqua-finder
+Icon=system-file-manager
+Terminal=false
+Categories=System;FileTools;FileManager;
+MimeType=inode/directory;
+StartupWMClass=org.aqua.finder
+OnlyShowIn=Aqua;

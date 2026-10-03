@@ -1,0 +1,2473 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: aqua\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: ru\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+msgid "APRIL"
+msgstr "АПРЕЛЬ"
+
+msgid "AUGUST"
+msgstr "АВГУСТ"
+
+msgid "Aa"
+msgstr "Aa"
+
+msgid "About"
+msgstr "Об этом"
+
+msgid "About This Computer"
+msgstr "Об этом компьютере"
+
+msgid "About {app}"
+msgstr "О программе {app}"
+
+msgid "Accessibility"
+msgstr "Универсальный доступ"
+
+msgid "Action"
+msgstr "Действие"
+
+msgid "Actions"
+msgstr "Действия"
+
+msgid "Activity"
+msgstr "Активность"
+
+msgid "Actual Size"
+msgstr "Реальный размер"
+
+msgid "Adaptive-Sync / FreeSync / G-SYNC Compatible"
+msgstr "Adaptive-Sync / FreeSync / G-SYNC Compatible"
+
+msgid "Add User…"
+msgstr "Добавить пользователя…"
+
+msgid "Add an app"
+msgstr "Добавить приложение"
+
+msgid "Add input source…"
+msgstr "Добавить источник ввода…"
+
+msgid "Add or remove users"
+msgstr "Добавление и удаление пользователей"
+
+msgid "Add the glass highlight to the rims of app icons"
+msgstr "Добавлять стеклянный блик по краям значков"
+
+msgid "Additional components are needed"
+msgstr "Требуются дополнительные компоненты"
+
+msgid "Advanced XKB options"
+msgstr "Дополнительные параметры XKB"
+
+msgid "All"
+msgstr "Все"
+
+msgid "Alt-Shift"
+msgstr "Alt-Shift"
+
+msgid "Always"
+msgstr "Всегда"
+
+msgid "An app"
+msgstr "Приложение"
+
+msgid "Animals & Nature"
+msgstr "Животные и природа"
+
+msgid "Animate opening applications"
+msgstr "Анимировать открытие программ"
+
+msgid "Animate zoom and full screen"
+msgstr "Анимировать масштабирование и полноэкранный режим"
+
+msgid "App Icons"
+msgstr "Значки приложений"
+
+msgid "App Store…"
+msgstr "App Store…"
+
+msgid "Appearance"
+msgstr "Оформление"
+
+msgid "Application"
+msgstr "Приложение"
+
+msgid "Application not installed"
+msgstr "Приложение не установлено"
+
+msgid "Applications"
+msgstr "Программы"
+
+msgid "Applies to apps and the login screen after you log out"
+msgstr "Применяется к программам и экрану входа после выхода из системы"
+
+msgid "Apply to Login Screen"
+msgstr "Применить к экрану входа"
+
+msgid "Apps opened when you log in to Aqua. Entries from ~/.config/autostart are shown too."
+msgstr "Программы, открываемые при входе в Aqua. Также показаны записи из ~/.config/autostart."
+
+msgid "Apr"
+msgstr "апр."
+
+msgid "Aqua Login"
+msgstr "Вход в Aqua"
+
+msgid "Are you sure you want to permanently erase the items in the Trash?"
+msgstr "Вы действительно хотите безвозвратно удалить объекты из Корзины?"
+
+msgid "Are you sure you want to quit all applications and log out now?"
+msgstr "Вы действительно хотите завершить все программы и выйти из системы?"
+
+msgid "Are you sure you want to restart your computer now?"
+msgstr "Вы действительно хотите перезагрузить компьютер?"
+
+msgid "Are you sure you want to shut down your computer now?"
+msgstr "Вы действительно хотите выключить компьютер?"
+
+msgid "Arrows"
+msgstr "Стрелки"
+
+msgid "Aug"
+msgstr "авг."
+
+msgid "Authentication"
+msgstr "Аутентификация"
+
+msgid "Authentication failure"
+msgstr "Ошибка аутентификации"
+
+msgid "Auto"
+msgstr "Авто"
+
+msgid "Automatic"
+msgstr "Автоматически"
+
+msgid "Automatically hide and show the Dock"
+msgstr "Автоматически скрывать и показывать Dock"
+
+msgid "Automatically hide and show the menu bar"
+msgstr "Автоматически скрывать и показывать строку меню"
+
+msgid "Available Updates"
+msgstr "Доступные обновления"
+
+msgid "Battery"
+msgstr "Аккумулятор"
+
+msgid "Battery Settings…"
+msgstr "Настройки аккумулятора…"
+
+msgid "Battery level"
+msgstr "Уровень заряда"
+
+msgid "Blue"
+msgstr "Синий"
+
+msgid "Bluetooth"
+msgstr "Bluetooth"
+
+msgid "Bring All to Front"
+msgstr "Все окна — на передний план"
+
+msgid "Bring its windows forward"
+msgstr "Вывести её окна вперёд"
+
+msgid "Calculator"
+msgstr "Калькулятор"
+
+msgid "Can't record the screen"
+msgstr "Не удаётся записать экран"
+
+msgid "Cancel"
+msgstr "Отменить"
+
+msgid "Caps Lock"
+msgstr "Caps Lock"
+
+msgid "Capture"
+msgstr "Снять"
+
+msgid "Change Password…"
+msgstr "Сменить пароль…"
+
+msgid "Change Wallpaper…"
+msgstr "Сменить обои…"
+
+msgid "Charge: {pct}"
+msgstr "Заряд: {pct}"
+
+msgid "Charging"
+msgstr "Заряжается"
+
+msgid "Check Now"
+msgstr "Проверить"
+
+msgid "Checking for updates…"
+msgstr "Проверка обновлений…"
+
+msgid "Checking…"
+msgstr "Проверка…"
+
+msgid "Choose which status items appear on the right of the menu bar. Control Centre and the clock are always shown."
+msgstr "Выберите значки состояния справа в строке меню. Пункт управления и часы показываются всегда."
+
+msgid "Choose…"
+msgstr "Выбрать…"
+
+msgid "Clear"
+msgstr "Очистить"
+
+msgid "Clear History"
+msgstr "Очистить историю"
+
+msgid "Clear Menu"
+msgstr "Очистить меню"
+
+msgid "Click Search to find nearby devices"
+msgstr "Нажмите «Поиск», чтобы найти устройства поблизости"
+
+msgid "Click a shortcut to change it. Untick to turn it off."
+msgstr "Нажмите на сочетание, чтобы изменить его. Снимите флажок, чтобы отключить."
+
+msgid "Click on an open app's icon to"
+msgstr "При нажатии на значок открытой программы"
+
+msgid "Clipboard"
+msgstr "Буфер обмена"
+
+msgid "Clipboard History"
+msgstr "История буфера обмена"
+
+msgid "Clipboard only"
+msgstr "Только в буфер обмена"
+
+msgid "Clock"
+msgstr "Часы"
+
+msgid "Clock and calendar widgets on the desktop"
+msgstr "Виджеты часов и календаря на рабочем столе"
+
+msgid "Close"
+msgstr "Закрыть"
+
+msgid "Close Window"
+msgstr "Закрыть окно"
+
+msgid "Colour"
+msgstr "Цвет"
+
+msgid "Command to run, e.g. firefox --private-window"
+msgstr "Команда, например firefox --private-window"
+
+msgid "Computer"
+msgstr "Компьютер"
+
+msgid "Connect"
+msgstr "Подключиться"
+
+msgid "Connected"
+msgstr "Подключено"
+
+msgid "Content tracks finger movement"
+msgstr "Содержимое следует за пальцами"
+
+msgid "Control Centre"
+msgstr "Пункт управления"
+
+msgid "Control-Space"
+msgstr "Control-Пробел"
+
+msgid "Copied to the clipboard"
+msgstr "Скопировано в буфер обмена"
+
+msgid "Copy"
+msgstr "Копировать"
+
+msgid "Could not create the folder"
+msgstr "Не удалось создать папку"
+
+msgid "Currency"
+msgstr "Валюты"
+
+msgid "Cut"
+msgstr "Вырезать"
+
+msgid "Cycle through its windows"
+msgstr "Переключать её окна"
+
+msgid "DECEMBER"
+msgstr "ДЕКАБРЬ"
+
+msgid "Dark"
+msgstr "Тёмное"
+
+msgid "Dark, Clear and Tinted recolour every app icon; Automatic switches to Dark in Dark Mode"
+msgstr "«Тёмный», «Прозрачный» и «Тонированный» перекрашивают все значки; «Автоматически» включает «Тёмный» в тёмном режиме"
+
+msgid "Date & Time"
+msgstr "Дата и время"
+
+msgid "Date Modified"
+msgstr "Дата изменения"
+
+msgid "Date and time"
+msgstr "Дата и время"
+
+msgid "Dec"
+msgstr "дек."
+
+msgid "Default"
+msgstr "По умолчанию"
+
+msgid "Default Microphone"
+msgstr "Микрофон по умолчанию"
+
+msgid "Default input"
+msgstr "Ввод по умолчанию"
+
+msgid "Default output"
+msgstr "Вывод по умолчанию"
+
+msgid "Delay until repeat"
+msgstr "Задержка перед повтором"
+
+msgid "Delete"
+msgstr "Удалить"
+
+msgid "Desktop"
+msgstr "Рабочий стол"
+
+msgid "Desktop & Dock"
+msgstr "Рабочий стол и Dock"
+
+msgid "Desktop & Dock Settings…"
+msgstr "Настройки рабочего стола и Dock…"
+
+msgid "Desktop & Widgets"
+msgstr "Рабочий стол и виджеты"
+
+msgid "Desktop {n}"
+msgstr "Рабочий стол {n}"
+
+msgid "Devices you pair appear here"
+msgstr "Здесь появятся сопряжённые устройства"
+
+msgid "Dim the display when inactive"
+msgstr "Затемнять дисплей при бездействии"
+
+msgid "Disconnect"
+msgstr "Отключить"
+
+msgid "Display"
+msgstr "Дисплей"
+
+msgid "Display Settings…"
+msgstr "Настройки дисплеев…"
+
+msgid "Display brightness"
+msgstr "Яркость дисплея"
+
+msgid "Display the time with seconds"
+msgstr "Показывать время с секундами"
+
+msgid "Displays"
+msgstr "Дисплеи"
+
+msgid "Do Not Disturb"
+msgstr "Не беспокоить"
+
+msgid "Do Not Disturb can also be switched from Control Centre → Focus."
+msgstr "«Не беспокоить» также можно включить в Пункте управления → Фокусирование."
+
+msgid "Do Nothing"
+msgstr "Ничего не делать"
+
+msgid "Do you want to force “{name}” to quit?"
+msgstr "Принудительно завершить «{name}»?"
+
+msgid "Dock"
+msgstr "Dock"
+
+msgid "Document"
+msgstr "Документ"
+
+msgid "Documents"
+msgstr "Документы"
+
+msgid "Done"
+msgstr "Готово"
+
+msgid "Double-click a window's title bar to"
+msgstr "Двойное нажатие на заголовок окна"
+
+msgid "Downloads"
+msgstr "Загрузки"
+
+msgid "Edit"
+msgstr "Правка"
+
+msgid "Edit Controls"
+msgstr "Изменить элементы"
+
+msgid "Edit…"
+msgstr "Изменить…"
+
+msgid "Emoji"
+msgstr "Эмодзи"
+
+msgid "Emoji & Symbols"
+msgstr "Эмодзи и символы"
+
+msgid "Empty Trash"
+msgstr "Очистить Корзину"
+
+msgid "Enabled"
+msgstr "Включено"
+
+msgid "Energy"
+msgstr "Энергия"
+
+msgid "Enter Full Screen"
+msgstr "Войти в полноэкранный режим"
+
+msgid "Enter Password"
+msgstr "Введите пароль"
+
+msgid "Enter the password for this network."
+msgstr "Введите пароль для этой сети."
+
+msgid "Ethernet"
+msgstr "Ethernet"
+
+msgid "Ethernet: {w}"
+msgstr "Ethernet: {w}"
+
+msgid "Event"
+msgstr "Событие"
+
+msgid "Executable"
+msgstr "Исполняемый файл"
+
+msgid "Exit Full Screen"
+msgstr "Выйти из полноэкранного режима"
+
+msgid "Extended display"
+msgstr "Расширенный дисплей"
+
+msgid "FEBRUARY"
+msgstr "ФЕВРАЛЬ"
+
+msgid "Fast"
+msgstr "Быстро"
+
+msgid "Faster movements move the pointer further"
+msgstr "Быстрые движения перемещают указатель дальше"
+
+msgid "Feb"
+msgstr "февр."
+
+msgid "File"
+msgstr "Файл"
+
+msgid "Files"
+msgstr "Файлы"
+
+msgid "Find…"
+msgstr "Найти…"
+
+msgid "Focus"
+msgstr "Фокусирование"
+
+msgid "Folder"
+msgstr "Папка"
+
+msgid "Food & Drink"
+msgstr "Еда и напитки"
+
+msgid "For all apps"
+msgstr "Для всех программ"
+
+msgid "For example caps:escape,compose:ralt"
+msgstr "Например caps:escape,compose:ralt"
+
+msgid "For selected apps"
+msgstr "Для выбранных программ"
+
+msgid "Force Quit"
+msgstr "Завершить принудительно"
+
+msgid "Force Quit {app}"
+msgstr "Завершить {app} принудительно"
+
+msgid "Force Quit…"
+msgstr "Завершить принудительно…"
+
+msgid "Format example"
+msgstr "Пример формата"
+
+msgid "Fri"
+msgstr "Пт"
+
+msgid "Friday"
+msgstr "пятница"
+
+msgid "General"
+msgstr "Основные"
+
+msgid "Genie Effect"
+msgstr "Эффект «Джинн»"
+
+msgid "Go"
+msgstr "Переход"
+
+msgid "Go to Folder (~/Documents, /etc …)"
+msgstr "Перейти к папке (~/Documents, /etc …)"
+
+msgid "Graphite"
+msgstr "Графитовый"
+
+msgid "Greek & Latin"
+msgstr "Греческие и латинские"
+
+msgid "Green"
+msgstr "Зелёный"
+
+msgid "Group by Category"
+msgstr "Группировать по категориям"
+
+msgid "Help"
+msgstr "Справка"
+
+msgid "Hide"
+msgstr "Скрыть"
+
+msgid "Hide Others"
+msgstr "Скрыть остальные"
+
+msgid "Hide Widgets"
+msgstr "Скрыть виджеты"
+
+msgid "Hide {app}"
+msgstr "Скрыть {app}"
+
+msgid "Home"
+msgstr "Личное"
+
+msgid "Hot Corners"
+msgstr "Активные углы"
+
+msgid "Hot Corners…"
+msgstr "Активные углы…"
+
+msgid "Icon & widget style"
+msgstr "Стиль значков и виджетов"
+
+msgid "Identifier"
+msgstr "Идентификатор"
+
+msgid "If you do nothing, the computer will restart automatically in {n} seconds."
+msgstr "Если ничего не делать, компьютер автоматически перезагрузится через {n} с."
+
+msgid "If you do nothing, the computer will shut down automatically in {n} seconds."
+msgstr "Если ничего не делать, компьютер автоматически выключится через {n} с."
+
+msgid "If you do nothing, {user} will be logged out automatically in {n} seconds."
+msgstr "Если ничего не делать, сеанс {user} будет автоматически завершён через {n} с."
+
+msgid "Ignore trackpad while typing"
+msgstr "Игнорировать трекпад при наборе"
+
+msgid "In Full Screen Only"
+msgstr "Только в полноэкранном режиме"
+
+msgid "Incorrect password. Try again."
+msgstr "Неверный пароль. Попробуйте ещё раз."
+
+msgid "Indexing Files…"
+msgstr "Индексация файлов…"
+
+msgid "Information"
+msgstr "Информация"
+
+msgid "Input"
+msgstr "Вход"
+
+msgid "Input Source"
+msgstr "Источник ввода"
+
+msgid "Input Sources"
+msgstr "Источники ввода"
+
+msgid "Input volume"
+msgstr "Громкость входа"
+
+msgid "Install"
+msgstr "Установить"
+
+msgid "Installing…"
+msgstr "Установка…"
+
+msgid "JANUARY"
+msgstr "ЯНВАРЬ"
+
+msgid "JULY"
+msgstr "ИЮЛЬ"
+
+msgid "JUNE"
+msgstr "ИЮНЬ"
+
+msgid "Jan"
+msgstr "янв."
+
+msgid "Join"
+msgstr "Подключиться"
+
+msgid "Jul"
+msgstr "июл."
+
+msgid "Jun"
+msgstr "июн."
+
+msgid "Keep"
+msgstr "Оставить"
+
+msgid "Keep app icons in place"
+msgstr "Не перемещать значки программ"
+
+msgid "Keep in Dock"
+msgstr "Оставить в Dock"
+
+msgid "Keep these display settings?"
+msgstr "Сохранить эти настройки дисплея?"
+
+msgid "Key repeat rate"
+msgstr "Скорость повтора клавиш"
+
+msgid "Keyboard"
+msgstr "Клавиатура"
+
+msgid "Keyboard Input"
+msgstr "Ввод с клавиатуры"
+
+msgid "Keyboard Shortcuts"
+msgstr "Сочетания клавиш"
+
+msgid "Keyboard Shortcuts…"
+msgstr "Сочетания клавиш…"
+
+msgid "Keyboard Viewer"
+msgstr "Клавиатура"
+
+msgid "Kind"
+msgstr "Тип"
+
+msgid "Known Networks"
+msgstr "Известные сети"
+
+msgid "Language & Region"
+msgstr "Язык и регион"
+
+msgid "Large"
+msgstr "Крупный"
+
+msgid "Larger Icons"
+msgstr "Крупные значки"
+
+msgid "Larger text ↔ more space"
+msgstr "Крупнее текст ↔ больше места"
+
+msgid "Launchpad"
+msgstr "Launchpad"
+
+msgid "Less"
+msgstr "Меньше"
+
+msgid "Light"
+msgstr "Светлое"
+
+msgid "Liquid Glass edges"
+msgstr "Края Liquid Glass"
+
+msgid "Local"
+msgstr "Локальные"
+
+msgid "Local Account · "
+msgstr "Локальная учётная запись · "
+
+msgid "Lock Screen"
+msgstr "Экран блокировки"
+
+msgid "Lock the screen before sleep"
+msgstr "Блокировать экран перед сном"
+
+msgid "Lock the screen before sleeping"
+msgstr "Блокировать экран перед сном"
+
+msgid "Log Out"
+msgstr "Выйти"
+
+msgid "Log Out {user}…"
+msgstr "Завершить сеанс {user}…"
+
+msgid "Log Out…"
+msgstr "Выйти…"
+
+msgid "Login Items"
+msgstr "Объекты входа"
+
+msgid "Login Items & Extensions"
+msgstr "Объекты входа и расширения"
+
+msgid "Long"
+msgstr "Долго"
+
+msgid "Low Power Mode"
+msgstr "Режим энергосбережения"
+
+msgid "MARCH"
+msgstr "МАРТ"
+
+msgid "MAY"
+msgstr "МАЙ"
+
+msgid "Magnification"
+msgstr "Увеличение"
+
+msgid "Main display"
+msgstr "Основной дисплей"
+
+msgid "Manage your overall setup and preferences for your computer, such as software updates, device language and more."
+msgstr "Общие настройки компьютера: обновление ПО, язык устройства и многое другое."
+
+msgid "Mar"
+msgstr "мар."
+
+msgid "Math"
+msgstr "Математические"
+
+msgid "May"
+msgstr "мая"
+
+msgid "Medium"
+msgstr "Средний"
+
+msgid "Menu Bar"
+msgstr "Строка меню"
+
+msgid "Menu Bar Controls"
+msgstr "Элементы строки меню"
+
+msgid "Menu bar size"
+msgstr "Размер строки меню"
+
+msgid "Microphone"
+msgstr "Микрофон"
+
+msgid "Microphone off"
+msgstr "Микрофон выключен"
+
+msgid "Microphone on"
+msgstr "Микрофон включён"
+
+msgid "Minimise"
+msgstr "Свернуть"
+
+msgid "Minimise if in front"
+msgstr "Свернуть, если впереди"
+
+msgid "Minimise windows using"
+msgstr "Сворачивать окна с эффектом"
+
+msgid "Minimize"
+msgstr "Свернуть"
+
+msgid "Minimize All"
+msgstr "Свернуть все"
+
+msgid "Missing: "
+msgstr "Не хватает: "
+
+msgid "Mission Control"
+msgstr "Mission Control"
+
+msgid "Modify Settings"
+msgstr "Изменение настроек"
+
+msgid "Mon"
+msgstr "Пн"
+
+msgid "Monday"
+msgstr "понедельник"
+
+msgid "More Gestures"
+msgstr "Другие жесты"
+
+msgid "More Info…"
+msgstr "Подробнее…"
+
+msgid "More..."
+msgstr "Ещё…"
+
+msgid "Mouse"
+msgstr "Мышь"
+
+msgid "Move the pointer to a screen corner to start an action"
+msgstr "Наведите указатель в угол экрана, чтобы запустить действие"
+
+msgid "Movies"
+msgstr "Фильмы"
+
+msgid "Multicolour"
+msgstr "Многоцветный"
+
+msgid "Mute"
+msgstr "Без звука"
+
+msgid "My Devices"
+msgstr "Мои устройства"
+
+msgid "NOVEMBER"
+msgstr "НОЯБРЬ"
+
+msgid "Name"
+msgstr "Имя"
+
+msgid "Natural scrolling"
+msgstr "Естественная прокрутка"
+
+msgid "Nearby Devices"
+msgstr "Устройства поблизости"
+
+msgid "Network"
+msgstr "Сеть"
+
+msgid "Network service"
+msgstr "Сетевая служба"
+
+msgid "Never"
+msgstr "Никогда"
+
+msgid "New Finder Window"
+msgstr "Новое окно Finder"
+
+msgid "New Folder"
+msgstr "Новая папка"
+
+msgid "New Terminal Window"
+msgstr "Новое окно Терминала"
+
+msgid "New Window"
+msgstr "Новое окно"
+
+msgid "No Actions"
+msgstr "Нет действий"
+
+msgid "No Bluetooth adapter found (BlueZ)"
+msgstr "Адаптер Bluetooth не найден (BlueZ)"
+
+msgid "No Notifications"
+msgstr "Нет уведомлений"
+
+msgid "No Recent Items"
+msgstr "Нет недавних объектов"
+
+msgid "No Results"
+msgstr "Нет результатов"
+
+msgid "No Selection"
+msgstr "Ничего не выбрано"
+
+msgid "No Wi-Fi hardware or service (NetworkManager/iwd)"
+msgstr "Нет адаптера или службы Wi-Fi (NetworkManager/iwd)"
+
+msgid "No battery installed"
+msgstr "Аккумулятор не установлен"
+
+msgid "No custom shortcuts yet.\nClick + to add one."
+msgstr "Своих сочетаний пока нет.\nНажмите +, чтобы добавить."
+
+msgid "No devices"
+msgstr "Нет устройств"
+
+msgid "No disks found"
+msgstr "Диски не найдены"
+
+msgid "No displays reported by the compositor"
+msgstr "Композитор не сообщил ни об одном дисплее"
+
+msgid "No events today"
+msgstr "Сегодня нет событий"
+
+msgid "No installed app has a macOS counterpart"
+msgstr "Ни у одной установленной программы нет аналога в macOS"
+
+msgid "No login items"
+msgstr "Нет объектов входа"
+
+msgid "No networks found"
+msgstr "Сети не найдены"
+
+msgid "No sound server (PipeWire/PulseAudio) found"
+msgstr "Звуковой сервер (PipeWire/PulseAudio) не найден"
+
+msgid "None"
+msgstr "Нет"
+
+msgid "Normal"
+msgstr "Обычно"
+
+msgid "Not Connected"
+msgstr "Не подключено"
+
+msgid "Not Playing"
+msgstr "Не воспроизводится"
+
+msgid "Not connected"
+msgstr "Не подключено"
+
+msgid "Nothing copied yet"
+msgstr "Пока ничего не скопировано"
+
+msgid "Notification Centre"
+msgstr "Центр уведомлений"
+
+msgid "Notifications"
+msgstr "Уведомления"
+
+msgid "Notifications are silenced"
+msgstr "Уведомления без звука"
+
+msgid "Nov"
+msgstr "нояб."
+
+msgid "OCTOBER"
+msgstr "ОКТЯБРЬ"
+
+msgid "OK"
+msgstr "ОК"
+
+msgid "Objects"
+msgstr "Предметы"
+
+msgid "Oct"
+msgstr "окт."
+
+msgid "Off"
+msgstr "Выкл."
+
+msgid "Off: the app you used last moves next to the pinned apps"
+msgstr "Выкл.: последняя использованная программа перемещается к закреплённым"
+
+msgid "Open"
+msgstr "Открыть"
+
+msgid "Open Applications"
+msgstr "Открыть Программы"
+
+msgid "Open Desktop Folder"
+msgstr "Открыть папку «Рабочий стол»"
+
+msgid "Open Downloads"
+msgstr "Открыть Загрузки"
+
+msgid "Open Keyboard Settings…"
+msgstr "Открыть настройки клавиатуры…"
+
+msgid "Open Terminal"
+msgstr "Открыть Терминал"
+
+msgid "Open a new window"
+msgstr "Открыть новое окно"
+
+msgid "Open at Login"
+msgstr "Открывать при входе"
+
+msgid "Open…"
+msgstr "Открыть…"
+
+msgid "Options"
+msgstr "Параметры"
+
+msgid "Options · {timer}s ▾"
+msgstr "Параметры · {timer} с ▾"
+
+msgid "Options ▾"
+msgstr "Параметры ▾"
+
+msgid "Orange"
+msgstr "Оранжевый"
+
+msgid "Other Networks"
+msgstr "Другие сети"
+
+msgid "Other…"
+msgstr "Другое…"
+
+msgid "Output"
+msgstr "Выход"
+
+msgid "Output & Input"
+msgstr "Выход и вход"
+
+msgid "Output volume"
+msgstr "Громкость выхода"
+
+msgid "Password"
+msgstr "Пароль"
+
+msgid "Paste"
+msgstr "Вставить"
+
+msgid "People & Body"
+msgstr "Люди и тело"
+
+msgid "Pictures"
+msgstr "Изображения"
+
+msgid "Pinch with thumb and three fingers"
+msgstr "Сведение большого и трёх пальцев"
+
+msgid "Pink"
+msgstr "Розовый"
+
+msgid "Play feedback and alert sounds"
+msgstr "Воспроизводить звуки предупреждений"
+
+msgid "Play sound for notifications"
+msgstr "Звук для уведомлений"
+
+msgid "Point & Click"
+msgstr "Выбор и нажатие"
+
+msgid "Pointer acceleration"
+msgstr "Ускорение указателя"
+
+msgid "Pointer size"
+msgstr "Размер указателя"
+
+msgid "Power Adapter"
+msgstr "Адаптер питания"
+
+msgid "Power Source: {src}"
+msgstr "Источник питания: {src}"
+
+msgid "Preferred Language"
+msgstr "Предпочитаемый язык"
+
+msgid "Press the new shortcut. ⎋ cancels, ⌫ removes the shortcut."
+msgstr "Нажмите новое сочетание. ⎋ — отмена, ⌫ — удалить сочетание."
+
+msgid "Print…"
+msgstr "Напечатать…"
+
+msgid "Problems in config.toml"
+msgstr "Ошибки в config.toml"
+
+msgid "Punctuation"
+msgstr "Пунктуация"
+
+msgid "Purple"
+msgstr "Фиолетовый"
+
+msgid "Put the computer to sleep when inactive"
+msgstr "Переводить компьютер в режим сна при бездействии"
+
+msgid "Quit"
+msgstr "Завершить"
+
+msgid "Quit {app}"
+msgstr "Завершить {app}"
+
+msgid "Recent Items"
+msgstr "Недавние объекты"
+
+msgid "Recents"
+msgstr "Недавние"
+
+msgid "Record"
+msgstr "Записать"
+
+msgid "Record Screen"
+msgstr "Записать экран"
+
+msgid "Recording saved"
+msgstr "Запись сохранена"
+
+msgid "Red"
+msgstr "Красный"
+
+msgid "Redo"
+msgstr "Повторить"
+
+msgid "Reduce motion"
+msgstr "Уменьшить движение"
+
+msgid "Reduces energy usage"
+msgstr "Снижает энергопотребление"
+
+msgid "Refresh rate"
+msgstr "Частота обновления"
+
+msgid "Region"
+msgstr "Регион"
+
+msgid "Remove"
+msgstr "Удалить"
+
+msgid "Remove from Dock"
+msgstr "Удалить из Dock"
+
+msgid "Reply"
+msgstr "Ответить"
+
+msgid "Reply…"
+msgstr "Ответ…"
+
+msgid "Require password after screen saver begins or display is turned off"
+msgstr "Запрашивать пароль после заставки или выключения дисплея"
+
+msgid "Requires an administrator password"
+msgstr "Требуется пароль администратора"
+
+msgid "Resolution"
+msgstr "Разрешение"
+
+msgid "Restart"
+msgstr "Перезагрузить"
+
+msgid "Restart…"
+msgstr "Перезагрузить…"
+
+msgid "Restore"
+msgstr "Восстановить"
+
+msgid "Restore Defaults"
+msgstr "Восстановить настройки по умолчанию"
+
+msgid "Revert"
+msgstr "Вернуть"
+
+msgid "Round"
+msgstr "Круглые"
+
+msgid "SEPTEMBER"
+msgstr "СЕНТЯБРЬ"
+
+msgid "Sat"
+msgstr "Сб"
+
+msgid "Saturday"
+msgstr "суббота"
+
+msgid "Save"
+msgstr "Сохранить"
+
+msgid "Save As:"
+msgstr "Сохранить как:"
+
+msgid "Save to"
+msgstr "Сохранить в"
+
+msgid "Saved to {dir}"
+msgstr "Сохранено в {dir}"
+
+msgid "Scale"
+msgstr "Масштаб"
+
+msgid "Scale Effect"
+msgstr "Эффект масштабирования"
+
+msgid "Scan"
+msgstr "Сканировать"
+
+msgid "Screen Recording"
+msgstr "Запись экрана"
+
+msgid "Screen Sharing"
+msgstr "Общий экран"
+
+msgid "Screen recording failed"
+msgstr "Не удалось записать экран"
+
+msgid "Screenshot"
+msgstr "Снимок экрана"
+
+msgid "Screenshot and Recording Options"
+msgstr "Параметры снимков и записи экрана"
+
+msgid "Screenshot saved"
+msgstr "Снимок экрана сохранён"
+
+msgid "Screenshots"
+msgstr "Снимки экрана"
+
+msgid "Scroll & Zoom"
+msgstr "Прокрутка и масштаб"
+
+msgid "Scrolling speed"
+msgstr "Скорость прокрутки"
+
+msgid "Search"
+msgstr "Поиск"
+
+msgid "Search Actions"
+msgstr "Поиск действий"
+
+msgid "Search Applications"
+msgstr "Поиск программ"
+
+msgid "Search Clipboard"
+msgstr "Поиск в буфере обмена"
+
+msgid "Search Files"
+msgstr "Поиск файлов"
+
+msgid "Searching…"
+msgstr "Поиск…"
+
+msgid "Select All"
+msgstr "Выбрать все"
+
+msgid "Send"
+msgstr "Отправить"
+
+msgid "Sep"
+msgstr "сент."
+
+msgid "Set time and date automatically"
+msgstr "Устанавливать дату и время автоматически"
+
+msgid "Settings"
+msgstr "Настройки"
+
+msgid "Settings…"
+msgstr "Настройки…"
+
+msgid "Short"
+msgstr "Коротко"
+
+msgid "Show All"
+msgstr "Показать все"
+
+msgid "Show All Windows"
+msgstr "Показать все окна"
+
+msgid "Show Applications"
+msgstr "Показать программы"
+
+msgid "Show Clipboard History"
+msgstr "Показать историю буфера обмена"
+
+msgid "Show Control Center"
+msgstr "Показать Пункт управления"
+
+msgid "Show Emoji & Symbols"
+msgstr "Показать эмодзи и символы"
+
+msgid "Show Floating Thumbnail"
+msgstr "Показывать плавающую миниатюру"
+
+msgid "Show Keyboard Viewer"
+msgstr "Показать панель «Клавиатура»"
+
+msgid "Show Linux apps as their macOS counterparts, e.g. Firefox as Safari, Files as Finder"
+msgstr "Показывать программы Linux как их аналоги в macOS, например Firefox как Safari, Файлы как Finder"
+
+msgid "Show Mouse Clicks"
+msgstr "Показывать нажатия мыши"
+
+msgid "Show Mouse Pointer"
+msgstr "Показывать указатель"
+
+msgid "Show Notification Center"
+msgstr "Показать Центр уведомлений"
+
+msgid "Show Widgets"
+msgstr "Показать виджеты"
+
+msgid "Show all its windows"
+msgstr "Показать все её окна"
+
+msgid "Show lock screen at login"
+msgstr "Показывать экран блокировки при входе"
+
+msgid "Show menu bar background"
+msgstr "Показывать фон строки меню"
+
+msgid "Show or Hide Desktop Widgets"
+msgstr "Показать или скрыть виджеты рабочего стола"
+
+msgid "Show previews"
+msgstr "Показывать превью"
+
+msgid "Show the date"
+msgstr "Показывать дату"
+
+msgid "Show the message text in banners and Notification Centre"
+msgstr "Показывать текст сообщений в баннерах и Центре уведомлений"
+
+msgid "Show the time with seconds"
+msgstr "Показывать время с секундами"
+
+msgid "Shown as "
+msgstr "Показывается как "
+
+msgid "Shown on the desktop and the lock screen"
+msgstr "Показываются на рабочем столе и экране блокировки"
+
+msgid "Shut Down"
+msgstr "Выключить"
+
+msgid "Shut Down…"
+msgstr "Выключить…"
+
+msgid "Silence banners and sounds"
+msgstr "Отключить баннеры и звуки"
+
+msgid "Size"
+msgstr "Размер"
+
+msgid "Sleep"
+msgstr "Режим сна"
+
+msgid "Slow"
+msgstr "Медленно"
+
+msgid "Small"
+msgstr "Мелкий"
+
+msgid "Smileys & Emotion"
+msgstr "Смайлики и эмоции"
+
+msgid "Software Update"
+msgstr "Обновление ПО"
+
+msgid "Sound"
+msgstr "Звук"
+
+msgid "Sound Effects"
+msgstr "Звуковые эффекты"
+
+msgid "Spotlight"
+msgstr "Spotlight"
+
+msgid "Spotlight Search"
+msgstr "Поиск Spotlight"
+
+msgid "Square"
+msgstr "Квадратные"
+
+msgid "Stars & Bullets"
+msgstr "Звёзды и маркеры"
+
+msgid "Steam, Wine and some older apps need the X server. Install the \"xwayland\" package (xorg-xwayland on Arch)."
+msgstr "Steam, Wine и некоторым старым программам нужен X-сервер. Установите пакет «xwayland» (xorg-xwayland в Arch)."
+
+msgid "Stop"
+msgstr "Остановить"
+
+msgid "Stop Recording"
+msgstr "Остановить запись"
+
+msgid "Storage"
+msgstr "Хранилище"
+
+msgid "Storage Settings…"
+msgstr "Настройки хранилища…"
+
+msgid "Sun"
+msgstr "Вс"
+
+msgid "Sunday"
+msgstr "воскресенье"
+
+msgid "Super-Space"
+msgstr "Super-Пробел"
+
+msgid "Swipe between full-screen applications"
+msgstr "Смахивание между полноэкранными программами"
+
+msgid "Swipe left or right with three fingers"
+msgstr "Смахивание тремя пальцами влево или вправо"
+
+msgid "Swipe up with three fingers"
+msgstr "Смахивание тремя пальцами вверх"
+
+msgid "Switch input source"
+msgstr "Переключение источника ввода"
+
+msgid "Symbols"
+msgstr "Символы"
+
+msgid "System Settings"
+msgstr "Системные настройки"
+
+msgid "System Settings…"
+msgstr "Системные настройки…"
+
+msgid "System language"
+msgstr "Язык системы"
+
+msgid "Tags:"
+msgstr "Теги:"
+
+msgid "Take Screenshot"
+msgstr "Сделать снимок экрана"
+
+msgid "Tap to click"
+msgstr "Касание для нажатия"
+
+msgid "Tap with one finger"
+msgstr "Касание одним пальцем"
+
+msgid "Text"
+msgstr "Текст"
+
+msgid "Text Input"
+msgstr "Ввод текста"
+
+msgid "The Wi-Fi network “"
+msgstr "Сеть Wi-Fi «"
+
+msgid "Theme"
+msgstr "Тема"
+
+msgid "Thu"
+msgstr "Чт"
+
+msgid "Thursday"
+msgstr "четверг"
+
+msgid "Time zone"
+msgstr "Часовой пояс"
+
+msgid "Timer"
+msgstr "Таймер"
+
+msgid "Tinted"
+msgstr "Тонированный"
+
+msgid "Toggle Dark Mode"
+msgstr "Переключить тёмный режим"
+
+msgid "Toggle Do Not Disturb"
+msgstr "Переключить «Не беспокоить»"
+
+msgid "Tracking speed"
+msgstr "Скорость перемещения"
+
+msgid "Trackpad"
+msgstr "Трекпад"
+
+msgid "Trash"
+msgstr "Корзина"
+
+msgid "Travel & Places"
+msgstr "Путешествия и места"
+
+msgid "Try again in {secs} s"
+msgstr "Повторите через {secs} с"
+
+msgid "Tue"
+msgstr "Вт"
+
+msgid "Tuesday"
+msgstr "вторник"
+
+msgid "Turn Num Lock on at login"
+msgstr "Включать Num Lock при входе"
+
+msgid "Turn display off when inactive"
+msgstr "Выключать дисплей при бездействии"
+
+msgid "Turns off window, Dock and Mission Control animations"
+msgstr "Отключает анимацию окон, Dock и Mission Control"
+
+msgid "Type shortcut"
+msgstr "Введите сочетание"
+
+msgid "Type your login password and press Return"
+msgstr "Введите пароль и нажмите Return"
+
+msgid "URL · {host}"
+msgstr "URL · {host}"
+
+msgid "Undo"
+msgstr "Отменить"
+
+msgid "Unlock"
+msgstr "Разблокировать"
+
+msgid "Untitled"
+msgstr "Без названия"
+
+msgid "Update Now"
+msgstr "Обновить сейчас"
+
+msgid "Upload file"
+msgstr "Загрузить файл"
+
+msgid "Use a 24-hour clock"
+msgstr "24-часовой формат времени"
+
+msgid "Use as"
+msgstr "Использовать как"
+
+msgid "Use macOS app icons"
+msgstr "Значки программ macOS"
+
+msgid "Use these input sources for the login screen and the text console too."
+msgstr "Использовать эти источники ввода также на экране входа и в текстовой консоли."
+
+msgid "User Name"
+msgstr "Имя пользователя"
+
+msgid "Users & Groups"
+msgstr "Пользователи и группы"
+
+msgid "Uses network time (systemd-timesyncd)"
+msgstr "Использует сетевое время (systemd-timesyncd)"
+
+msgid "Utilities"
+msgstr "Утилиты"
+
+msgid "Variable refresh rate"
+msgstr "Переменная частота обновления"
+
+msgid "View"
+msgstr "Вид"
+
+msgid "Virtual"
+msgstr "Виртуальный"
+
+msgid "Wallpaper"
+msgstr "Обои"
+
+msgid "Wed"
+msgstr "Ср"
+
+msgid "Wednesday"
+msgstr "среда"
+
+msgid "What happens when you click an app that is already running"
+msgstr "Что происходит при нажатии на уже запущенную программу"
+
+msgid "Wi-Fi"
+msgstr "Wi-Fi"
+
+msgid "Wi-Fi Settings…"
+msgstr "Настройки Wi-Fi…"
+
+msgid "Window"
+msgstr "Окно"
+
+msgid "Window corner radius"
+msgstr "Скругление углов окон"
+
+msgid "Windows"
+msgstr "Окна"
+
+msgid "Windows grow smoothly into their new size"
+msgstr "Окна плавно меняют размер"
+
+msgid "XWayland is missing"
+msgstr "Нет XWayland"
+
+msgid "Yellow"
+msgstr "Жёлтый"
+
+msgid "You can’t undo this action."
+msgstr "Это действие нельзя отменить."
+
+msgid "You will lose any unsaved changes."
+msgstr "Все несохранённые изменения будут потеряны."
+
+msgid "Your password is required to log in"
+msgstr "Для входа необходим пароль"
+
+msgid "Zoom"
+msgstr "Изменить масштаб"
+
+msgid "Zoom In"
+msgstr "Увеличить"
+
+msgid "Zoom Out"
+msgstr "Уменьшить"
+
+msgid "{app} is sharing your screen"
+msgstr "{app} транслирует ваш экран"
+
+msgid "{n} more problems"
+msgstr "Ещё проблем: {n}"
+
+# ---- aqua-ui: strings set from Rust code (System Settings, Finder, polkit agent, greeter) ----
+
+msgid "AVI movie"
+msgstr "Видео AVI"
+
+msgid "AVIF image"
+msgstr "Изображение AVIF"
+
+msgid "Added {name}."
+msgstr "Добавлено: {name}."
+
+msgid "Additional authentication required"
+msgstr "Требуется дополнительная аутентификация"
+
+msgid "Admin"
+msgstr "Администратор"
+
+msgid "Alias ({kind})"
+msgstr "Псевдоним ({kind})"
+
+msgid "App Switcher"
+msgstr "Переключатель приложений"
+
+msgid "AppImage application"
+msgstr "Приложение AppImage"
+
+msgid "Apple icon image"
+msgstr "Значок Apple"
+
+msgid "Applications are removed with your package manager."
+msgstr "Приложения удаляются с помощью менеджера пакетов."
+
+msgid "Applying to the login screen and console…"
+msgstr "Применение к экрану входа и консоли…"
+
+msgid "Applying… (administrator password may be required)"
+msgstr "Применение… (может потребоваться пароль администратора)"
+
+msgid "Apps"
+msgstr "Приложения"
+
+msgid "Aqua (dynamic)"
+msgstr "Aqua (динамические)"
+
+msgid "Arabic"
+msgstr "Арабский"
+
+msgid "Archive"
+msgstr "Архив"
+
+msgid "Are you sure you want to delete {what} immediately?"
+msgstr "Удалить {what} немедленно?"
+
+msgid "Authentication Required"
+msgstr "Требуется авторизация"
+
+msgid "Automatic time turned off."
+msgstr "Автоматическая установка времени выключена."
+
+msgid "BMP image"
+msgstr "Изображение BMP"
+
+msgid "Belarusian"
+msgstr "Белорусский"
+
+msgid "Brightness down"
+msgstr "Уменьшить яркость"
+
+msgid "Brightness up"
+msgstr "Увеличить яркость"
+
+msgid "Built-in Display"
+msgstr "Встроенный дисплей"
+
+msgid "C source"
+msgstr "Исходный код C"
+
+msgid "CSS stylesheet"
+msgstr "Таблица стилей CSS"
+
+msgid "CSV document"
+msgstr "Документ CSV"
+
+msgid "Chinese"
+msgstr "Китайский"
+
+msgid "Chip"
+msgstr "Процессор"
+
+msgid "Choose"
+msgstr "Выбрать"
+
+msgid "Clipboard history"
+msgstr "История буфера обмена"
+
+msgid "Close window"
+msgstr "Закрыть окно"
+
+msgid "Command"
+msgstr "Команда"
+
+msgid "Compress"
+msgstr "Сжать"
+
+msgid "Compress {name}"
+msgstr "Сжать {name}"
+
+msgid "Configuration file"
+msgstr "Файл конфигурации"
+
+msgid "Connected to {ssid}"
+msgstr "Подключено к {ssid}"
+
+msgid "Contains"
+msgstr "Содержит"
+
+msgid "Copy as Pathname"
+msgstr "Скопировать путь"
+
+msgid "Copy as Pathnames"
+msgstr "Скопировать пути"
+
+msgid "Copy {name}"
+msgstr "Скопировать {name}"
+
+msgid "Could not change the language: {e}"
+msgstr "Не удалось сменить язык: {e}"
+
+msgid "Could not change the setting: {e}"
+msgstr "Не удалось изменить настройку: {e}"
+
+msgid "Could not check for updates"
+msgstr "Не удалось проверить обновления"
+
+msgid "Could not save settings: {e}"
+msgstr "Не удалось сохранить настройки: {e}"
+
+msgid "Could not save: {e}"
+msgstr "Не удалось сохранить: {e}"
+
+msgid "Created"
+msgstr "Создан"
+
+msgid "Custom command…"
+msgstr "Своя команда…"
+
+msgid "Customize Folder…"
+msgstr "Настроить папку…"
+
+msgid "Czech"
+msgstr "Чешский"
+
+msgid "Danish"
+msgstr "Датский"
+
+msgid "Delete Immediately…"
+msgstr "Удалить немедленно…"
+
+msgid "Desktop entry"
+msgstr "Ярлык приложения"
+
+msgid "Dimensions"
+msgstr "Размеры"
+
+msgid "Disabled display"
+msgstr "Отключённый дисплей"
+
+msgid "Disk image"
+msgstr "Образ диска"
+
+msgid "Duplicate"
+msgstr "Дублировать"
+
+msgid "Dutch"
+msgstr "Нидерландский"
+
+msgid "English"
+msgstr "Английский"
+
+msgid "Enter / exit full screen"
+msgstr "Войти в полноэкранный режим / выйти"
+
+msgid "Enter your password to allow this."
+msgstr "Чтобы разрешить это действие, введите пароль."
+
+msgid "FLAC audio"
+msgstr "Аудио FLAC"
+
+msgid "Favorites"
+msgstr "Избранное"
+
+msgid "Finder can't move installed apps to the Trash."
+msgstr "Finder не может переместить установленные приложения в Корзину."
+
+msgid "Finnish"
+msgstr "Финский"
+
+msgid "Font"
+msgstr "Шрифт"
+
+msgid "Force Quit Applications…"
+msgstr "Принудительно завершить приложения…"
+
+msgid "French"
+msgstr "Французский"
+
+msgid "GB"
+msgstr "ГБ"
+
+msgid "GIF image"
+msgstr "Изображение GIF"
+
+msgid "German"
+msgstr "Немецкий"
+
+msgid "Get Info"
+msgstr "Свойства"
+
+msgid "Go to Folder…"
+msgstr "Перейти к папке…"
+
+msgid "Graphics"
+msgstr "Графика"
+
+msgid "Gray"
+msgstr "Серый"
+
+msgid "Greek"
+msgstr "Греческий"
+
+msgid "HEIF image"
+msgstr "Изображение HEIF"
+
+msgid "HTML document"
+msgstr "Документ HTML"
+
+msgid "Hebrew"
+msgstr "Иврит"
+
+msgid "Hide others"
+msgstr "Скрыть остальные"
+
+msgid "Hindi"
+msgstr "Хинди"
+
+msgid "Install manually: {pkgs}"
+msgstr "Установите вручную: {pkgs}"
+
+msgid "Install “zip” (or libarchive's bsdtar)."
+msgstr "Установите «zip» (или bsdtar из libarchive)."
+
+msgid "Installation failed: {e}"
+msgstr "Ошибка установки: {e}"
+
+msgid "Installed. The new input sources are ready."
+msgstr "Установлено. Новые источники ввода готовы."
+
+msgid "Installer package"
+msgstr "Установочный пакет"
+
+msgid "Installing {pkgs}… (administrator password required)"
+msgstr "Установка {pkgs}… (требуется пароль администратора)"
+
+msgid "Installs with “{cmd}” in a terminal (administrator password required)."
+msgstr "Устанавливается командой «{cmd}» в терминале (требуется пароль администратора)."
+
+msgid "Italian"
+msgstr "Итальянский"
+
+msgid "JPEG image"
+msgstr "Изображение JPEG"
+
+msgid "JSON document"
+msgstr "Документ JSON"
+
+msgid "Japanese"
+msgstr "Японский"
+
+msgid "JavaScript source"
+msgstr "Исходный код JavaScript"
+
+msgid "KB"
+msgstr "КБ"
+
+msgid "Kazakh"
+msgstr "Казахский"
+
+msgid "Kernel"
+msgstr "Ядро"
+
+msgid "Korean"
+msgstr "Корейский"
+
+msgid "Last opened"
+msgstr "Последнее открытие"
+
+msgid "Launchpad & Dock"
+msgstr "Launchpad и Dock"
+
+msgid "Locations"
+msgstr "Места"
+
+msgid "Log file"
+msgstr "Файл журнала"
+
+msgid "Log out of Aqua"
+msgstr "Выйти из Aqua"
+
+msgid "Login failed: {e}"
+msgstr "Ошибка входа: {e}"
+
+msgid "Login screen and console use these input sources now."
+msgstr "Теперь экран входа и консоль используют эти источники ввода."
+
+msgid "MB"
+msgstr "МБ"
+
+msgid "MP3 audio"
+msgstr "Аудио MP3"
+
+msgid "MPEG-4 audio"
+msgstr "Аудио MPEG-4"
+
+msgid "MPEG-4 movie"
+msgstr "Видео MPEG-4"
+
+msgid "Mail"
+msgstr "Почта"
+
+msgid "Make Alias"
+msgstr "Создать псевдоним"
+
+msgid "Markdown document"
+msgstr "Документ Markdown"
+
+msgid "Matroska video"
+msgstr "Видео Matroska"
+
+msgid "Memory"
+msgstr "Память"
+
+msgid "Minimise window"
+msgstr "Свернуть окно"
+
+msgid "Modified"
+msgstr "Изменён"
+
+msgid "Move left a space"
+msgstr "Перейти на рабочий стол слева"
+
+msgid "Move right a space"
+msgstr "Перейти на рабочий стол справа"
+
+msgid "Move to Trash"
+msgstr "Переместить в Корзину"
+
+msgid "Move window one space left"
+msgstr "Переместить окно на рабочий стол слева"
+
+msgid "Move window one space right"
+msgstr "Переместить окно на рабочий стол справа"
+
+msgid "Music"
+msgstr "Музыка"
+
+msgid "Next input source"
+msgstr "Следующий источник ввода"
+
+msgid "No Wi-Fi hardware"
+msgstr "Нет адаптера Wi-Fi"
+
+msgid "No items tagged “{tag}”"
+msgstr "Нет объектов с тегом «{tag}»"
+
+msgid "No recent documents"
+msgstr "Нет недавних документов"
+
+msgid "No results"
+msgstr "Нет результатов"
+
+msgid "No supported package manager found"
+msgstr "Поддерживаемый менеджер пакетов не найден"
+
+msgid "No terminal found to run the update."
+msgstr "Не найден терминал для запуска обновления."
+
+msgid "Norwegian"
+msgstr "Норвежский"
+
+msgid "OS"
+msgstr "ОС"
+
+msgid "Ogg audio"
+msgstr "Аудио Ogg"
+
+msgid "On battery"
+msgstr "От аккумулятора"
+
+msgid "On power adapter"
+msgstr "От сети"
+
+msgid "Open System Settings"
+msgstr "Открыть Системные настройки"
+
+msgid "Open With Other Application…"
+msgstr "Открыть в другой программе…"
+
+msgid "Open in New Window"
+msgstr "Открыть в новом окне"
+
+msgid "Open in Terminal"
+msgstr "Открыть в Терминале"
+
+msgid "Original"
+msgstr "Оригинал"
+
+msgid "PDF document"
+msgstr "Документ PDF"
+
+msgid "PNG image"
+msgstr "Изображение PNG"
+
+msgid "Paste Item"
+msgstr "Вставить объект"
+
+msgid "Paste Items"
+msgstr "Вставить объекты"
+
+msgid "Permissions"
+msgstr "Права доступа"
+
+msgid "Plain Text Document"
+msgstr "Простой текстовый документ"
+
+msgid "Please choose another name."
+msgstr "Выберите другое имя."
+
+msgid "Polish"
+msgstr "Польский"
+
+msgid "Portuguese"
+msgstr "Португальский"
+
+msgid "Powered by AC adapter — no battery present"
+msgstr "Питание от сети — аккумулятор отсутствует"
+
+msgid "Presentation"
+msgstr "Презентация"
+
+msgid "Previous display settings restored."
+msgstr "Предыдущие настройки дисплея восстановлены."
+
+msgid "Put Back"
+msgstr "Восстановить"
+
+msgid "Python script"
+msgstr "Скрипт Python"
+
+msgid "Quick Look {name}"
+msgstr "Быстрый просмотр {name}"
+
+msgid "QuickTime movie"
+msgstr "Видео QuickTime"
+
+msgid "Quit application"
+msgstr "Завершить приложение"
+
+msgid "Record screen"
+msgstr "Записать экран"
+
+msgid "Rename"
+msgstr "Переименовать"
+
+msgid "Replace"
+msgstr "Заменить"
+
+msgid "Reverse Order"
+msgstr "Обратный порядок"
+
+msgid "Russian"
+msgstr "Русский"
+
+msgid "Rust source"
+msgstr "Исходный код Rust"
+
+msgid "SVG image"
+msgstr "Изображение SVG"
+
+msgid "Save picture of a window as a file"
+msgstr "Сохранить снимок окна в файл"
+
+msgid "Save picture of screen as a file"
+msgstr "Сохранить снимок экрана в файл"
+
+msgid "Save picture of selected area as a file"
+msgstr "Сохранить снимок выбранной области в файл"
+
+msgid "Saved. Log out and back in to use the new language everywhere."
+msgstr "Сохранено. Выйдите и войдите снова, чтобы новый язык применился везде."
+
+msgid "Screenshot and recording options"
+msgstr "Параметры снимков и записи экрана"
+
+msgid "Screenshot of a window"
+msgstr "Снимок окна"
+
+msgid "Screenshot of selected area"
+msgstr "Снимок выбранной области"
+
+msgid "Screenshot toolbar"
+msgstr "Панель снимков экрана"
+
+msgid "Searching “{place}” for “{query}”"
+msgstr "Поиск «{query}» в «{place}»"
+
+msgid "Session"
+msgstr "Сеанс"
+
+msgid "Shared"
+msgstr "Общие"
+
+msgid "Shell script"
+msgstr "Скрипт оболочки"
+
+msgid "Shortcuts need ⌘, ⌃ or ⌥ (function keys work on their own)."
+msgstr "Сочетанию нужны ⌘, ⌃ или ⌥ (функциональные клавиши работают и без них)."
+
+msgid "Show Control Centre"
+msgstr "Показать Пункт управления"
+
+msgid "Show Desktop"
+msgstr "Показать рабочий стол"
+
+msgid "Show Hidden Files"
+msgstr "Показать скрытые файлы"
+
+msgid "Show Launchpad"
+msgstr "Показать Launchpad"
+
+msgid "Show Notification Centre"
+msgstr "Показать Центр уведомлений"
+
+msgid "Show Preview"
+msgstr "Показать просмотр"
+
+msgid "Show Spotlight search"
+msgstr "Показать поиск Spotlight"
+
+msgid "Show in Enclosing Folder"
+msgstr "Показать в папке"
+
+msgid "Show “{tag}” items"
+msgstr "Показать объекты с тегом «{tag}»"
+
+msgid "Sort by {key}"
+msgstr "Сортировать: {key}"
+
+msgid "Spanish"
+msgstr "Испанский"
+
+msgid "Spreadsheet"
+msgstr "Таблица"
+
+msgid "Standard"
+msgstr "Стандартная"
+
+msgid "Stop screen recording"
+msgstr "Остановить запись экрана"
+
+msgid "Swedish"
+msgstr "Шведский"
+
+msgid "Switch applications (⇧ goes back)"
+msgstr "Переключить приложения (⇧ — назад)"
+
+msgid "System"
+msgstr "Система"
+
+msgid "TB"
+msgstr "ТБ"
+
+msgid "TIFF image"
+msgstr "Изображение TIFF"
+
+msgid "TOML document"
+msgstr "Документ TOML"
+
+msgid "Tags"
+msgstr "Теги"
+
+msgid "Tags…"
+msgstr "Теги…"
+
+msgid "Text document"
+msgstr "Текстовый документ"
+
+msgid "That key can't be used in a shortcut."
+msgstr "Эту клавишу нельзя использовать в сочетании."
+
+msgid "The disk “{name}” couldn't be ejected."
+msgstr "Не удалось извлечь диск «{name}»."
+
+msgid "The folder “{path}” can't be found."
+msgstr "Папка «{path}» не найдена."
+
+msgid "The items couldn't be compressed."
+msgstr "Не удалось сжать объекты."
+
+msgid "The name can't contain “/”."
+msgstr "Имя не может содержать «/»."
+
+msgid "The name “{name}” is already taken."
+msgstr "Имя «{name}» уже занято."
+
+msgid "This item is on another volume and can't be moved to the Trash. Delete it immediately instead?"
+msgstr "Объект находится на другом томе и не может быть перемещён в Корзину. Удалить его немедленно?"
+
+msgid "Time is set automatically."
+msgstr "Время устанавливается автоматически."
+
+msgid "Time zone changed."
+msgstr "Часовой пояс изменён."
+
+msgid "To open this item, first drag it out of the Trash."
+msgstr "Чтобы открыть этот объект, сначала перетащите его из Корзины."
+
+msgid "Today at {time}"
+msgstr "Сегодня в {time}"
+
+msgid "Toggle full screen"
+msgstr "Полноэкранный режим"
+
+msgid "Trash is empty"
+msgstr "Корзина пуста"
+
+msgid "Turkish"
+msgstr "Турецкий"
+
+msgid "Ukrainian"
+msgstr "Украинский"
+
+msgid "Unix executable"
+msgstr "Исполняемый файл Unix"
+
+msgid "User"
+msgstr "Пользователь"
+
+msgid "Volume down"
+msgstr "Уменьшить громкость"
+
+msgid "Volume up"
+msgstr "Увеличить громкость"
+
+msgid "Waveform audio"
+msgstr "Аудио WAV"
+
+msgid "WebM video"
+msgstr "Видео WebM"
+
+msgid "WebP image"
+msgstr "Изображение WebP"
+
+msgid "Welcome, {user}"
+msgstr "Добро пожаловать, {user}"
+
+msgid "Where"
+msgstr "Расположение"
+
+msgid "Windows icon"
+msgstr "Значок Windows"
+
+msgid "XML document"
+msgstr "Документ XML"
+
+msgid "YAML document"
+msgstr "Документ YAML"
+
+msgid "Yesterday at {time}"
+msgstr "Вчера в {time}"
+
+msgid "You can't undo this action."
+msgstr "Это действие нельзя отменить."
+
+msgid "Your system is up to date"
+msgstr "Система обновлена"
+
+msgid "ZIP archive"
+msgstr "Архив ZIP"
+
+msgid "Zoom window"
+msgstr "Изменить масштаб окна"
+
+msgid "copy"
+msgstr "копия"
+
+msgid "gzip compressed archive"
+msgstr "Архив gzip"
+
+msgid "localectl failed: {e}"
+msgstr "Ошибка localectl: {e}"
+
+msgid "localectl not available: {e}"
+msgstr "localectl недоступен: {e}"
+
+msgid "property list"
+msgstr "Список свойств"
+
+msgid "untitled folder"
+msgstr "новая папка"
+
+msgid "{date} at {time}"
+msgstr "{date} в {time}"
+
+msgid "{day} Apr {year}"
+msgstr "{day} апр. {year} г."
+
+msgid "{day} April {year}"
+msgstr "{day} апреля {year} г."
+
+msgid "{day} Aug {year}"
+msgstr "{day} авг. {year} г."
+
+msgid "{day} August {year}"
+msgstr "{day} августа {year} г."
+
+msgid "{day} Dec {year}"
+msgstr "{day} дек. {year} г."
+
+msgid "{day} December {year}"
+msgstr "{day} декабря {year} г."
+
+msgid "{day} Feb {year}"
+msgstr "{day} февр. {year} г."
+
+msgid "{day} February {year}"
+msgstr "{day} февраля {year} г."
+
+msgid "{day} Jan {year}"
+msgstr "{day} янв. {year} г."
+
+msgid "{day} January {year}"
+msgstr "{day} января {year} г."
+
+msgid "{day} Jul {year}"
+msgstr "{day} июл. {year} г."
+
+msgid "{day} July {year}"
+msgstr "{day} июля {year} г."
+
+msgid "{day} Jun {year}"
+msgstr "{day} июн. {year} г."
+
+msgid "{day} June {year}"
+msgstr "{day} июня {year} г."
+
+msgid "{day} Mar {year}"
+msgstr "{day} мар. {year} г."
+
+msgid "{day} March {year}"
+msgstr "{day} марта {year} г."
+
+msgid "{day} May {year}"
+msgstr "{day} мая {year} г."
+
+msgid "{day} Nov {year}"
+msgstr "{day} нояб. {year} г."
+
+msgid "{day} November {year}"
+msgstr "{day} ноября {year} г."
+
+msgid "{day} Oct {year}"
+msgstr "{day} окт. {year} г."
+
+msgid "{day} October {year}"
+msgstr "{day} октября {year} г."
+
+msgid "{day} Sep {year}"
+msgstr "{day} сент. {year} г."
+
+msgid "{day} September {year}"
+msgstr "{day} сентября {year} г."
+
+msgid "{ext} archive"
+msgstr "Архив {ext}"
+
+msgid "{ext} document"
+msgstr "Документ {ext}"
+
+msgid "{ext} file"
+msgstr "Файл {ext}"
+
+msgid "{keys} is also used by “{name}”."
+msgstr "{keys} уже используется для «{name}»."
+
+msgid "{name} alias"
+msgstr "{name} (псевдоним)"
+
+msgid "{pm} is not supported"
+msgstr "{pm} не поддерживается"
+
+msgid "{sel} of {n} selected"
+msgstr "Выбрано {sel} из {n}"
+
+msgid "{time} remaining"
+msgstr "осталось {time}"
+
+msgid "{used} of {size} used"
+msgstr "Занято {used} из {size}"
+
+msgid "{vendor} display"
+msgstr "Дисплей {vendor}"
+
+msgid "{weekday} {day} {month}"
+msgstr "{weekday}, {day} {month}"
+
+msgid "“{app}” is trying to modify system settings."
+msgstr "Приложение «{app}» пытается изменить системные настройки."
+
+msgid "“{name}” already exists. Do you want to replace it?"
+msgstr "«{name}» уже существует. Заменить?"
+
+msgid "“{name}” couldn't be copied."
+msgstr "Не удалось скопировать «{name}»."
+
+msgid "“{name}” couldn't be moved to the Trash."
+msgstr "Не удалось переместить «{name}» в Корзину."
+
+msgid "“{name}” couldn't be moved."
+msgstr "Не удалось переместить «{name}»."
+
+msgid "“{name}” couldn't be put back."
+msgstr "Не удалось восстановить «{name}»."
+
+msgid "“{name}” couldn't be renamed."
+msgstr "Не удалось переименовать «{name}»."
+
+# plural forms (ru: one / few / many)
+
+msgid "{n} item"
+msgid_plural "{n} items"
+msgstr[0] "{n} объект"
+msgstr[1] "{n} объекта"
+msgstr[2] "{n} объектов"
+
+msgid "{n} Item"
+msgid_plural "{n} Items"
+msgstr[0] "{n} объект"
+msgstr[1] "{n} объекта"
+msgstr[2] "{n} объектов"
+
+msgid "these {n} item"
+msgid_plural "these {n} items"
+msgstr[0] "эти {n} объект"
+msgstr[1] "эти {n} объекта"
+msgstr[2] "эти {n} объектов"
+
+msgid "{n} byte"
+msgid_plural "{n} bytes"
+msgstr[0] "{n} байт"
+msgstr[1] "{n} байта"
+msgstr[2] "{n} байт"
+
+msgid "{n} update available"
+msgid_plural "{n} updates available"
+msgstr[0] "Доступно {n} обновление"
+msgstr[1] "Доступно {n} обновления"
+msgstr[2] "Доступно {n} обновлений"

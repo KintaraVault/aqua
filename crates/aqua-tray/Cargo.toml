@@ -1,0 +1,16 @@
+[package]
+name = "aqua-tray"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "StatusNotifierItem tray (watcher + host) and dbusmenu client for Aqua"
+
+[dependencies]
+zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"] }
+tracing.workspace = true
+serde.workspace = true
+x11rb = { version = "0.13", default-features = false, features = ["damage", "composite"] }
+
+[lints]
+workspace = true

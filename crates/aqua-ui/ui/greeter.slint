@@ -1,0 +1,106 @@
+import { Theme, Glyphs } from "common.slint";
+
+export struct GUser { name: string, full: string, initial: string }
+
+export global G {
+    in property <string> date;
+    in property <string> time;
+    in property <[GUser]> users;
+    in-out property <int> user-idx;
+    in property <[string]> sessions;
+    in-out property <int> session-idx;
+    in property <string> prompt: @tr("Enter Password");
+    in property <string> message;
+    in property <bool> error;
+    in property <bool> busy;
+    in property <string> layout: "ABC";
+    in property <image> wallpaper;
+    in-out property <string> password;
+    in-out property <int> shake;
+    callback submit();
+    callback power(string);
+    callback pick-user(int);
+}
+
+component GlassButton inherits Rectangle {
+    in property <image> glyph; in property <string> label;
+    callback clicked();
+    width: 64px; height: 64px;
+    VerticalLayout { spacing: 6px; alignment: center;
+        HorizontalLayout { alignment: center;
+            Rectangle { width: 40px; height: 40px; border-radius: 20px; background: ta.has-hover ? #ffffff59 : #ffffff33;
+                animate background { duration: 120ms; }
+                Image { width: 20px; height: 20px; source: glyph; colorize: white; } } }
+        Text { text: label; color: white; font-size: 11px; horizontal-alignment: center; }
+    }
+    ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+export component GreeterWindow inherits Window {
+    title: @tr("Aqua Login");
+    background: #1b3a8a;
+    default-font-family: Theme.font;
+    forward-focus: pw;
+    property <float> appear: 0;
+    init => { appear = 1; }
+    Rectangle { background: @linear-gradient(180deg, #0b2a7a 0%, #2f6be0 45%, #8fb3ff 75%, #c9d6ff 100%); }
+    Image { source: G.wallpaper; width: parent.width; height: parent.height; image-fit: cover; }
+    Rectangle { background: #00000022; }
+    HorizontalLayout {
+        x: parent.width - self.preferred-width - 20px; y: 10px; spacing: 14px; height: 24px;
+        Text { text: G.layout; color: white; font-size: 13px; font-weight: 600; vertical-alignment: center; }
+        Image { width: 18px; height: 14px; y: 5px; source: Glyphs.wifi; colorize: white; }
+        Image { width: 22px; height: 14px; y: 5px; source: Glyphs.battery; colorize: white; }
+    }
+    VerticalLayout {
+        y: 60px; width: parent.width; spacing: 0px; height: self.preferred-height;
+        opacity: appear; animate opacity { duration: 600ms; easing: ease-out; }
+        Text { text: G.date; color: #ffffffe6; font-size: 24px; font-weight: 600; horizontal-alignment: center; }
+        Text { text: G.time; color: #ffffffeb; font-size: 150px; font-weight: 800; horizontal-alignment: center; }
+    }
+    VerticalLayout {
+        y: parent.height - 300px - (1 - appear) * 40px; animate y { duration: 700ms; easing: cubic-bezier(0.2, 0.9, 0.3, 1); }
+        width: parent.width; spacing: 10px; height: self.preferred-height;
+        HorizontalLayout { alignment: center; spacing: 26px;
+            for u[i] in G.users: VerticalLayout { spacing: 8px;
+                property <bool> sel: i == G.user-idx;
+                opacity: sel ? 1 : 0.6;
+                animate opacity { duration: 200ms; }
+                HorizontalLayout { alignment: center;
+                    Rectangle { width: sel ? 64px : 48px; height: sel ? 64px : 48px; border-radius: sel ? 32px : 24px;
+                        animate width { duration: 250ms; easing: ease-out; }
+                        background: #9c9ca3; border-width: 1px; border-color: #ffffff40;
+                        Text { text: u.initial; color: white; font-size: sel ? 28px : 20px; font-weight: 600; }
+                        TouchArea { clicked => { G.pick-user(i); } } } }
+                Text { text: u.full; color: white; font-size: 14px; font-weight: 600; horizontal-alignment: center; }
+            }
+        }
+        HorizontalLayout { alignment: center; spacing: 8px;
+            Rectangle {
+                width: 210px; height: 32px; border-radius: 16px;
+                background: #ffffff38; border-width: 1px; border-color: #ffffff55;
+                pw := TextInput {
+                    x: 14px; width: parent.width - 28px; height: parent.height;
+                    input-type: password; color: white; font-size: 13px; vertical-alignment: center;
+                    text <=> G.password; enabled: !G.busy;
+                    accepted => { G.submit(); }
+                }
+                if G.password == "": Text { x: 14px; text: G.prompt; color: #ffffffb3; font-size: 13px; vertical-alignment: center; height: parent.height; }
+            }
+            Rectangle { width: 28px; height: 28px; y: 2px; border-radius: 14px; background: #ffffff38;
+                Text { text: G.busy ? "…" : "→"; color: white; font-size: 14px; }
+                TouchArea { clicked => { G.submit(); } } }
+        }
+        Text { text: G.message != "" ? G.message : @tr("Your password is required to log in"); color: G.error ? #ffd0d0 : #ffffffcc; font-size: 12px; horizontal-alignment: center; }
+        if G.sessions.length > 1: HorizontalLayout { alignment: center;
+            Rectangle { height: 22px; width: st.preferred-width + 20px; border-radius: 11px; background: #ffffff26;
+                st := Text { text: G.sessions[G.session-idx] + "  ⌄"; color: white; font-size: 11px; }
+                TouchArea { clicked => { G.session-idx = mod(G.session-idx + 1, G.sessions.length); } } } }
+    }
+    HorizontalLayout {
+        y: parent.height - 90px; width: parent.width; alignment: center; spacing: 30px;
+        GlassButton { glyph: Glyphs.sleep; label: @tr("Sleep"); clicked => { G.power("suspend"); } }
+        GlassButton { glyph: Glyphs.restart; label: @tr("Restart"); clicked => { G.power("reboot"); } }
+        GlassButton { glyph: Glyphs.power; label: @tr("Shut Down"); clicked => { G.power("poweroff"); } }
+    }
+}

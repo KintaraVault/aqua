@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+if [ "$1" = configure ]; then
+    for f in /usr/local/bin/aqua /usr/local/bin/aqua-session; do
+        if [ -e "$f" ]; then
+            echo "warning: $f (from dist/install.sh) shadows /usr/bin — run: sudo ./dist/install.sh --uninstall"
+        fi
+    done
+fi
+#DEBHELPER#
+exit 0

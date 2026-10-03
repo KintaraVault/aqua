@@ -1,0 +1,6 @@
+#!/bin/sh
+# Test stub for NetworkManager's nmcli (used by run-test.sh screenshots).
+case "$*" in
+  *"dev wifi list"*) printf 'yes:Home:82:WPA2\nno:Cafe Aurora:64:WPA2\nno:Guest\\:Lobby:40:\nno:iPhone (Alex):71:WPA3\nno:Office-5G:35:WPA2\n' ;;
+  *) exit 0 ;;
+esac

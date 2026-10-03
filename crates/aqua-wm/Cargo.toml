@@ -1,0 +1,12 @@
+[package]
+name = "aqua-wm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Window-management model of Aqua (Spaces per display, placement, Mission Control grid) without Smithay"
+
+[dependencies]
+
+[lints]
+workspace = true

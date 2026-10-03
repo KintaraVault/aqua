@@ -1,0 +1,69 @@
+import { Theme, Glyphs, PillButton, Field } from "common.slint";
+
+export global Auth {
+    in property <string> heading;
+    in property <string> body;
+    in property <string> user-label: @tr("User Name");
+    in property <string> password-label: @tr("Password");
+    in property <string> ok-label: @tr("Modify Settings");
+    in property <string> cancel-label: @tr("Cancel");
+    in-out property <string> user;
+    in-out property <string> password;
+    in property <string> error;
+    in property <bool> busy;
+    in-out property <int> shake;
+    callback submit();
+    callback cancel();
+}
+
+component BigButton inherits Rectangle {
+    in property <string> text; in property <bool> primary; in property <bool> enabled: true;
+    callback clicked();
+    height: 30px; border-radius: 15px;
+    opacity: enabled ? 1 : 0.5;
+    background: primary ? (ta.pressed ? Theme.accent.darker(15%) : Theme.accent) : (ta.pressed ? (Theme.dark ? #5a5a5e : #d0d0d5) : (Theme.dark ? #48484a : #e4e4e8));
+    animate background { duration: 100ms; }
+    Text { text: root.text; color: primary ? white : Theme.text; font-size: 13px; font-weight: primary ? 600 : 500; }
+    ta := TouchArea { enabled: root.enabled; clicked => { root.clicked(); } }
+}
+
+export component AuthWindow inherits Window {
+    title: @tr("Authentication");
+    width: 300px; height: layout.preferred-height;
+    background: Theme.dark ? #2a2a2c : #ececee;
+    default-font-family: Theme.font;
+    forward-focus: pw;
+    FocusScope {
+    key-pressed(e) => {
+        if e.text == Key.Escape { Auth.cancel(); return accept; }
+        reject
+    }
+    layout := VerticalLayout {
+        padding: 20px; padding-top: 22px; spacing: 10px;
+        HorizontalLayout { alignment: center;
+            Rectangle { width: 64px; height: 64px;
+                Rectangle { width: 54px; height: 54px; border-radius: 12px;
+                    background: @linear-gradient(180deg, #d9d9de 0%, #a9a9b0 100%);
+                    drop-shadow-blur: 4px; drop-shadow-color: #0003;
+                    Image { width: 34px; height: 34px; source: Glyphs.gear; colorize: #6e6e73; }
+                }
+                Rectangle { x: 34px; y: 32px; width: 30px; height: 30px; border-radius: 15px; background: white; drop-shadow-blur: 3px; drop-shadow-color: #0004;
+                    Image { width: 18px; height: 18px; source: Glyphs.lock; colorize: #1d1d1f; } }
+            }
+        }
+        Text { text: Auth.heading; font-size: 13px; font-weight: 700; color: Theme.text; horizontal-alignment: center; wrap: word-wrap; }
+        Text { text: Auth.body; font-size: 11px; color: Theme.text; horizontal-alignment: center; wrap: word-wrap; }
+        Rectangle { height: 4px; }
+        form := VerticalLayout {
+            spacing: 8px;
+            property <length> dx: 0;
+            Field { placeholder: Auth.user-label; text <=> Auth.user; }
+            pw := Field { placeholder: Auth.password-label; password: true; text <=> Auth.password; accepted => { Auth.submit(); } }
+        }
+        Text { min-height: 14px; text: Auth.error; font-size: 11px; color: #ff3b30; horizontal-alignment: center; wrap: word-wrap; }
+        Rectangle { height: 4px; }
+        BigButton { text: Auth.ok-label; primary: true; enabled: !Auth.busy && Auth.password != ""; clicked => { Auth.submit(); } }
+        BigButton { text: Auth.cancel-label; clicked => { Auth.cancel(); } }
+    }
+    }
+}

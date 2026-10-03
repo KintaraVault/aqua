@@ -1,0 +1,51 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "MIT"
+
+[workspace.dependencies]
+tiny-skia = "0.11"
+ab_glyph = "0.2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+tracing = "0.1"
+dirs = "5"
+smithay-drm-extras = { git = "https://github.com/Smithay/smithay.git", rev = "118e34ffc9b99854a2230c4805e1f37dc9029edb", default-features = false }
+smithay = { git = "https://github.com/Smithay/smithay.git", rev = "118e34ffc9b99854a2230c4805e1f37dc9029edb", default-features = false, features = ["backend_winit", "backend_udev", "backend_drm", "backend_gbm", "backend_libinput", "backend_session_libseat", "backend_egl", "renderer_gl", "wayland_frontend", "desktop", "xwayland"] }
+aqua-config = { path = "crates/aqua-config" }
+aqua-gfx = { path = "crates/aqua-gfx" }
+aqua-icons = { path = "crates/aqua-icons" }
+aqua-apps = { path = "crates/aqua-apps" }
+aqua-wallpaper = { path = "crates/aqua-wallpaper" }
+aqua-shell = { path = "crates/aqua-shell" }
+aqua-render = { path = "crates/aqua-render" }
+aqua-notify = { path = "crates/aqua-notify" }
+aqua-sys = { path = "crates/aqua-sys" }
+aqua-tray = { path = "crates/aqua-tray" }
+aqua-i18n = { path = "crates/aqua-i18n" }
+aqua-wm = { path = "crates/aqua-wm" }
+aqua-screencast = { path = "crates/aqua-screencast" }
+
+[workspace.lints.clippy]
+# Pixel/geometry code: index loops over several buffers and wide drawing helpers are the clear
+# form there; nested generic types (callbacks, caches) are documented where they are declared.
+needless_range_loop = "allow"
+too_many_arguments = "allow"
+type_complexity = "allow"
+
+[profile.dev]
+opt-level = 1
+[profile.dev.package."*"]
+opt-level = 3
+[profile.release]
+opt-level = 3
+debug = false
+[profile.dev.package.aqua-ui]
+opt-level = 0
+debug = 0

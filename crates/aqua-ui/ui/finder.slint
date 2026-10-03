@@ -1,0 +1,918 @@
+import { Theme, Glyphs, Field, PillButton, TrafficLights, PopupSelect, GlassSurround, GlassMenu, Backdrop } from "common.slint";
+import { ListView } from "std-widgets.slint";
+
+export struct FItem {
+    name: string, path: string, is-dir: bool,
+    kind: int, ext: string, size: string, modified: string, kind-label: string,
+    selected: bool, thumb: image, has-thumb: bool, snippet: string,
+    tint: color, has-tint: bool, symbol: string, tags: [color], dim: bool, cut: bool,
+}
+export struct FPlace { label: string, path: string, icon: string, header: string, eject: bool, dot: color, is-tag: bool }
+export struct FColumn { path: string, items: [FItem], active: bool }
+export struct FMenuItem { label: string, id: string, shortcut: string, enabled: bool, separator: bool, checked: bool }
+export struct FKV { k: string, v: string }
+export struct FTagDef { name: string, color: color, on: bool }
+
+export global F {
+    in property <int> mode;
+    in property <bool> glass;
+    in property <bool> active: true;
+    in property <string> title: @tr("Recents");
+    in property <bool> can-back;
+    in property <bool> can-forward;
+    in-out property <int> view;
+    in property <[FPlace]> places;
+    in property <string> cur-place;
+    in property <[FItem]> items;
+    in property <[FColumn]> columns;
+    in property <int> focus-idx: -1;
+    in property <string> empty-text;
+    in property <string> status;
+    in-out property <bool> show-preview: false;
+    in-out property <int> renaming: -1;
+    in property <int> sort-key;
+    in property <bool> sort-desc;
+    in property <bool> pv-any;
+    in property <FItem> pv;
+    in property <[FKV]> pv-info;
+    in property <int> pv-count;
+    in-out property <bool> pv-more;
+    in-out property <bool> searching;
+    in-out property <string> query;
+    in property <bool> search-busy;
+    in-out property <bool> menu-open;
+    in property <[FMenuItem]> menu;
+    in property <bool> menu-tags;
+    in property <length> menu-x;
+    in property <length> menu-y;
+    in property <[FTagDef]> tag-defs;
+    in-out property <bool> tags-open;
+    in-out property <bool> custom-open;
+    in property <FItem> custom;
+    in-out property <bool> custom-emoji;
+    in-out property <bool> goto-open;
+    in-out property <bool> dragging;
+    in property <string> drag-label;
+    in property <int> drag-count;
+    in property <int> drop-idx: -1;
+    in property <string> drop-place;
+    in property <bool> drop-copy;
+    in property <length> drag-x;
+    in property <length> drag-y;
+    in-out property <length> scroll-y;
+    in-out property <string> alert;
+    in property <string> alert-detail;
+    in property <string> alert-ok: @tr("OK");
+    in property <bool> alert-cancel;
+    callback alert-done(bool);
+    in property <string> accept-label: @tr("Open");
+    in property <bool> can-accept;
+    in-out property <string> save-name;
+    in property <[string]> filters;
+    in-out property <int> filter-idx;
+    in property <bool> directory-mode;
+    in property <bool> trash-view;
+
+    callback go(string);
+    callback back();
+    callback forward();
+    callback up();
+    callback select(int, bool, bool);
+    callback select-none();
+    callback open(int);
+    callback context(int, length, length);
+    callback menu-action(string);
+    callback set-view(int);
+    callback sort-by(int);
+    callback search(string);
+    callback search-commit(string);
+    callback key(string, bool, bool, bool, int) -> bool;
+    callback rename(int, string);
+    callback tag-toggle(string);
+    callback custom-color(int);
+    callback custom-symbol(string);
+    callback column-click(int, int, bool, bool);
+    callback column-open(int, int);
+    callback toolbar-menu(string, length, length);
+    callback drag-start(int);
+    callback drag-move(length, length, bool);
+    callback drag-end(length, length, bool);
+    callback accept();
+    callback cancel();
+    callback filter-changed(int);
+    callback save-edited(string);
+    callback goto(string);
+    callback win-drag();
+    callback win-close();
+    callback win-minimize();
+    callback win-zoom();
+    callback win-resize(int);
+
+    out property <image> i-columns: @image-url("icons/f-columns.svg");
+    out property <image> i-gallery: @image-url("icons/f-gallery.svg");
+    out property <image> i-icons: @image-url("icons/f-icons.svg");
+    out property <image> i-list: @image-url("icons/f-list.svg");
+    out property <image> i-group: @image-url("icons/f-group.svg");
+    out property <image> i-share: @image-url("icons/f-share.svg");
+    out property <image> i-tag: @image-url("icons/f-tag.svg");
+    out property <image> i-tag-off: @image-url("icons/f-tag-off.svg");
+    out property <image> i-more: @image-url("icons/f-ellipsis.svg");
+    out property <image> i-search: @image-url("icons/f-search.svg");
+    out property <image> i-chev-down: @image-url("icons/f-chevron-down.svg");
+    out property <image> i-chev-right: @image-url("icons/f-chevron-right.svg");
+    out property <image> i-xmark: @image-url("icons/f-xmark.svg");
+    out property <image> i-plus: @image-url("icons/f-plus.svg");
+    out property <image> i-eject: @image-url("icons/f-eject.svg");
+    out property <image> i-info: @image-url("icons/f-info.svg");
+    out property <image> i-back: @image-url("icons/f-back.svg");
+    out property <image> i-forward: @image-url("icons/f-forward.svg");
+    public pure function glyph(n: string) -> image {
+        if n == "apps" { return @image-url("icons/f-apps.svg"); }
+        if n == "shared" { return @image-url("icons/f-shared.svg"); }
+        if n == "recents" { return @image-url("icons/f-recents.svg"); }
+        if n == "desktop" { return @image-url("icons/f-desktop.svg"); }
+        if n == "docs" { return @image-url("icons/f-docs.svg"); }
+        if n == "downloads" { return @image-url("icons/f-downloads.svg"); }
+        if n == "home" { return @image-url("icons/f-home.svg"); }
+        if n == "computer" { return @image-url("icons/f-computer.svg"); }
+        if n == "disk" { return @image-url("icons/f-disk.svg"); }
+        if n == "network" { return @image-url("icons/f-network.svg"); }
+        if n == "trash" { return @image-url("icons/f-trash.svg"); }
+        if n == "pictures" { return @image-url("icons/f-pictures.svg"); }
+        if n == "music" { return @image-url("icons/f-music.svg"); }
+        if n == "movies" { return @image-url("icons/f-movies.svg"); }
+        if n == "cloud" { return @image-url("icons/f-cloud.svg"); }
+        if n == "smart" { return @image-url("icons/f-smart.svg"); }
+        if n == "terminal" { return @image-url("icons/f-terminal.svg"); }
+        if n == "copy" { return @image-url("icons/f-copy.svg"); }
+        return @image-url("icons/f-folder.svg");
+    }
+    public pure function menu-has-icon(id: string) -> bool {
+        return id == "open" || id == "open-with" || id == "open-window" || id == "trash" || id == "info" || id == "rename"
+            || id == "compress" || id == "duplicate" || id == "alias" || id == "quicklook" || id == "copy" || id == "paste"
+            || id == "cut" || id == "share" || id == "tags-menu" || id == "new-folder" || id == "reveal" || id == "terminal"
+            || id == "new-window" || id == "customize" || id == "put-back" || id == "delete-now" || id == "empty-trash"
+            || id == "hidden" || id == "preview" || id == "goto" || id == "sort-reverse" || id == "mail" || id == "copy-path"
+            || id == "remove-place" || id == "eject";
+    }
+    public pure function menu-icon(id: string) -> image {
+        if id == "open" || id == "open-with" { return @image-url("icons/m-open.svg"); }
+        if id == "open-window" || id == "new-window" { return @image-url("icons/m-window.svg"); }
+        if id == "trash" || id == "empty-trash" { return @image-url("icons/f-trash.svg"); }
+        if id == "delete-now" { return @image-url("icons/m-xbin.svg"); }
+        if id == "info" { return @image-url("icons/f-info.svg"); }
+        if id == "rename" { return @image-url("icons/m-rename.svg"); }
+        if id == "compress" { return @image-url("icons/m-compress.svg"); }
+        if id == "duplicate" { return @image-url("icons/m-duplicate.svg"); }
+        if id == "alias" { return @image-url("icons/m-alias.svg"); }
+        if id == "quicklook" { return @image-url("icons/m-eye.svg"); }
+        if id == "hidden" { return @image-url("icons/m-eye-slash.svg"); }
+        if id == "copy" || id == "copy-path" { return @image-url("icons/f-copy.svg"); }
+        if id == "paste" { return @image-url("icons/m-paste.svg"); }
+        if id == "cut" { return @image-url("icons/m-cut.svg"); }
+        if id == "share" { return @image-url("icons/f-share.svg"); }
+        if id == "tags-menu" { return @image-url("icons/f-tag.svg"); }
+        if id == "new-folder" { return @image-url("icons/m-folder-plus.svg"); }
+        if id == "reveal" { return @image-url("icons/f-folder.svg"); }
+        if id == "terminal" { return @image-url("icons/f-terminal.svg"); }
+        if id == "customize" { return @image-url("icons/m-brush.svg"); }
+        if id == "put-back" { return @image-url("icons/m-putback.svg"); }
+        if id == "preview" { return @image-url("icons/m-sidebar-right.svg"); }
+        if id == "goto" { return @image-url("icons/m-goto.svg"); }
+        if id == "sort-reverse" { return @image-url("icons/m-sort.svg"); }
+        if id == "mail" { return @image-url("icons/m-mail.svg"); }
+        if id == "eject" { return @image-url("icons/f-eject.svg"); }
+        return @image-url("icons/f-xmark.svg");
+    }
+}
+
+export component FolderIcon inherits Rectangle {
+    in property <length> s: 64px;
+    in property <color> tint: #5ebcf7;
+    in property <string> symbol;
+    width: s; height: s;
+    property <color> back: tint.darker(18%);
+    Rectangle { x: s * 0.04; y: s * 0.13; width: s * 0.40; height: s * 0.16; border-radius: s * 0.05; background: back; }
+    Rectangle { x: s * 0.04; y: s * 0.19; width: s * 0.92; height: s * 0.64; border-radius: s * 0.06; background: back; }
+    Rectangle {
+        x: s * 0.04; y: s * 0.29; width: s * 0.92; height: s * 0.56; border-radius: s * 0.06;
+        background: @linear-gradient(180deg, tint.brighter(14%) 0%, tint 100%);
+        drop-shadow-blur: s * 0.03; drop-shadow-color: #0000001c; drop-shadow-offset-y: -0.5px;
+        Rectangle { y: 0; height: max(1px, s * 0.012); x: parent.border-radius; width: parent.width - 2 * parent.border-radius; background: #ffffff80; }
+        if symbol != "": Text {
+            text: symbol; font-size: s * 0.27; color: tint.darker(38%).with-alpha(0.78);
+            horizontal-alignment: center; vertical-alignment: center;
+        }
+    }
+}
+
+export component FileIcon inherits Rectangle {
+    in property <FItem> item;
+    in property <length> s: 64px;
+    in property <bool> big-text: false;
+    width: s; height: s;
+    property <float> ar: item.thumb.width > 0 ? item.thumb.width / max(1, item.thumb.height) : 1;
+    if item.kind == 0: FolderIcon { s: root.s; tint: item.has-tint ? item.tint : #5ebcf7; symbol: item.symbol; }
+    if item.kind == 9: Rectangle {
+        width: s * 0.86; height: s * 0.5; border-radius: s * 0.1;
+        background: @linear-gradient(180deg, #e9e9ec 0%, #b9b9bf 100%);
+        border-width: 0.5px; border-color: #00000030;
+        drop-shadow-blur: s * 0.04; drop-shadow-color: #00000030; drop-shadow-offset-y: s * 0.02;
+        Rectangle { x: parent.width * 0.76; width: s * 0.06; height: s * 0.06; border-radius: s * 0.03; background: #3ddc5c; }
+    }
+    if (item.kind == 5 || (item.kind == 2 && item.has-thumb)) && item.kind != 0: Rectangle {
+        width: ar >= 1 ? s : s * ar; height: ar >= 1 ? s / ar : s;
+        border-radius: item.kind == 5 ? 0 : max(2px, s * 0.04);
+        clip: item.kind != 5;
+        drop-shadow-blur: item.kind == 5 ? 0 : s * 0.04; drop-shadow-color: item.kind == 5 ? transparent : #00000038; drop-shadow-offset-y: item.kind == 5 ? 0 : 1px;
+        background: item.kind == 5 ? transparent : white;
+        Image { source: item.thumb; width: 100%; height: 100%; image-fit: item.kind == 5 ? contain : cover; }
+    }
+    if item.kind != 0 && item.kind != 5 && item.kind != 9 && !(item.kind == 2 && item.has-thumb): page := Rectangle {
+        width: s * 0.74; height: s * 0.94; border-radius: max(1.5px, s * 0.03);
+        background: Theme.dark ? #f4f4f6 : white;
+        border-width: 0.5px; border-color: #0000002e;
+        drop-shadow-blur: s * 0.03; drop-shadow-color: #00000026; drop-shadow-offset-y: 0.5px;
+        clip: true;
+        if item.has-thumb: Image { source: item.thumb; width: 100%; height: 100%; image-fit: cover; }
+        if !item.has-thumb && item.snippet != "": Text {
+            x: page.width * 0.09; y: page.height * 0.07; width: page.width * 0.82; height: page.height * 0.86;
+            text: item.snippet; font-size: max(1.2px, s * 0.034); color: #333;
+            wrap: word-wrap; overflow: TextOverflow.clip; font-family: "DejaVu Sans Mono";
+        }
+        Path {
+            x: page.width - s * 0.2; y: 0; width: s * 0.2; height: s * 0.2;
+            viewbox-width: 10; viewbox-height: 10;
+            commands: "M0 0 L10 10 L1.5 10 Q0 10 0 8.5 Z";
+            fill: @linear-gradient(225deg, #ffffff 0%, #d9d9de 100%); stroke: #00000024; stroke-width: 0.5px;
+        }
+        Path { x: page.width - s * 0.2; y: 0; width: s * 0.2; height: s * 0.2; viewbox-width: 10; viewbox-height: 10; commands: "M0 0 L10 0 L10 10 Z"; fill: Theme.dark ? #1f1f21 : white; }
+        if !item.has-thumb && item.snippet == "": VerticalLayout {
+            alignment: center; spacing: s * 0.04;
+            Image {
+                height: s * 0.32;
+                source: item.kind == 2 ? F.glyph("pictures") : item.kind == 3 ? F.glyph("music") : item.kind == 4 ? F.glyph("movies") : item.kind == 7 ? F.i-group : F.glyph("docs");
+                colorize: item.kind == 2 ? #34c759 : item.kind == 3 ? #ff2d55 : item.kind == 4 ? #af52de : item.kind == 7 ? #8e8e93 : item.kind == 8 ? #e5463b : #a0a0a8;
+            }
+            if item.ext != "" && s >= 40px: Text {
+                text: item.ext; horizontal-alignment: center; font-size: max(6px, s * 0.11); font-weight: 700;
+                color: item.kind == 8 ? #e5463b : #8e8e93;
+            }
+        }
+    }
+}
+
+component TagDots inherits HorizontalLayout {
+    in property <[color]> tags;
+    spacing: -3px;
+    alignment: center;
+    for c in tags: Rectangle { width: 9px; height: 9px; border-radius: 4.5px; background: c; border-width: 1px; border-color: Theme.window-bg; }
+}
+
+component IconCell inherits Rectangle {
+    in property <FItem> item;
+    in property <int> idx;
+    in property <length> icon: 64px;
+    in property <bool> drop-target;
+    property <bool> sel: item.selected;
+    property <bool> pressed-here;
+    property <length> px; property <length> py;
+    opacity: item.dim ? 0.4 : (item.cut ? 0.55 : 1);
+    Rectangle {
+        x: (parent.width - icon - 8px) / 2; y: -4px; width: icon + 8px; height: icon + 8px;
+        border-radius: 10px;
+        background: drop-target ? Theme.accent.with-alpha(0.25) : sel ? (Theme.dark ? #ffffff24 : #0000001a) : transparent;
+        FileIcon { x: 4px; y: 4px; item: root.item; s: root.icon; }
+    }
+    if F.renaming != idx: Rectangle {
+        property <length> tw: item.tags.length > 0 ? 14px : 0px;
+        property <length> padx: sel ? 6px : 2px;
+        property <bool> two: lbl.preferred-width + tw + 2 * padx > root.width - 4px;
+        y: icon + 7px;
+        height: two ? 33px : 18px;
+        width: two ? root.width - 4px : lbl.preferred-width + tw + 2 * padx;
+        x: (root.width - self.width) / 2;
+        border-radius: 5px;
+        background: sel ? Theme.accent : transparent;
+        if item.tags.length > 0: TagDots { x: padx; y: 4px; height: 9px; tags: item.tags; }
+        lbl := Text {
+            x: padx + tw; width: parent.width - 2 * padx - tw; height: parent.height;
+            text: item.name; font-size: 12px; letter-spacing: 0.35px; color: sel ? white : Theme.text;
+            horizontal-alignment: center; vertical-alignment: center; wrap: word-wrap; overflow: elide;
+        }
+    }
+    if F.renaming == idx: Rectangle {
+        y: icon + 15px; height: 22px; x: 2px; width: parent.width - 4px;
+        background: Theme.window-bg; border-width: 2px; border-color: Theme.accent.with-alpha(0.6); border-radius: 4px;
+        ti := TextInput {
+            x: 4px; width: parent.width - 8px; text: item.name; font-size: 12px; color: Theme.text;
+            horizontal-alignment: center; vertical-alignment: center; single-line: true;
+            accepted => { F.rename(idx, self.text); }
+            key-pressed(e) => { if e.text == Key.Escape { F.renaming = -1; return accept; } reject }
+            init => { self.focus(); self.select-all(); }
+        }
+    }
+    ta := TouchArea {
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                if !(sel && !e.modifiers.shift && !e.modifiers.control && !e.modifiers.meta) {
+                    F.select(idx, e.modifiers.control || e.modifiers.meta, e.modifiers.shift);
+                }
+                root.pressed-here = true; root.px = self.mouse-x; root.py = self.mouse-y;
+            }
+            if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
+                if F.dragging { F.drag-end(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, e.modifiers.alt); }
+                else if sel && root.pressed-here && !e.modifiers.shift && !e.modifiers.control && !e.modifiers.meta { F.select(idx, false, false); }
+                root.pressed-here = false;
+            }
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                F.context(idx, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+            }
+        }
+        moved => {
+            if root.pressed-here && self.pressed {
+                if !F.dragging && (abs(self.mouse-x - root.px) > 6px || abs(self.mouse-y - root.py) > 6px) && F.mode == 0 { F.drag-start(idx); }
+                if F.dragging { F.drag-move(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, false); }
+            }
+        }
+        double-clicked => { F.open(idx); }
+    }
+}
+
+component ListRow inherits Rectangle {
+    in property <FItem> item;
+    in property <int> idx;
+    in property <length> c1; in property <length> c2; in property <length> c3;
+    in property <bool> drop-target;
+    property <bool> sel: item.selected;
+    property <bool> pressed-here;
+    property <length> px; property <length> py;
+    height: 20px;
+    opacity: item.dim ? 0.4 : (item.cut ? 0.55 : 1);
+    Rectangle {
+        x: 10px; width: parent.width - 20px; border-radius: 6px;
+        background: drop-target ? Theme.accent.with-alpha(0.25) : sel ? Theme.accent : (mod(idx, 2) == 1 ? (Theme.dark ? #ffffff0d : #0000000a) : transparent);
+    }
+    FileIcon { x: 22px; y: 2px; item: root.item; s: 16px; }
+    if F.renaming != idx: Text { x: 46px; width: c1 - 54px; text: item.name; font-size: 13px; letter-spacing: 0.4px; color: sel ? white : Theme.text; vertical-alignment: center; overflow: elide; }
+    if F.renaming == idx: Rectangle {
+        x: 38px; width: c1 - 44px; height: 20px; background: Theme.window-bg; border-width: 2px; border-color: Theme.accent.with-alpha(0.6); border-radius: 4px;
+        TextInput { x: 4px; width: parent.width - 8px; text: item.name; font-size: 13px; color: Theme.text; vertical-alignment: center; single-line: true;
+            accepted => { F.rename(idx, self.text); }
+            key-pressed(e) => { if e.text == Key.Escape { F.renaming = -1; return accept; } reject }
+            init => { self.focus(); self.select-all(); }
+        }
+    }
+    if item.tags.length > 0: TagDots { x: c1 - 8px - self.preferred-width; y: (parent.height - 9px) / 2; height: 9px; tags: item.tags; }
+    Text { x: c1; width: c2 - c1 - 8px; text: item.modified; font-size: 12px; color: sel ? white : Theme.text-secondary; vertical-alignment: center; overflow: elide; }
+    Text { x: c2; width: c3 - c2 - 16px; text: item.size; font-size: 12px; color: sel ? white : Theme.text-secondary; vertical-alignment: center; horizontal-alignment: right; overflow: elide; }
+    Text { x: c3; width: parent.width - c3 - 16px; text: item.kind-label; font-size: 12px; color: sel ? white : Theme.text-secondary; vertical-alignment: center; overflow: elide; }
+    TouchArea {
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                if !(sel && !e.modifiers.shift && !e.modifiers.control && !e.modifiers.meta) { F.select(idx, e.modifiers.control || e.modifiers.meta, e.modifiers.shift); }
+                root.pressed-here = true; root.px = self.mouse-x; root.py = self.mouse-y;
+            }
+            if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
+                if F.dragging { F.drag-end(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, e.modifiers.alt); }
+                else if sel && root.pressed-here && !e.modifiers.shift && !e.modifiers.control && !e.modifiers.meta { F.select(idx, false, false); }
+                root.pressed-here = false;
+            }
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right { F.context(idx, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+        }
+        moved => {
+            if root.pressed-here && self.pressed {
+                if !F.dragging && (abs(self.mouse-x - root.px) > 6px || abs(self.mouse-y - root.py) > 6px) && F.mode == 0 { F.drag-start(idx); }
+                if F.dragging { F.drag-move(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, false); }
+            }
+        }
+        double-clicked => { F.open(idx); }
+    }
+}
+
+component ToolGlyph inherits Rectangle {
+    in property <image> glyph;
+    in property <bool> on;
+    in property <bool> chevron;
+    in property <length> w: 34px;
+    callback clicked(length, length);
+    width: w; height: 30px; border-radius: 15px;
+    background: on ? (Theme.dark ? #ffffff2e : #0000001a) : ta.pressed ? Theme.control-pressed : (ta.has-hover ? Theme.hover : transparent);
+    HorizontalLayout {
+        alignment: center; spacing: 2px;
+        VerticalLayout { alignment: center; Image { width: 19px; height: 19px; source: glyph; colorize: Theme.text; } }
+        if chevron: VerticalLayout { alignment: center; Image { width: 9px; height: 9px; source: F.i-chev-down; colorize: Theme.text; } }
+    }
+    ta := TouchArea { clicked => { root.clicked(self.absolute-position.x, self.absolute-position.y + root.height + 6px); } }
+}
+
+component Capsule inherits Rectangle {
+    height: 36px; border-radius: 18px;
+    background: Theme.dark ? #ffffff17 : #ffffffd9;
+    border-width: 0.5px; border-color: Theme.dark ? #ffffff1f : #0000000f;
+    drop-shadow-blur: 8px; drop-shadow-color: #0000001c; drop-shadow-offset-y: 1px;
+}
+
+export component FinderWindow inherits Window {
+    in property <string> title-override;
+    title: title-override != "" ? title-override : F.title;
+    no-frame: true;
+    preferred-width: 1000px; preferred-height: 600px;
+    min-width: 620px; min-height: 380px;
+    background: transparent;
+    default-font-family: Theme.font;
+    forward-focus: keys;
+    in property <int> repaint;
+    property <length> side-w: 157px;
+    property <length> cx: side-w + 8px;
+    property <length> pv-w: F.show-preview && F.mode == 0 && root.width > 820px ? 268px : 0px;
+    property <length> top-h: F.mode == 2 ? 52px + 78px : 52px;
+    property <length> bot-h: F.mode != 0 ? 52px : 0px;
+    property <length> cw: root.width - cx - pv-w;
+    property <length> ch: root.height - top-h - bot-h;
+    property <length> icon-s: 64px;
+    property <length> cell-w: 127px;
+    property <length> cell-h: 116px;
+    property <int> cols: max(1, floor((cw - 16px) / cell-w));
+    property <length> pad: (cw - 16px - cols * cell-w) / 2;
+    property <length> c1: max(220px, (cw - 16px) * 0.45);
+    property <length> c2: c1 + max(150px, (cw - 16px) * 0.25);
+    property <length> c3: c2 + 80px;
+    Rectangle { background: mod(repaint, 2) == 0 ? #00000000 : #00000001; }
+
+    if !F.glass: Rectangle { background: Theme.window-bg; }
+    if F.glass: GlassSurround { width: root.width; height: root.height; color: Theme.window-bg;
+        hole-x: 8px; hole-y: 8px; hole-w: side-w; hole-h: root.height - 16px; hole-r: 20px; }
+
+    keys := FocusScope {
+        key-pressed(e) => {
+            if F.renaming >= 0 { return reject; }
+            if e.text == Key.Escape && (F.menu-open || F.tags-open || F.custom-open || F.goto-open) {
+                F.menu-open = false; F.tags-open = false; F.custom-open = false; F.goto-open = false; return accept;
+            }
+            if F.key(e.text, e.modifiers.control || e.modifiers.meta, e.modifiers.shift, e.modifiers.alt, cols) { return accept; }
+            reject
+        }
+    }
+
+    content := Rectangle {
+        x: cx; y: top-h; width: cw; height: ch;
+        TouchArea {
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.select-none(); keys.focus(); }
+                if e.kind == PointerEventKind.down && e.button == PointerEventButton.right { F.select-none(); F.context(-1, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+            }
+        }
+        if F.items.length == 0 && F.view != 2: Text {
+            text: F.empty-text; font-size: 13px; color: Theme.text-tertiary;
+            horizontal-alignment: center; vertical-alignment: center;
+        }
+        if F.view == 0: iv := ListView {
+            changed content-y => { F.scroll-y = self.content-y; }
+            for r in ceil(F.items.length / cols): Rectangle {
+                height: r == ceil(F.items.length / cols) - 1 ? cell-h + 24px : cell-h;
+                TouchArea {
+                    pointer-event(e) => {
+                        if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.select-none(); keys.focus(); }
+                        if e.kind == PointerEventKind.down && e.button == PointerEventButton.right { F.select-none(); F.context(-1, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+                    }
+                }
+                for c in cols: Rectangle {
+                    x: pad + c * cell-w; y: 24px; width: cell-w; height: cell-h - 24px;
+                    if r * cols + c < F.items.length: IconCell {
+                        item: F.items[r * cols + c]; idx: r * cols + c; icon: icon-s;
+                        drop-target: F.drop-idx == r * cols + c;
+                    }
+                }
+            }
+        }
+        if F.view == 1: Rectangle {
+            Rectangle {
+                height: 28px; y: 0;
+                for h[i] in [{ t: @tr("Name"), x: 46px, k: 0 }, { t: @tr("Date Modified"), x: c1, k: 2 }, { t: @tr("Size"), x: c2, k: 3 }, { t: @tr("Kind"), x: c3, k: 1 }]: Rectangle {
+                    x: h.x - 6px; width: i == 0 ? c1 - 40px : i == 1 ? c2 - c1 : i == 2 ? c3 - c2 : cw - c3 - 8px; height: 28px;
+                    Text { x: 6px; width: parent.width - 24px; text: h.t; font-size: 11px; font-weight: F.sort-key == h.k ? 700 : 400; color: F.sort-key == h.k ? Theme.text : Theme.text-secondary; vertical-alignment: center; horizontal-alignment: left; }
+                    if F.sort-key == h.k: Image { x: parent.width - 18px; width: 9px; height: 9px; y: 10px; source: F.i-chev-down; colorize: Theme.text-secondary; transform-rotation: F.sort-desc ? 0deg : 180deg; }
+                    TouchArea { clicked => { F.sort-by(h.k); } }
+                    if i > 0: Rectangle { x: 0; width: 1px; y: 5px; height: 18px; background: Theme.separator; }
+                }
+                Rectangle { y: parent.height - 1px; height: 1px; x: 0; width: parent.width; background: Theme.separator; }
+            }
+            ListView {
+                y: 32px; height: parent.height - 32px;
+                changed content-y => { F.scroll-y = self.content-y; }
+                for it[i] in F.items: ListRow { item: it; idx: i; c1: c1; c2: c2; c3: c3; drop-target: F.drop-idx == i; }
+            }
+        }
+        if F.view == 2: Flickable {
+            content-width: max(self.width, F.columns.length * 230px);
+            content-x: min(0px, self.width - F.columns.length * 230px);
+            for col[ci] in F.columns: Rectangle {
+                x: ci * 230px; width: 230px;
+                Rectangle { x: parent.width - 1px; width: 1px; background: Theme.separator; }
+                ListView {
+                    width: parent.width - 1px;
+                    for it[i] in col.items: Rectangle {
+                        height: 24px;
+                        opacity: it.dim ? 0.4 : 1;
+                        property <bool> on: it.selected;
+                        Rectangle { x: 6px; width: parent.width - 12px; border-radius: 6px;
+                            background: on ? (col.active ? Theme.accent : (Theme.dark ? #ffffff2e : #0000001f)) : transparent; }
+                        FileIcon { x: 14px; y: 4px; item: it; s: 16px; }
+                        Text { x: 36px; width: parent.width - 60px; text: it.name; font-size: 13px; vertical-alignment: center; overflow: elide; color: on && col.active ? white : Theme.text; }
+                        if it.is-dir: Image { x: parent.width - 22px; y: 7px; width: 10px; height: 10px; source: F.i-chev-right; colorize: on && col.active ? white : Theme.text-secondary; }
+                        TouchArea {
+                            pointer-event(e) => {
+                                if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.column-click(ci, i, e.modifiers.control || e.modifiers.meta, e.modifiers.shift); keys.focus(); }
+                                if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                                    F.column-click(ci, i, false, false);
+                                    F.context(-3, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                                }
+                            }
+                            double-clicked => { F.column-open(ci, i); }
+                        }
+                    }
+                }
+            }
+        }
+        if F.view == 3: Rectangle {
+            property <length> strip: 86px;
+            Rectangle {
+                y: 8px; height: parent.height - strip - 16px;
+                if F.pv-any: FileIcon { item: F.pv; s: min(parent.width - 40px, parent.height - 20px); }
+            }
+            Flickable {
+                y: parent.height - strip; height: strip;
+                content-width: max(self.width, F.items.length * 64px + 24px);
+                content-x: F.focus-idx >= 0 ? max(min(0px, self.width - F.items.length * 64px - 24px), min(0px, self.width / 2 - F.focus-idx * 64px - 44px)) : 0px;
+                animate content-x { duration: 180ms; easing: ease-out; }
+                for it[i] in F.items: Rectangle {
+                    x: 12px + i * 64px; y: 10px; width: 60px; height: 60px; border-radius: 8px;
+                    background: it.selected ? Theme.accent.with-alpha(0.22) : transparent;
+                    border-width: it.selected ? 2px : 0px; border-color: Theme.accent;
+                    FileIcon { item: it; s: 46px; }
+                    TouchArea {
+                        pointer-event(e) => {
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.select(i, e.modifiers.control || e.modifiers.meta, e.modifiers.shift); keys.focus(); }
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right { F.select(i, false, false); F.context(i, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+                        }
+                        double-clicked => { F.open(i); }
+                    }
+                }
+            }
+            Rectangle { y: parent.height - strip - 1px; height: 1px; background: Theme.separator; }
+        }
+    }
+
+    if F.mode == 2: Rectangle {
+        x: cx; y: 52px; width: cw + pv-w; height: 78px;
+        GridLayout {
+            x: 0; width: min(parent.width, 460px); padding-left: 24px; spacing: 8px; padding-top: 8px;
+            Row {
+                Text { text: @tr("Save As:"); font-size: 13px; color: Theme.text; vertical-alignment: center; horizontal-alignment: right; }
+                Field { text <=> F.save-name; placeholder: @tr("Untitled"); edited(t) => { F.save-edited(t); } accepted => { F.accept(); } }
+            }
+            Row {
+                Text { text: @tr("Tags:"); font-size: 13px; color: Theme.text; vertical-alignment: center; horizontal-alignment: right; }
+                Rectangle { height: 28px; border-radius: 7px; background: Theme.field-bg;
+                    HorizontalLayout { padding-left: 8px; spacing: 6px; alignment: start;
+                        for t in F.tag-defs: VerticalLayout { alignment: center;
+                            Rectangle { width: 14px; height: 14px; border-radius: 7px; background: t.color;
+                                border-width: t.on ? 2px : 0px; border-color: Theme.text;
+                                TouchArea { clicked => { F.tag-toggle(t.name); } } }
+                        }
+                    }
+                }
+            }
+        }
+        Rectangle { y: parent.height - 1px; height: 1px; background: Theme.separator; }
+    }
+
+    if pv-w > 0: Rectangle {
+        x: root.width - pv-w; y: 52px; width: pv-w; height: root.height - 52px - bot-h;
+        Rectangle { x: 0; width: 1px; background: Theme.separator; }
+        if !F.pv-any: Text { text: F.pv-count > 1 ? F.pv-count + " items selected" : @tr("No Selection"); font-size: 13px; color: Theme.text-tertiary; horizontal-alignment: center; vertical-alignment: center; }
+        if F.pv-any: Flickable {
+            x: 1px; width: parent.width - 1px; height: parent.height - 52px;
+            content-height: pvl.preferred-height;
+            pvl := VerticalLayout {
+                width: parent.width;
+                padding: 12px; padding-top: 4px; spacing: 6px;
+                Rectangle {
+                    height: F.pv.snippet != "" && !F.pv.has-thumb ? 228px : 220px;
+                    border-radius: 10px;
+                    background: F.pv.snippet != "" && !F.pv.has-thumb ? (Theme.dark ? #2a2a2c : white) : transparent;
+                    border-width: F.pv.snippet != "" && !F.pv.has-thumb ? 0.5px : 0px; border-color: Theme.separator;
+                    clip: true;
+                    if F.pv.snippet != "" && !F.pv.has-thumb: Text {
+                        x: 8px; y: 8px; width: parent.width - 16px; height: parent.height - 12px;
+                        text: F.pv.snippet; font-size: 10.5px; font-family: "DejaVu Sans Mono"; color: Theme.text; wrap: word-wrap; overflow: TextOverflow.clip;
+                    }
+                    if F.pv.snippet == "" || F.pv.has-thumb: FileIcon { item: F.pv; s: min(parent.width - 16px, 200px); }
+                }
+                Rectangle { height: 6px; }
+                Text { text: F.pv.name; font-size: 15px; font-weight: 700; color: Theme.text; wrap: word-wrap; }
+                Text { text: F.pv.kind-label + (F.pv.size != "" && F.pv.size != "--" ? " - " + F.pv.size : ""); font-size: 12px; color: Theme.text-secondary; }
+                if F.pv.tags.length > 0: HorizontalLayout { alignment: start; TagDots { tags: F.pv.tags; } }
+                Rectangle { height: 8px; }
+                Text { text: @tr("Information"); font-size: 13px; font-weight: 700; color: Theme.text; }
+                for kv[i] in F.pv-info: VerticalLayout {
+                    if F.pv-more || i < 3: Rectangle {
+                        height: 26px;
+                        Text { x: 0; width: 110px; text: kv.k; font-size: 12px; color: Theme.text-secondary; vertical-alignment: center; overflow: elide; }
+                        Text { x: 110px; width: parent.width - 110px; text: kv.v; font-size: 12px; color: Theme.text; horizontal-alignment: right; vertical-alignment: center; overflow: elide; }
+                        Rectangle { y: parent.height - 1px; height: 1px; background: Theme.separator; }
+                    }
+                }
+            }
+        }
+        if F.pv-any: Rectangle {
+            y: parent.height - 64px; height: 64px;
+            Rectangle { y: 0; height: 1px; x: 1px; background: Theme.separator; }
+            VerticalLayout { alignment: center; spacing: 3px;
+                HorizontalLayout { alignment: center;
+                    Rectangle { width: 26px; height: 26px; border-radius: 13px; background: pmore.has-hover ? Theme.hover : transparent;
+                        border-width: 1px; border-color: Theme.text-secondary;
+                        Image { width: 13px; height: 13px; source: F.i-more; colorize: Theme.text-secondary; } }
+                }
+                Text { text: F.pv-more ? @tr("Less") : @tr("More..."); font-size: 11px; color: Theme.text-secondary; horizontal-alignment: center; }
+            }
+            pmore := TouchArea { clicked => { F.pv-more = !F.pv-more; } }
+        }
+    }
+
+    Rectangle {
+        x: cx; y: 0; width: root.width - self.x; height: 52px;
+        TouchArea {
+            pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.win-drag(); } }
+        }
+        Capsule {
+            x: 7px; y: 8px; width: 72px;
+            for d in 2: Rectangle { x: d * 36px; width: 36px; height: 36px; border-radius: 18px;
+                property <bool> on: d == 0 ? F.can-back : F.can-forward;
+                background: bta.pressed && on ? Theme.control-pressed : transparent;
+                Image { x: d == 0 ? 14px : 13px; width: 9px; height: 15px; source: d == 0 ? F.i-back : F.i-forward; colorize: on ? Theme.text : Theme.text-tertiary; }
+                bta := TouchArea { enabled: on; clicked => { if (d == 0) { F.back(); } else { F.forward(); } } }
+            }
+            Rectangle { x: 36px; y: 9px; width: 1px; height: 18px; background: Theme.dark ? #ffffff14 : #0000000d; }
+        }
+        Text {
+            x: 93px; height: 52px; width: max(40px, tools.x - 100px);
+            vertical-alignment: center; font-size: 15px; font-weight: 700; color: Theme.text; text: F.title; overflow: elide;
+        }
+        property <bool> wide: root.width > 900px;
+        tools := HorizontalLayout {
+            x: parent.width - self.preferred-width - 9px; y: 8px; height: 36px; spacing: 14px;
+            Capsule {
+                width: vh.preferred-width + 8px;
+                vh := HorizontalLayout { x: 4px; padding-top: 3px; padding-bottom: 3px; spacing: 0px;
+                    ToolGlyph { w: 35px; glyph: F.i-icons; on: F.view == 0; clicked => { F.set-view(0); } }
+                    ToolGlyph { w: 35px; glyph: F.i-list; on: F.view == 1; clicked => { F.set-view(1); } }
+                    ToolGlyph { w: 35px; glyph: F.i-columns; on: F.view == 2; clicked => { F.set-view(2); } }
+                    ToolGlyph { w: 35px; glyph: F.i-gallery; on: F.view == 3; clicked => { F.set-view(3); } }
+                }
+            }
+            if wide: Capsule {
+                width: 49px;
+                ToolGlyph { x: 2px; y: 3px; w: 45px; glyph: F.i-group; chevron: true; clicked(x, y) => { F.toolbar-menu("sort", x, y); } }
+            }
+            if F.mode == 0: Capsule {
+                width: th.preferred-width + 8px;
+                th := HorizontalLayout { x: 4px; padding-top: 3px; padding-bottom: 3px; spacing: 0px;
+                    ToolGlyph { w: 36.6px; glyph: F.i-share; clicked(x, y) => { F.toolbar-menu("share", x, y); } }
+                    ToolGlyph { w: 36.6px; glyph: F.i-tag; on: F.tags-open; clicked(x, y) => { F.toolbar-menu("tags", x, y); } }
+                    ToolGlyph { w: 36.6px; glyph: F.i-more; clicked(x, y) => { F.toolbar-menu("more", x, y); } }
+                }
+            }
+            if !F.searching: Capsule {
+                width: 36px;
+                ToolGlyph { x: 1px; y: 3px; w: 34px; glyph: F.i-search; clicked => { F.searching = true; } }
+            }
+            if F.searching: Capsule {
+                width: 230px;
+                Image { x: 12px; width: 14px; height: 14px; source: F.i-search; colorize: Theme.text-secondary; }
+                sf := TextInput {
+                    x: 34px; width: parent.width - 62px; height: 100%; text <=> F.query; font-size: 13px; color: Theme.text;
+                    vertical-alignment: center; single-line: true;
+                    edited => { F.search(self.text); }
+                    accepted => { F.search-commit(self.text); }
+                    key-pressed(e) => { if e.text == Key.Escape { F.searching = false; F.query = ""; F.search(""); keys.focus(); return accept; } reject }
+                    init => { self.focus(); }
+                }
+                if F.query == "": Text { x: 34px; height: 100%; text: @tr("Search"); font-size: 13px; color: Theme.text-tertiary; vertical-alignment: center; }
+                Rectangle { x: parent.width - 26px; width: 18px; height: 18px; border-radius: 9px; background: Theme.text-tertiary;
+                    Image { width: 9px; height: 9px; source: F.i-xmark; colorize: Theme.window-bg; }
+                    TouchArea { clicked => { F.searching = false; F.query = ""; F.search(""); keys.focus(); } } }
+            }
+        }
+    }
+
+    if F.mode != 0: Rectangle {
+        x: cx; y: root.height - 52px; width: root.width - cx; height: 52px;
+        Rectangle { y: 0; height: 1px; background: Theme.separator; }
+        HorizontalLayout {
+            padding-left: 16px; padding-right: 16px; spacing: 10px; alignment: stretch;
+            if F.mode == 2 || F.directory-mode: VerticalLayout { alignment: center; PillButton { text: @tr("New Folder"); clicked => { F.menu-action("new-folder"); } } }
+            Rectangle { horizontal-stretch: 1; }
+            if F.filters.length > 0: VerticalLayout { alignment: center; width: 170px;
+                PopupSelect { bezel: true; items: F.filters; current <=> F.filter-idx; changed(i) => { F.filter-changed(i); } }
+            }
+            VerticalLayout { alignment: center; PillButton { text: @tr("Cancel"); min-w: 76px; clicked => { F.cancel(); } } }
+            VerticalLayout { alignment: center; PillButton { text: F.accept-label; primary: true; min-w: 76px; enabled: F.can-accept; clicked => { F.accept(); } } }
+        }
+    }
+
+    Rectangle {
+        x: 8px; y: 8px; width: side-w; height: root.height - 16px;
+        border-radius: 20px;
+        background: F.glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%);
+        border-width: 0.5px; border-color: F.glass ? (Theme.dark ? #ffffff26 : #ffffffb0) : Theme.sidebar-border;
+        drop-shadow-blur: 10px; drop-shadow-color: #00000017; drop-shadow-offset-y: 2px;
+        TouchArea { height: 44px;
+            pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.win-drag(); } }
+        }
+        TrafficLights { x: 10px; y: 10px; active: F.active; close => { F.win-close(); } minimize => { F.win-minimize(); } zoom => { F.win-zoom(); } }
+        sideflick := Flickable {
+            x: 0; y: 44px; width: parent.width; height: parent.height - 50px;
+            content-height: side.preferred-height + 8px;
+            side := VerticalLayout {
+                width: parent.width; padding-left: 9px; padding-right: 9px; spacing: 0px;
+                for p in F.places: VerticalLayout {
+                    if p.header != "": Rectangle { height: 32px;
+                        Text { x: 8px; y: 0; height: 29px; text: p.header; font-size: 11px; font-weight: 700; letter-spacing: 0.2px; color: Theme.dark ? #ffffff80 : #00000096; vertical-alignment: TextVerticalAlignment.bottom; } }
+                    Rectangle {
+                        height: 32px; border-radius: 10px;
+                        property <bool> sel: F.cur-place == p.path;
+                        property <bool> drop: F.dragging && F.drop-place == p.path;
+                        background: drop ? Theme.accent.with-alpha(0.3) : sel ? (Theme.dark ? #ffffff1f : #0000000f) : (ta.has-hover ? Theme.hover : transparent);
+                        if !p.is-tag: Image { x: 9px; width: 19px; height: 19px; source: F.glyph(p.icon); colorize: sel ? Theme.accent : (Theme.dark ? #ffffffd0 : #000000d8); }
+                        if p.is-tag: Rectangle { x: 13px; width: 11px; height: 11px; border-radius: 5.5px; background: p.dot; }
+                        Text { x: 38px; width: parent.width - 38px - (p.eject ? 24px : 6px); text: p.label; font-size: 13px; letter-spacing: 0.45px; color: sel ? Theme.accent : Theme.text; vertical-alignment: center; overflow: elide; }
+                        if p.eject: Image { x: parent.width - 22px; width: 13px; height: 13px; source: F.i-eject; colorize: Theme.text-secondary;
+                            TouchArea { clicked => { F.menu-action("eject:" + p.path); } } }
+                        ta := TouchArea {
+                            clicked => { F.go(p.path); keys.focus(); }
+                            pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.right { F.menu-action("place-menu:" + p.path); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for e[i] in [
+        { x: 10px, y: 0px, w: root.width - 20px, h: 4px, c: MouseCursor.ns-resize },
+        { x: 10px, y: root.height - 4px, w: root.width - 20px, h: 4px, c: MouseCursor.ns-resize },
+        { x: 0px, y: 10px, w: 4px, h: root.height - 20px, c: MouseCursor.ew-resize },
+        { x: root.width - 4px, y: 10px, w: 4px, h: root.height - 20px, c: MouseCursor.ew-resize },
+        { x: 0px, y: 0px, w: 10px, h: 10px, c: MouseCursor.nwse-resize },
+        { x: root.width - 10px, y: 0px, w: 10px, h: 10px, c: MouseCursor.nesw-resize },
+        { x: 0px, y: root.height - 10px, w: 10px, h: 10px, c: MouseCursor.nesw-resize },
+        { x: root.width - 10px, y: root.height - 10px, w: 10px, h: 10px, c: MouseCursor.nwse-resize },
+    ]: TouchArea {
+        x: e.x; y: e.y; width: e.w; height: e.h; mouse-cursor: e.c;
+        pointer-event(ev) => { if ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left { F.win-resize(i); } }
+    }
+
+    if F.dragging: Rectangle {
+        x: F.drag-x - 30px; y: F.drag-y - 30px; width: 60px; height: 60px;
+        opacity: 0.85;
+        Rectangle { width: 48px; height: 48px; border-radius: 10px; background: Theme.accent.with-alpha(0.2); }
+        Text { y: 50px; text: F.drag-label; font-size: 11px; color: Theme.text; horizontal-alignment: center; }
+        if F.drag-count > 1: Rectangle { x: 40px; y: 0; width: 20px; height: 20px; border-radius: 10px; background: #ff3b30;
+            Text { text: F.drag-count; color: white; font-size: 11px; font-weight: 700; } }
+        if F.drop-copy: Rectangle { x: 40px; y: 34px; width: 18px; height: 18px; border-radius: 9px; background: #34c759;
+            Text { text: "+"; color: white; font-size: 14px; font-weight: 700; } }
+    }
+
+    if F.menu-open: Rectangle {
+        TouchArea { pointer-event(e) => { if e.kind == PointerEventKind.down { F.menu-open = false; } } }
+        menu := GlassMenu {
+            property <length> h: mv.preferred-height;
+            x: max(6px, min(F.menu-x, root.width - self.width - 6px)); y: max(6px, min(F.menu-y, root.height - h - 6px));
+            ox: self.x; oy: self.y;
+            width: 256px; height: h;
+            TouchArea {}
+            mv := VerticalLayout {
+                padding: 5px;
+                for m in F.menu: VerticalLayout {
+                    if m.separator: Rectangle { height: 11px; Rectangle { height: 1px; x: 12px; width: parent.width - 24px; background: Theme.dark ? #ffffff1f : #0000001a; } }
+                    if m.id == "tags": HorizontalLayout {
+                        padding-left: 12px; padding-top: 5px; padding-bottom: 5px; spacing: 7px; alignment: start;
+                        for t in F.tag-defs: Rectangle { width: 16px; height: 16px; border-radius: 8px; background: t.color;
+                            border-width: tta.has-hover || t.on ? 2px : 0px; border-color: Theme.dark ? #2a2a2e : #f4f4f6;
+                            Rectangle { width: 18px; height: 18px; border-radius: 9px; border-width: tta.has-hover ? 1px : 0px; border-color: Theme.text-secondary; }
+                            if t.on: Image { width: 9px; height: 9px; source: Glyphs.checkmark; colorize: white; }
+                            tta := TouchArea { clicked => { F.tag-toggle(t.name); } }
+                        }
+                    }
+                    if !m.separator && m.id != "tags": Rectangle {
+                        height: 24px; border-radius: 7px;
+                        property <bool> hot: mta.has-hover && m.enabled;
+                        background: hot ? Theme.accent : transparent;
+                        property <color> fg: !m.enabled ? Theme.text-tertiary : hot ? white : Theme.text;
+                        if m.checked: Image { x: 10px; y: 6px; width: 12px; height: 12px; source: Glyphs.checkmark; colorize: fg; }
+                        if !m.checked && F.menu-has-icon(m.id): Image { x: 9px; y: 4.5px; width: 15px; height: 15px; source: F.menu-icon(m.id); colorize: fg; }
+                        Text { x: 32px; text: m.label; font-size: 13px; letter-spacing: 0.35px; vertical-alignment: center; height: parent.height; width: parent.width - 32px - (m.shortcut != "" ? 64px : 10px);
+                            color: fg; overflow: elide; }
+                        Text { x: parent.width - 64px; width: 54px; text: m.shortcut; font-size: 13px; horizontal-alignment: right; vertical-alignment: center; height: parent.height;
+                            color: hot ? #ffffffc0 : Theme.text-tertiary; }
+                        mta := TouchArea { enabled: m.enabled; clicked => { F.menu-open = false; F.menu-action(m.id); } }
+                    }
+                }
+            }
+        }
+    }
+
+    if F.custom-open: Rectangle {
+        TouchArea { pointer-event(e) => { if e.kind == PointerEventKind.down { F.custom-open = false; } } }
+        Rectangle {
+            x: min(max(8px, F.menu-x - self.width / 2), root.width - self.width - 8px);
+            y: min(max(8px, F.menu-y - 60px), root.height - self.height - 8px);
+            width: 340px; height: 470px;
+            border-radius: 22px;
+            background: Theme.dark ? #2c2c2ef7 : #f6f7fbf7;
+            border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+            drop-shadow-blur: 30px; drop-shadow-color: #00000050; drop-shadow-offset-y: 10px;
+            TouchArea {}
+            Rectangle { y: 0; height: 150px; border-radius: 22px; background: @linear-gradient(180deg, Theme.accent.with-alpha(0.12) 0%, transparent 100%); }
+            FileIcon { y: 18px; x: (parent.width - 96px) / 2; item: F.custom; s: 96px; }
+            Text { y: 118px; width: parent.width; text: F.custom.name; font-size: 13px; color: Theme.text; horizontal-alignment: center; }
+            HorizontalLayout {
+                y: 146px; height: 32px; padding-left: 14px; padding-right: 14px; spacing: 7px; alignment: center;
+                for c[i] in [#00000000, #f19a37, #ff453a, #ffcc00, #34c759, #0a84ff, #bf5af2, #8e8e93, #5ebcf7]: VerticalLayout { alignment: center;
+                    Rectangle {
+                        width: 24px; height: 24px; border-radius: 12px;
+                        background: i == 0 ? transparent : c;
+                        border-width: i == 0 ? 0px : 0.5px; border-color: #00000030;
+                        if i == 0: Image { width: 20px; height: 20px; source: F.i-tag-off; colorize: Theme.text-secondary; }
+                        property <bool> cur: (i == 0 && !F.custom.has-tint) || (i > 0 && F.custom.has-tint && F.custom.tint == c);
+                        if cur && i > 0: Image { width: 12px; height: 12px; source: Glyphs.checkmark; colorize: white; }
+                        Rectangle { width: 28px; height: 28px; border-radius: 14px; border-width: cur || cta.has-hover ? 2px : 0px; border-color: Theme.accent.with-alpha(cur ? 0.9 : 0.4); }
+                        cta := TouchArea { clicked => { F.custom-color(i); } }
+                    }
+                }
+            }
+            Rectangle { y: 186px; height: 1px; x: 12px; width: parent.width - 24px; background: Theme.separator; }
+            Text { x: 14px; y: 192px; text: F.custom-emoji ? @tr("Emoji") : @tr("Symbols"); font-size: 12px; font-weight: 600; color: Theme.text-secondary; }
+            Flickable {
+                x: 10px; y: 212px; width: parent.width - 20px; height: 208px;
+                property <[string]> syms: ["★", "♥", "♪", "♫", "☀", "☁", "☂", "❄", "⚡", "✈", "⚓", "⚙", "✎", "✂", "☎", "✉", "⌂", "⚑", "☕", "♞", "⚽", "♻", "✿", "☺", "✔", "✖", "⌘", "⌥", "⚠", "☯", "☮", "♠", "♣", "♦", "✚", "∞", "Ω", "π", "$", "€", "@", "#", "§", "¶", "☰", "◉", "▲", "●"];
+                property <[string]> emoji: ["😀", "😎", "🥳", "😍", "🤓", "👻", "🐶", "🐱", "🦊", "🐼", "🌸", "🌵", "🍕", "🍔", "☕", "🍎", "⚽", "🎮", "🎧", "🎸", "🎨", "📷", "🎬", "📚", "💼", "💰", "💡", "🔧", "🚀", "✈️", "🏠", "🌍", "❤️", "⭐", "🔥", "🌈", "📁", "📦", "🔒", "🧪", "💻", "📱", "🗂️", "📝", "🎓", "🏖️", "🎁", "🐞"];
+                property <[string]> cur: F.custom-emoji ? emoji : syms;
+                content-height: ceil(cur.length / 6) * 46px;
+                for s[i] in cur: Rectangle {
+                    x: mod(i, 6) * 53px; y: floor(i / 6) * 46px; width: 46px; height: 42px; border-radius: 21px;
+                    background: F.custom.symbol == s ? Theme.accent.with-alpha(0.22) : sta.has-hover ? Theme.hover : transparent;
+                    border-width: F.custom.symbol == s ? 2px : 0px; border-color: Theme.accent;
+                    Text { text: s; font-size: 21px; color: Theme.text-secondary; horizontal-alignment: center; vertical-alignment: center; }
+                    sta := TouchArea { clicked => { F.custom-symbol(s); } }
+                }
+            }
+            HorizontalLayout {
+                y: parent.height - 44px; height: 36px; padding-left: 10px; padding-right: 10px; spacing: 8px;
+                Rectangle { border-radius: 10px; background: c1a.pressed ? Theme.control-pressed : Theme.control-bg;
+                    Text { text: @tr("Clear"); font-size: 13px; color: Theme.text; } c1a := TouchArea { clicked => { F.custom-symbol(""); } } }
+                Rectangle { border-radius: 10px; background: c2a.pressed ? Theme.control-pressed : Theme.control-bg;
+                    Text { text: F.custom-emoji ? @tr("Symbols") : "☺  Emoji"; font-size: 13px; color: Theme.text; } c2a := TouchArea { clicked => { F.custom-emoji = !F.custom-emoji; } } }
+            }
+        }
+    }
+
+    if F.goto-open: Rectangle {
+        background: #00000026;
+        TouchArea { clicked => { F.goto-open = false; } }
+        Rectangle {
+            x: (parent.width - self.width) / 2; y: 60px; width: 420px; height: 52px; border-radius: 16px;
+            background: Theme.menu-bg; drop-shadow-blur: 24px; drop-shadow-color: #00000050; drop-shadow-offset-y: 8px;
+            border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+            TouchArea {}
+            gf := Field { x: 12px; width: parent.width - 24px; height: 30px; placeholder: @tr("Go to Folder (~/Documents, /etc …)"); accepted(t) => { F.goto(t); }
+                init => { self.focus(); } }
+        }
+    }
+
+    clip := TextInput { visible: false; width: 0; height: 0; }
+    public function copy-text(t: string) { clip.text = t; clip.select-all(); clip.copy(); }
+
+    if F.alert != "": Rectangle {
+        background: #00000030;
+        TouchArea {}
+        Rectangle {
+            x: (parent.width - self.width) / 2; y: 70px; width: 300px; height: al.preferred-height;
+            border-radius: 22px; background: Theme.menu-bg;
+            border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+            drop-shadow-blur: 30px; drop-shadow-color: #00000055; drop-shadow-offset-y: 10px;
+            al := VerticalLayout {
+                padding: 18px; spacing: 10px;
+                HorizontalLayout { alignment: center; FolderIcon { s: 56px; } }
+                Text { text: F.alert; font-size: 13px; font-weight: 700; color: Theme.text; wrap: word-wrap; horizontal-alignment: center; }
+                if F.alert-detail != "": Text { text: F.alert-detail; font-size: 11px; color: Theme.text-secondary; wrap: word-wrap; horizontal-alignment: center; }
+                HorizontalLayout { spacing: 8px;
+                    if F.alert-cancel: PillButton { horizontal-stretch: 1; text: @tr("Cancel"); clicked => { F.alert-done(false); } }
+                    PillButton { horizontal-stretch: 1; text: F.alert-ok; primary: true; clicked => { F.alert-done(true); } }
+                }
+            }
+        }
+    }
+}

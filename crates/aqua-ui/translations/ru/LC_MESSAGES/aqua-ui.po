@@ -1,0 +1,874 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: aqua-ui\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: ru\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+msgid "About"
+msgstr "Об этом"
+
+msgid "Accessibility"
+msgstr "Универсальный доступ"
+
+msgid "Adaptive-Sync / FreeSync / G-SYNC Compatible"
+msgstr "Adaptive-Sync / FreeSync / G-SYNC Compatible"
+
+msgid "Add User…"
+msgstr "Добавить пользователя…"
+
+msgid "Add an app"
+msgstr "Добавить приложение"
+
+msgid "Add input source…"
+msgstr "Добавить источник ввода…"
+
+msgid "Add or remove users"
+msgstr "Добавление и удаление пользователей"
+
+msgid "Add the glass highlight to the rims of app icons"
+msgstr "Добавлять стеклянный блик по краям значков"
+
+msgid "Additional components are needed"
+msgstr "Требуются дополнительные компоненты"
+
+msgid "Advanced XKB options"
+msgstr "Дополнительные параметры XKB"
+
+msgid "Alt-Shift"
+msgstr "Alt-Shift"
+
+msgid "Always"
+msgstr "Всегда"
+
+msgid "Animate opening applications"
+msgstr "Анимировать открытие программ"
+
+msgid "Animate zoom and full screen"
+msgstr "Анимировать масштабирование и полноэкранный режим"
+
+msgid "App Icons"
+msgstr "Значки приложений"
+
+msgid "Appearance"
+msgstr "Оформление"
+
+msgid "Applies to apps and the login screen after you log out"
+msgstr "Применяется к программам и экрану входа после выхода из системы"
+
+msgid "Apply to Login Screen"
+msgstr "Применить к экрану входа"
+
+msgid "Apps opened when you log in to Aqua. Entries from ~/.config/autostart are shown too."
+msgstr "Программы, открываемые при входе в Aqua. Также показаны записи из ~/.config/autostart."
+
+msgid "Aqua Login"
+msgstr "Вход в Aqua"
+
+msgid "Authentication"
+msgstr "Аутентификация"
+
+msgid "Auto"
+msgstr "Авто"
+
+msgid "Automatic"
+msgstr "Автоматически"
+
+msgid "Automatically hide and show the Dock"
+msgstr "Автоматически скрывать и показывать Dock"
+
+msgid "Automatically hide and show the menu bar"
+msgstr "Автоматически скрывать и показывать строку меню"
+
+msgid "Available Updates"
+msgstr "Доступные обновления"
+
+msgid "Battery"
+msgstr "Аккумулятор"
+
+msgid "Battery level"
+msgstr "Уровень заряда"
+
+msgid "Blue"
+msgstr "Синий"
+
+msgid "Bluetooth"
+msgstr "Bluetooth"
+
+msgid "Bring its windows forward"
+msgstr "Вывести её окна вперёд"
+
+msgid "Cancel"
+msgstr "Отменить"
+
+msgid "Caps Lock"
+msgstr "Caps Lock"
+
+msgid "Change Password…"
+msgstr "Сменить пароль…"
+
+msgid "Check Now"
+msgstr "Проверить"
+
+msgid "Checking for updates…"
+msgstr "Проверка обновлений…"
+
+msgid "Checking…"
+msgstr "Проверка…"
+
+msgid "Choose which status items appear on the right of the menu bar. Control Centre and the clock are always shown."
+msgstr "Выберите значки состояния справа в строке меню. Пункт управления и часы показываются всегда."
+
+msgid "Choose…"
+msgstr "Выбрать…"
+
+msgid "Clear"
+msgstr "Очистить"
+
+msgid "Click Search to find nearby devices"
+msgstr "Нажмите «Поиск», чтобы найти устройства поблизости"
+
+msgid "Click a shortcut to change it. Untick to turn it off."
+msgstr "Нажмите на сочетание, чтобы изменить его. Снимите флажок, чтобы отключить."
+
+msgid "Click on an open app's icon to"
+msgstr "При нажатии на значок открытой программы"
+
+msgid "Clock"
+msgstr "Часы"
+
+msgid "Clock and calendar widgets on the desktop"
+msgstr "Виджеты часов и календаря на рабочем столе"
+
+msgid "Colour"
+msgstr "Цвет"
+
+msgid "Command to run, e.g. firefox --private-window"
+msgstr "Команда, например firefox --private-window"
+
+msgid "Connect"
+msgstr "Подключиться"
+
+msgid "Connected"
+msgstr "Подключено"
+
+msgid "Content tracks finger movement"
+msgstr "Содержимое следует за пальцами"
+
+msgid "Control Centre"
+msgstr "Пункт управления"
+
+msgid "Control-Space"
+msgstr "Control-Пробел"
+
+msgid "Cycle through its windows"
+msgstr "Переключать её окна"
+
+msgid "Dark"
+msgstr "Тёмное"
+
+msgid "Dark, Clear and Tinted recolour every app icon; Automatic switches to Dark in Dark Mode"
+msgstr "«Тёмный», «Прозрачный» и «Тонированный» перекрашивают все значки; «Автоматически» включает «Тёмный» в тёмном режиме"
+
+msgid "Date & Time"
+msgstr "Дата и время"
+
+msgid "Date Modified"
+msgstr "Дата изменения"
+
+msgid "Date and time"
+msgstr "Дата и время"
+
+msgid "Default"
+msgstr "По умолчанию"
+
+msgid "Default input"
+msgstr "Ввод по умолчанию"
+
+msgid "Default output"
+msgstr "Вывод по умолчанию"
+
+msgid "Delay until repeat"
+msgstr "Задержка перед повтором"
+
+msgid "Desktop & Dock"
+msgstr "Рабочий стол и Dock"
+
+msgid "Desktop & Widgets"
+msgstr "Рабочий стол и виджеты"
+
+msgid "Devices you pair appear here"
+msgstr "Здесь появятся сопряжённые устройства"
+
+msgid "Dim the display when inactive"
+msgstr "Затемнять дисплей при бездействии"
+
+msgid "Disconnect"
+msgstr "Отключить"
+
+msgid "Display"
+msgstr "Дисплей"
+
+msgid "Display brightness"
+msgstr "Яркость дисплея"
+
+msgid "Display the time with seconds"
+msgstr "Показывать время с секундами"
+
+msgid "Displays"
+msgstr "Дисплеи"
+
+msgid "Do Not Disturb"
+msgstr "Не беспокоить"
+
+msgid "Do Not Disturb can also be switched from Control Centre → Focus."
+msgstr "«Не беспокоить» также можно включить в Пункте управления → Фокусирование."
+
+msgid "Do Nothing"
+msgstr "Ничего не делать"
+
+msgid "Dock"
+msgstr "Dock"
+
+msgid "Done"
+msgstr "Готово"
+
+msgid "Double-click a window's title bar to"
+msgstr "Двойное нажатие на заголовок окна"
+
+msgid "Edit…"
+msgstr "Изменить…"
+
+msgid "Emoji"
+msgstr "Эмодзи"
+
+msgid "Enabled"
+msgstr "Включено"
+
+msgid "Energy"
+msgstr "Энергия"
+
+msgid "Enter Password"
+msgstr "Введите пароль"
+
+msgid "Enter the password for this network."
+msgstr "Введите пароль для этой сети."
+
+msgid "Ethernet"
+msgstr "Ethernet"
+
+msgid "Extended display"
+msgstr "Расширенный дисплей"
+
+msgid "Fast"
+msgstr "Быстро"
+
+msgid "Faster movements move the pointer further"
+msgstr "Быстрые движения перемещают указатель дальше"
+
+msgid "For all apps"
+msgstr "Для всех программ"
+
+msgid "For example caps:escape,compose:ralt"
+msgstr "Например caps:escape,compose:ralt"
+
+msgid "For selected apps"
+msgstr "Для выбранных программ"
+
+msgid "Format example"
+msgstr "Пример формата"
+
+msgid "General"
+msgstr "Основные"
+
+msgid "Genie Effect"
+msgstr "Эффект «Джинн»"
+
+msgid "Go to Folder (~/Documents, /etc …)"
+msgstr "Перейти к папке (~/Documents, /etc …)"
+
+msgid "Graphite"
+msgstr "Графитовый"
+
+msgid "Green"
+msgstr "Зелёный"
+
+msgid "Hot Corners"
+msgstr "Активные углы"
+
+msgid "Hot Corners…"
+msgstr "Активные углы…"
+
+msgid "Icon & widget style"
+msgstr "Стиль значков и виджетов"
+
+msgid "Ignore trackpad while typing"
+msgstr "Игнорировать трекпад при наборе"
+
+msgid "In Full Screen Only"
+msgstr "Только в полноэкранном режиме"
+
+msgid "Information"
+msgstr "Информация"
+
+msgid "Input"
+msgstr "Вход"
+
+msgid "Input Sources"
+msgstr "Источники ввода"
+
+msgid "Input volume"
+msgstr "Громкость входа"
+
+msgid "Install"
+msgstr "Установить"
+
+msgid "Installing…"
+msgstr "Установка…"
+
+msgid "Join"
+msgstr "Подключиться"
+
+msgid "Keep"
+msgstr "Оставить"
+
+msgid "Keep app icons in place"
+msgstr "Не перемещать значки программ"
+
+msgid "Keep these display settings?"
+msgstr "Сохранить эти настройки дисплея?"
+
+msgid "Key repeat rate"
+msgstr "Скорость повтора клавиш"
+
+msgid "Keyboard"
+msgstr "Клавиатура"
+
+msgid "Keyboard Input"
+msgstr "Ввод с клавиатуры"
+
+msgid "Keyboard Shortcuts"
+msgstr "Сочетания клавиш"
+
+msgid "Keyboard Shortcuts…"
+msgstr "Сочетания клавиш…"
+
+msgid "Kind"
+msgstr "Тип"
+
+msgid "Known Networks"
+msgstr "Известные сети"
+
+msgid "Language & Region"
+msgstr "Язык и регион"
+
+msgid "Large"
+msgstr "Крупный"
+
+msgid "Larger text ↔ more space"
+msgstr "Крупнее текст ↔ больше места"
+
+msgid "Launchpad"
+msgstr "Launchpad"
+
+msgid "Less"
+msgstr "Меньше"
+
+msgid "Light"
+msgstr "Светлое"
+
+msgid "Liquid Glass edges"
+msgstr "Края Liquid Glass"
+
+msgid "Local Account · "
+msgstr "Локальная учётная запись · "
+
+msgid "Lock Screen"
+msgstr "Экран блокировки"
+
+msgid "Lock the screen before sleep"
+msgstr "Блокировать экран перед сном"
+
+msgid "Login Items & Extensions"
+msgstr "Объекты входа и расширения"
+
+msgid "Long"
+msgstr "Долго"
+
+msgid "Low Power Mode"
+msgstr "Режим энергосбережения"
+
+msgid "Magnification"
+msgstr "Увеличение"
+
+msgid "Main display"
+msgstr "Основной дисплей"
+
+msgid "Manage your overall setup and preferences for your computer, such as software updates, device language and more."
+msgstr "Общие настройки компьютера: обновление ПО, язык устройства и многое другое."
+
+msgid "Medium"
+msgstr "Средний"
+
+msgid "Menu Bar"
+msgstr "Строка меню"
+
+msgid "Menu Bar Controls"
+msgstr "Элементы строки меню"
+
+msgid "Menu bar size"
+msgstr "Размер строки меню"
+
+msgid "Minimise"
+msgstr "Свернуть"
+
+msgid "Minimise if in front"
+msgstr "Свернуть, если впереди"
+
+msgid "Minimise windows using"
+msgstr "Сворачивать окна с эффектом"
+
+msgid "Missing: "
+msgstr "Не хватает: "
+
+msgid "Mission Control"
+msgstr "Mission Control"
+
+msgid "Modify Settings"
+msgstr "Изменение настроек"
+
+msgid "More Gestures"
+msgstr "Другие жесты"
+
+msgid "More..."
+msgstr "Ещё…"
+
+msgid "Mouse"
+msgstr "Мышь"
+
+msgid "Move the pointer to a screen corner to start an action"
+msgstr "Наведите указатель в угол экрана, чтобы запустить действие"
+
+msgid "Multicolour"
+msgstr "Многоцветный"
+
+msgid "Mute"
+msgstr "Без звука"
+
+msgid "My Devices"
+msgstr "Мои устройства"
+
+msgid "Name"
+msgstr "Имя"
+
+msgid "Natural scrolling"
+msgstr "Естественная прокрутка"
+
+msgid "Nearby Devices"
+msgstr "Устройства поблизости"
+
+msgid "Network"
+msgstr "Сеть"
+
+msgid "Network service"
+msgstr "Сетевая служба"
+
+msgid "Never"
+msgstr "Никогда"
+
+msgid "New Folder"
+msgstr "Новая папка"
+
+msgid "No Bluetooth adapter found (BlueZ)"
+msgstr "Адаптер Bluetooth не найден (BlueZ)"
+
+msgid "No Selection"
+msgstr "Ничего не выбрано"
+
+msgid "No custom shortcuts yet.\nClick + to add one."
+msgstr "Своих сочетаний пока нет.\nНажмите +, чтобы добавить."
+
+msgid "No devices"
+msgstr "Нет устройств"
+
+msgid "No disks found"
+msgstr "Диски не найдены"
+
+msgid "No displays reported by the compositor"
+msgstr "Композитор не сообщил ни об одном дисплее"
+
+msgid "No installed app has a macOS counterpart"
+msgstr "Ни у одной установленной программы нет аналога в macOS"
+
+msgid "No login items"
+msgstr "Нет объектов входа"
+
+msgid "No networks found"
+msgstr "Сети не найдены"
+
+msgid "No sound server (PipeWire/PulseAudio) found"
+msgstr "Звуковой сервер (PipeWire/PulseAudio) не найден"
+
+msgid "None"
+msgstr "Нет"
+
+msgid "Normal"
+msgstr "Обычно"
+
+msgid "Not Connected"
+msgstr "Не подключено"
+
+msgid "Not connected"
+msgstr "Не подключено"
+
+msgid "Notification Centre"
+msgstr "Центр уведомлений"
+
+msgid "Notifications"
+msgstr "Уведомления"
+
+msgid "Notifications are silenced"
+msgstr "Уведомления без звука"
+
+msgid "OK"
+msgstr "ОК"
+
+msgid "Off"
+msgstr "Выкл."
+
+msgid "Off: the app you used last moves next to the pinned apps"
+msgstr "Выкл.: последняя использованная программа перемещается к закреплённым"
+
+msgid "Open"
+msgstr "Открыть"
+
+msgid "Open a new window"
+msgstr "Открыть новое окно"
+
+msgid "Open at Login"
+msgstr "Открывать при входе"
+
+msgid "Orange"
+msgstr "Оранжевый"
+
+msgid "Other Networks"
+msgstr "Другие сети"
+
+msgid "Other…"
+msgstr "Другое…"
+
+msgid "Output"
+msgstr "Выход"
+
+msgid "Output & Input"
+msgstr "Выход и вход"
+
+msgid "Output volume"
+msgstr "Громкость выхода"
+
+msgid "Password"
+msgstr "Пароль"
+
+msgid "Pictures"
+msgstr "Изображения"
+
+msgid "Pinch with thumb and three fingers"
+msgstr "Сведение большого и трёх пальцев"
+
+msgid "Pink"
+msgstr "Розовый"
+
+msgid "Play feedback and alert sounds"
+msgstr "Воспроизводить звуки предупреждений"
+
+msgid "Play sound for notifications"
+msgstr "Звук для уведомлений"
+
+msgid "Point & Click"
+msgstr "Выбор и нажатие"
+
+msgid "Pointer acceleration"
+msgstr "Ускорение указателя"
+
+msgid "Pointer size"
+msgstr "Размер указателя"
+
+msgid "Preferred Language"
+msgstr "Предпочитаемый язык"
+
+msgid "Press the new shortcut. ⎋ cancels, ⌫ removes the shortcut."
+msgstr "Нажмите новое сочетание. ⎋ — отмена, ⌫ — удалить сочетание."
+
+msgid "Purple"
+msgstr "Фиолетовый"
+
+msgid "Put the computer to sleep when inactive"
+msgstr "Переводить компьютер в режим сна при бездействии"
+
+msgid "Recents"
+msgstr "Недавние"
+
+msgid "Red"
+msgstr "Красный"
+
+msgid "Reduce motion"
+msgstr "Уменьшить движение"
+
+msgid "Reduces energy usage"
+msgstr "Снижает энергопотребление"
+
+msgid "Refresh rate"
+msgstr "Частота обновления"
+
+msgid "Region"
+msgstr "Регион"
+
+msgid "Require password after screen saver begins or display is turned off"
+msgstr "Запрашивать пароль после заставки или выключения дисплея"
+
+msgid "Requires an administrator password"
+msgstr "Требуется пароль администратора"
+
+msgid "Resolution"
+msgstr "Разрешение"
+
+msgid "Restart"
+msgstr "Перезагрузить"
+
+msgid "Restore Defaults"
+msgstr "Восстановить настройки по умолчанию"
+
+msgid "Revert"
+msgstr "Вернуть"
+
+msgid "Round"
+msgstr "Круглые"
+
+msgid "Save As:"
+msgstr "Сохранить как:"
+
+msgid "Scale"
+msgstr "Масштаб"
+
+msgid "Scale Effect"
+msgstr "Эффект масштабирования"
+
+msgid "Scan"
+msgstr "Сканировать"
+
+msgid "Scroll & Zoom"
+msgstr "Прокрутка и масштаб"
+
+msgid "Scrolling speed"
+msgstr "Скорость прокрутки"
+
+msgid "Search"
+msgstr "Поиск"
+
+msgid "Searching…"
+msgstr "Поиск…"
+
+msgid "Set time and date automatically"
+msgstr "Устанавливать дату и время автоматически"
+
+msgid "Short"
+msgstr "Коротко"
+
+msgid "Show Linux apps as their macOS counterparts, e.g. Firefox as Safari, Files as Finder"
+msgstr "Показывать программы Linux как их аналоги в macOS, например Firefox как Safari, Файлы как Finder"
+
+msgid "Show Widgets"
+msgstr "Показать виджеты"
+
+msgid "Show all its windows"
+msgstr "Показать все её окна"
+
+msgid "Show lock screen at login"
+msgstr "Показывать экран блокировки при входе"
+
+msgid "Show menu bar background"
+msgstr "Показывать фон строки меню"
+
+msgid "Show previews"
+msgstr "Показывать превью"
+
+msgid "Show the date"
+msgstr "Показывать дату"
+
+msgid "Show the message text in banners and Notification Centre"
+msgstr "Показывать текст сообщений в баннерах и Центре уведомлений"
+
+msgid "Show the time with seconds"
+msgstr "Показывать время с секундами"
+
+msgid "Shown as "
+msgstr "Показывается как "
+
+msgid "Shown on the desktop and the lock screen"
+msgstr "Показываются на рабочем столе и экране блокировки"
+
+msgid "Shut Down"
+msgstr "Выключить"
+
+msgid "Silence banners and sounds"
+msgstr "Отключить баннеры и звуки"
+
+msgid "Size"
+msgstr "Размер"
+
+msgid "Sleep"
+msgstr "Режим сна"
+
+msgid "Slow"
+msgstr "Медленно"
+
+msgid "Small"
+msgstr "Мелкий"
+
+msgid "Software Update"
+msgstr "Обновление ПО"
+
+msgid "Sound"
+msgstr "Звук"
+
+msgid "Sound Effects"
+msgstr "Звуковые эффекты"
+
+msgid "Spotlight"
+msgstr "Spotlight"
+
+msgid "Square"
+msgstr "Квадратные"
+
+msgid "Stop"
+msgstr "Остановить"
+
+msgid "Storage"
+msgstr "Хранилище"
+
+msgid "Storage Settings…"
+msgstr "Настройки хранилища…"
+
+msgid "Super-Space"
+msgstr "Super-Пробел"
+
+msgid "Swipe between full-screen applications"
+msgstr "Смахивание между полноэкранными программами"
+
+msgid "Swipe left or right with three fingers"
+msgstr "Смахивание тремя пальцами влево или вправо"
+
+msgid "Swipe up with three fingers"
+msgstr "Смахивание тремя пальцами вверх"
+
+msgid "Switch input source"
+msgstr "Переключение источника ввода"
+
+msgid "Symbols"
+msgstr "Символы"
+
+msgid "System Settings"
+msgstr "Системные настройки"
+
+msgid "System language"
+msgstr "Язык системы"
+
+msgid "Tags:"
+msgstr "Теги:"
+
+msgid "Tap to click"
+msgstr "Касание для нажатия"
+
+msgid "Tap with one finger"
+msgstr "Касание одним пальцем"
+
+msgid "Text Input"
+msgstr "Ввод текста"
+
+msgid "The Wi-Fi network “"
+msgstr "Сеть Wi-Fi «"
+
+msgid "Theme"
+msgstr "Тема"
+
+msgid "Time zone"
+msgstr "Часовой пояс"
+
+msgid "Tinted"
+msgstr "Тонированный"
+
+msgid "Tracking speed"
+msgstr "Скорость перемещения"
+
+msgid "Trackpad"
+msgstr "Трекпад"
+
+msgid "Turn Num Lock on at login"
+msgstr "Включать Num Lock при входе"
+
+msgid "Turn display off when inactive"
+msgstr "Выключать дисплей при бездействии"
+
+msgid "Turns off window, Dock and Mission Control animations"
+msgstr "Отключает анимацию окон, Dock и Mission Control"
+
+msgid "Type shortcut"
+msgstr "Введите сочетание"
+
+msgid "Untitled"
+msgstr "Без названия"
+
+msgid "Update Now"
+msgstr "Обновить сейчас"
+
+msgid "Use a 24-hour clock"
+msgstr "24-часовой формат времени"
+
+msgid "Use as"
+msgstr "Использовать как"
+
+msgid "Use macOS app icons"
+msgstr "Значки программ macOS"
+
+msgid "Use these input sources for the login screen and the text console too."
+msgstr "Использовать эти источники ввода также на экране входа и в текстовой консоли."
+
+msgid "User Name"
+msgstr "Имя пользователя"
+
+msgid "Users & Groups"
+msgstr "Пользователи и группы"
+
+msgid "Uses network time (systemd-timesyncd)"
+msgstr "Использует сетевое время (systemd-timesyncd)"
+
+msgid "Variable refresh rate"
+msgstr "Переменная частота обновления"
+
+msgid "Wallpaper"
+msgstr "Обои"
+
+msgid "What happens when you click an app that is already running"
+msgstr "Что происходит при нажатии на уже запущенную программу"
+
+msgid "Wi-Fi"
+msgstr "Wi-Fi"
+
+msgid "Window corner radius"
+msgstr "Скругление углов окон"
+
+msgid "Windows"
+msgstr "Окна"
+
+msgid "Windows grow smoothly into their new size"
+msgstr "Окна плавно меняют размер"
+
+msgid "Yellow"
+msgstr "Жёлтый"
+
+msgid "Your password is required to log in"
+msgstr "Для входа необходим пароль"
+
+msgid "Zoom"
+msgstr "Изменить масштаб"
+

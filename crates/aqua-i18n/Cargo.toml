@@ -1,0 +1,12 @@
+[package]
+name = "aqua-i18n"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "UI string translations for the Aqua shell and compositor"
+
+[dependencies]
+
+[lints]
+workspace = true

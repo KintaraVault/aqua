@@ -1,0 +1,22 @@
+[package]
+name = "aqua-shell"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+aqua-config.workspace = true
+aqua-i18n.workspace = true
+aqua-gfx.workspace = true
+aqua-icons.workspace = true
+aqua-apps.workspace = true
+aqua-wallpaper.workspace = true
+aqua-sys.workspace = true
+aqua-tray.workspace = true
+
+[[bin]]
+name = "aqua-preview"
+path = "src/bin/preview.rs"
+
+[lints]
+workspace = true

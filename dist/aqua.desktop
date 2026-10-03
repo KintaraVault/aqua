@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Aqua
+Comment=macOS-style Wayland desktop (Liquid Glass)
+Exec=aqua-session
+TryExec=aqua
+Type=Application
+DesktopNames=Aqua

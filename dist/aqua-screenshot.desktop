@@ -1,0 +1,26 @@
+[Desktop Entry]
+Type=Application
+Name=Screenshot
+Name[ru]=Снимок экрана
+GenericName=Screen Capture
+Comment=Capture the whole screen, a window or a selected portion
+Comment[ru]=Снимок всего экрана, окна или выбранной области
+Exec=aqua-screenshot ui
+Icon=applets-screenshooter
+Categories=Utility;Graphics;
+Keywords=screenshot;screen;capture;snapshot;print;снимок;скриншот;
+OnlyShowIn=Aqua;
+StartupNotify=false
+Actions=Full;Area;Window;
+
+[Desktop Action Full]
+Name=Capture Entire Screen
+Exec=aqua-screenshot full
+
+[Desktop Action Area]
+Name=Capture Selected Portion
+Exec=aqua-screenshot area
+
+[Desktop Action Window]
+Name=Capture Window
+Exec=aqua-screenshot window

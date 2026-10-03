@@ -1,0 +1,16 @@
+[package]
+name = "aqua-icons"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+aqua-gfx.workspace = true
+aqua-config.workspace = true
+resvg = { version = "0.45", default-features = false, features = ["text"] }
+ureq = { version = "2", default-features = false, features = ["tls", "json"] }
+serde_json = "1"
+dirs.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,8 @@
+# /etc/greetd/config.toml — Aqua login screen
+[terminal]
+vt = 1
+
+[default_session]
+# aqua-greeter needs a Wayland compositor; cage is a tiny kiosk compositor.
+command = "cage -s -d -- aqua-greeter"
+user = "greeter"

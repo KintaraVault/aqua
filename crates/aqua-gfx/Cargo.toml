@@ -1,0 +1,13 @@
+[package]
+name = "aqua-gfx"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tiny-skia.workspace = true
+ab_glyph.workspace = true
+image.workspace = true
+
+[lints]
+workspace = true
