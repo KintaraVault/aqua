@@ -21,9 +21,19 @@ fi
 
 crashes=0
 start=$(date +%s)
+logdir="${XDG_CACHE_HOME:-$HOME/.cache}/aqua/logs"
+mkdir -p "$logdir/crashes"
 while :; do
-    aqua --tty "$@"
+    # The compositor logs to $logdir/compositor.log itself (crash reports in
+    # $logdir/crashes, see `aqua logs` / `aqua crash-report`); raw stderr (drivers,
+    # C libraries) of this and the previous run goes to stderr.log / stderr.prev.log.
+    [ -f "$logdir/stderr.log" ] && mv -f "$logdir/stderr.log" "$logdir/stderr.prev.log"
+    aqua --tty "$@" 2>"$logdir/stderr.log"
     code=$?
+    echo "$(date '+%F %T') session: aqua exited with $code" >> "$logdir/session.log"
+    if [ $code -gt 128 ]; then
+        echo "$(date '+%F %T') compositor killed by signal $((code - 128)), see $logdir/stderr.log" >> "$logdir/crashes/index.log" 2>/dev/null
+    fi
     # 0 = normal logout, 130/143 = terminated by the system
     [ $code -eq 0 ] || [ $code -eq 130 ] || [ $code -eq 143 ] && exit 0
     now=$(date +%s)

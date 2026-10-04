@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=App Store Updates
+Exec=aqua-store --check-updates
+Icon=system-software-install
+Terminal=false
+NoDisplay=true
+OnlyShowIn=Aqua;
+X-GNOME-Autostart-enabled=true

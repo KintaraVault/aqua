@@ -32,7 +32,7 @@ SRC=$(cd "$(dirname "$0")/.." && pwd)
 cd "$SRC"
 case $TARGET in /*) ;; *) TARGET=$SRC/$TARGET ;; esac
 
-BINS="aqua aqua-settings aqua-finder aqua-filechooser aqua-polkit-agent aqua-greeter"
+BINS="aqua aqua-settings aqua-finder aqua-store aqua-filechooser aqua-polkit-agent aqua-greeter"
 for b in $BINS; do
     [ -x "$TARGET/$b" ] || die "$TARGET/$b not found — run: cargo build --release -p aqua-compositor -p aqua-ui"
 done
@@ -53,6 +53,8 @@ install -Dm644 dist/aqua.portal "$U/xdg-desktop-portal/portals/aqua.portal"
 install -Dm644 dist/aqua-portals.conf "$U/xdg-desktop-portal/aqua-portals.conf"
 install -Dm644 dist/aqua-screenshot.desktop "$R/share/applications/aqua-screenshot.desktop"
 install -Dm644 dist/org.aqua.finder.desktop "$R/share/applications/org.aqua.finder.desktop"
+install -Dm644 dist/org.aqua.store.desktop "$R/share/applications/org.aqua.store.desktop"
+install -Dm644 dist/org.aqua.store-updates.desktop "$DESTDIR/etc/xdg/autostart/org.aqua.store-updates.desktop"
 
 install -d "$DESTDIR/etc/pam.d"
 if [ "$PAM" = common ]; then

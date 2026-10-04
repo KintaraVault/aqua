@@ -146,6 +146,17 @@ impl Shell {
         (self.wants_pointer(x, y), vec![])
     }
 
+    /// The green title-bar button was hovered: show its tiling menu below it.
+    pub fn open_window_menu(&mut self, id: u64, tiled: bool, x: f32, y: f32) {
+        if self.menu.open == Some(menu::MenuKind::Window(id, tiled)) {
+            return;
+        }
+        self.close_transients();
+        self.menu.open = Some(menu::MenuKind::Window(id, tiled));
+        self.menu.pos = (x, y);
+        self.menu.hover = None;
+    }
+
     /// Right click on the bare desktop.
     pub fn open_desktop_menu(&mut self, x: f32, y: f32) {
         self.close_transients();

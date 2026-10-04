@@ -146,6 +146,9 @@ pub struct Config {
     /// Make Firefox / Chromium-family browsers use window controls
     /// (Firefox: GTK titlebuttons styled by Aqua; Chromium: system title bar).
     pub theme_browsers: bool,
+    /// Appearance → "Style other apps like macOS": Aqua GTK 3 theme, libadwaita overrides,
+    /// qt6ct palette + stylesheet.
+    pub style_apps: bool,
     /// Hot corners: top-left, top-right, bottom-left, bottom-right actions ("", "mission", "desktop", "launchpad", "lock", "notifications").
     pub hot_corners: [String; 4],
     /// Commands started with the session (after the compositor is ready).
@@ -157,6 +160,15 @@ pub struct Config {
     /// (focus, or minimise when already frontmost), "cycle" (next window of the app),
     /// "expose" (Mission Control for the app's windows) or "new" (open a new window).
     pub dock_click: String,
+    /// Sidebar look of Finder, System Settings and the App Store: "floating" (an inset
+    /// rounded glass island) or "solid" (full-height, edge to edge).
+    pub sidebar_style: String,
+    /// Toolbar buttons of Finder, System Settings and the App Store (navigation arrows,
+    /// view and action capsules) drawn as raised liquid glass; false = flat.
+    pub glass_controls: bool,
+    /// Window traffic lights as glossy glass beads (light rim, specular highlight); false =
+    /// flat discs. Applies to Aqua's own apps and to server-side window decorations.
+    pub glass_traffic_lights: bool,
     /// Bounce Dock icons while apps launch.
     pub dock_bounce: bool,
     /// Running apps keep their place in the Dock (in launch order);
@@ -182,6 +194,14 @@ pub struct Config {
     pub titlebar_double_click: String,
     /// Animate zoom (maximise) and full-screen transitions.
     pub animate_windows: bool,
+    /// Menu Bar → show the focused app's own menus (dbusmenu global menu).
+    pub global_menu: bool,
+    /// Stage Manager (Control Centre / Desktop & Dock).
+    pub stage_manager: bool,
+    /// Desktop & Dock → "Drag windows to screen edges to tile" (macOS 15+).
+    pub tile_by_drag: bool,
+    /// Desktop & Dock → "Tiled windows have margins".
+    pub tile_margins: bool,
     /// Accessibility → Reduce motion: no window/space animations, quick fades.
     pub reduce_motion: bool,
     /// Accessibility → Pointer size (1.0 – 4.0).
@@ -420,7 +440,13 @@ impl Default for Config {
                         "weston-terminal",
                     ],
                 ),
-                item("App Store", "appstore", "gnome-software", "builtin:appstore", &["org.gnome.software"]),
+                item(
+                    "App Store",
+                    "appstore",
+                    "aqua-store|gnome-software",
+                    "builtin:appstore",
+                    &["org.aqua.store", "aqua-store", "org.gnome.software"],
+                ),
                 item(
                     "System Settings",
                     "settings",
@@ -450,10 +476,14 @@ impl Default for Config {
             bindings: vec![],
             alert_sound: true,
             theme_browsers: true,
+            style_apps: true,
             hot_corners: Default::default(),
             autostart: vec![],
             shortcuts: Default::default(),
             dock_click: "focus".into(),
+            sidebar_style: "floating".into(),
+            glass_controls: true,
+            glass_traffic_lights: true,
             dock_bounce: true,
             dock_keep_order: true,
             screenshot_save: "pictures".into(),
@@ -466,6 +496,10 @@ impl Default for Config {
             record_pointer: true,
             titlebar_double_click: "zoom".into(),
             animate_windows: true,
+            global_menu: true,
+            stage_manager: false,
+            tile_by_drag: true,
+            tile_margins: true,
             reduce_motion: false,
             cursor_size: 1.0,
             do_not_disturb: false,
@@ -493,6 +527,10 @@ impl Config {
         std::fs::metadata(Self::file()).and_then(|m| m.modified()).ok()
     }
     /// Write the configuration atomically (used by System Settings).
+    /// Full-height sidebars instead of floating islands.
+    pub fn solid_sidebar(&self) -> bool {
+        self.sidebar_style == "solid"
+    }
     pub fn save(&self) -> std::io::Result<()> {
         let p = Self::file();
         if let Some(d) = p.parent() {

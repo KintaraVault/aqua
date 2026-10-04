@@ -166,14 +166,9 @@ impl XdgShellHandler for Aqua {
             m.id = self.next_window_id;
         }
         self.next_window_id += 1;
+        // Keyboard focus moves when the window is placed on its first commit (by then its
+        // title tells whether it is a menu popup, which must leave the focus where it is).
         self.space.map_element(window.clone(), (-100000, -100000), true);
-        if !self.lock.is_locked() {
-            let serial = smithay::utils::SERIAL_COUNTER.next_serial();
-            if let Some(kb) = self.seat.get_keyboard() {
-                kb.set_focus(self, Some(crate::input::focus::KeyboardFocusTarget::Window(window.clone())), serial);
-            }
-        }
-        self.update_activation();
         self.update_scale_hints();
     }
 
@@ -184,6 +179,10 @@ impl XdgShellHandler for Aqua {
             self.space.unmap_elem(w);
         }
         self.minimized.retain(|w| w.toplevel().map(|t| t != &surface).unwrap_or(true));
+        let staged: Vec<_> = self.stage.staged.iter().filter(|w| w.toplevel() == Some(&surface)).cloned().collect();
+        for s in &staged {
+            self.forget_staged(s);
+        }
         let had_focus = match self.seat.get_keyboard().and_then(|k| k.current_focus()) {
             None => true,
             Some(crate::input::focus::KeyboardFocusTarget::Window(f)) => Some(&f) == w.as_ref(),
@@ -380,7 +379,7 @@ impl Aqua {
             } else {
                 let placed = meta(&window).borrow().placed;
                 let size = window.geometry().size;
-                if !placed && size.w > 0 && size.h > 0 {
+                if !placed && size.w > 0 && size.h > 0 && !self.try_place_menu_popup(&window) {
                     self.place_new_window(&window);
                 }
             }

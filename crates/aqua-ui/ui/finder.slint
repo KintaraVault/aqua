@@ -1,416 +1,488 @@
-import { Theme, Glyphs, Field, PillButton, TrafficLights, PopupSelect, GlassSurround, GlassMenu, Backdrop } from "common.slint";
-import { ListView } from "std-widgets.slint";
-
-export struct FItem {
-    name: string, path: string, is-dir: bool,
-    kind: int, ext: string, size: string, modified: string, kind-label: string,
-    selected: bool, thumb: image, has-thumb: bool, snippet: string,
-    tint: color, has-tint: bool, symbol: string, tags: [color], dim: bool, cut: bool,
-}
-export struct FPlace { label: string, path: string, icon: string, header: string, eject: bool, dot: color, is-tag: bool }
-export struct FColumn { path: string, items: [FItem], active: bool }
-export struct FMenuItem { label: string, id: string, shortcut: string, enabled: bool, separator: bool, checked: bool }
-export struct FKV { k: string, v: string }
-export struct FTagDef { name: string, color: color, on: bool }
-
-export global F {
-    in property <int> mode;
-    in property <bool> glass;
-    in property <bool> active: true;
-    in property <string> title: @tr("Recents");
-    in property <bool> can-back;
-    in property <bool> can-forward;
-    in-out property <int> view;
-    in property <[FPlace]> places;
-    in property <string> cur-place;
-    in property <[FItem]> items;
-    in property <[FColumn]> columns;
-    in property <int> focus-idx: -1;
-    in property <string> empty-text;
-    in property <string> status;
-    in-out property <bool> show-preview: false;
-    in-out property <int> renaming: -1;
-    in property <int> sort-key;
-    in property <bool> sort-desc;
-    in property <bool> pv-any;
-    in property <FItem> pv;
-    in property <[FKV]> pv-info;
-    in property <int> pv-count;
-    in-out property <bool> pv-more;
-    in-out property <bool> searching;
-    in-out property <string> query;
-    in property <bool> search-busy;
-    in-out property <bool> menu-open;
-    in property <[FMenuItem]> menu;
-    in property <bool> menu-tags;
-    in property <length> menu-x;
-    in property <length> menu-y;
-    in property <[FTagDef]> tag-defs;
-    in-out property <bool> tags-open;
-    in-out property <bool> custom-open;
-    in property <FItem> custom;
-    in-out property <bool> custom-emoji;
-    in-out property <bool> goto-open;
-    in-out property <bool> dragging;
-    in property <string> drag-label;
-    in property <int> drag-count;
-    in property <int> drop-idx: -1;
-    in property <string> drop-place;
-    in property <bool> drop-copy;
-    in property <length> drag-x;
-    in property <length> drag-y;
-    in-out property <length> scroll-y;
-    in-out property <string> alert;
-    in property <string> alert-detail;
-    in property <string> alert-ok: @tr("OK");
-    in property <bool> alert-cancel;
-    callback alert-done(bool);
-    in property <string> accept-label: @tr("Open");
-    in property <bool> can-accept;
-    in-out property <string> save-name;
-    in property <[string]> filters;
-    in-out property <int> filter-idx;
-    in property <bool> directory-mode;
-    in property <bool> trash-view;
-
-    callback go(string);
-    callback back();
-    callback forward();
-    callback up();
-    callback select(int, bool, bool);
-    callback select-none();
-    callback open(int);
-    callback context(int, length, length);
-    callback menu-action(string);
-    callback set-view(int);
-    callback sort-by(int);
-    callback search(string);
-    callback search-commit(string);
-    callback key(string, bool, bool, bool, int) -> bool;
-    callback rename(int, string);
-    callback tag-toggle(string);
-    callback custom-color(int);
-    callback custom-symbol(string);
-    callback column-click(int, int, bool, bool);
-    callback column-open(int, int);
-    callback toolbar-menu(string, length, length);
-    callback drag-start(int);
-    callback drag-move(length, length, bool);
-    callback drag-end(length, length, bool);
-    callback accept();
-    callback cancel();
-    callback filter-changed(int);
-    callback save-edited(string);
-    callback goto(string);
-    callback win-drag();
-    callback win-close();
-    callback win-minimize();
-    callback win-zoom();
-    callback win-resize(int);
-
-    out property <image> i-columns: @image-url("icons/f-columns.svg");
-    out property <image> i-gallery: @image-url("icons/f-gallery.svg");
-    out property <image> i-icons: @image-url("icons/f-icons.svg");
-    out property <image> i-list: @image-url("icons/f-list.svg");
-    out property <image> i-group: @image-url("icons/f-group.svg");
-    out property <image> i-share: @image-url("icons/f-share.svg");
-    out property <image> i-tag: @image-url("icons/f-tag.svg");
-    out property <image> i-tag-off: @image-url("icons/f-tag-off.svg");
-    out property <image> i-more: @image-url("icons/f-ellipsis.svg");
-    out property <image> i-search: @image-url("icons/f-search.svg");
-    out property <image> i-chev-down: @image-url("icons/f-chevron-down.svg");
-    out property <image> i-chev-right: @image-url("icons/f-chevron-right.svg");
-    out property <image> i-xmark: @image-url("icons/f-xmark.svg");
-    out property <image> i-plus: @image-url("icons/f-plus.svg");
-    out property <image> i-eject: @image-url("icons/f-eject.svg");
-    out property <image> i-info: @image-url("icons/f-info.svg");
-    out property <image> i-back: @image-url("icons/f-back.svg");
-    out property <image> i-forward: @image-url("icons/f-forward.svg");
-    public pure function glyph(n: string) -> image {
-        if n == "apps" { return @image-url("icons/f-apps.svg"); }
-        if n == "shared" { return @image-url("icons/f-shared.svg"); }
-        if n == "recents" { return @image-url("icons/f-recents.svg"); }
-        if n == "desktop" { return @image-url("icons/f-desktop.svg"); }
-        if n == "docs" { return @image-url("icons/f-docs.svg"); }
-        if n == "downloads" { return @image-url("icons/f-downloads.svg"); }
-        if n == "home" { return @image-url("icons/f-home.svg"); }
-        if n == "computer" { return @image-url("icons/f-computer.svg"); }
-        if n == "disk" { return @image-url("icons/f-disk.svg"); }
-        if n == "network" { return @image-url("icons/f-network.svg"); }
-        if n == "trash" { return @image-url("icons/f-trash.svg"); }
-        if n == "pictures" { return @image-url("icons/f-pictures.svg"); }
-        if n == "music" { return @image-url("icons/f-music.svg"); }
-        if n == "movies" { return @image-url("icons/f-movies.svg"); }
-        if n == "cloud" { return @image-url("icons/f-cloud.svg"); }
-        if n == "smart" { return @image-url("icons/f-smart.svg"); }
-        if n == "terminal" { return @image-url("icons/f-terminal.svg"); }
-        if n == "copy" { return @image-url("icons/f-copy.svg"); }
-        return @image-url("icons/f-folder.svg");
-    }
-    public pure function menu-has-icon(id: string) -> bool {
-        return id == "open" || id == "open-with" || id == "open-window" || id == "trash" || id == "info" || id == "rename"
-            || id == "compress" || id == "duplicate" || id == "alias" || id == "quicklook" || id == "copy" || id == "paste"
-            || id == "cut" || id == "share" || id == "tags-menu" || id == "new-folder" || id == "reveal" || id == "terminal"
-            || id == "new-window" || id == "customize" || id == "put-back" || id == "delete-now" || id == "empty-trash"
-            || id == "hidden" || id == "preview" || id == "goto" || id == "sort-reverse" || id == "mail" || id == "copy-path"
-            || id == "remove-place" || id == "eject";
-    }
-    public pure function menu-icon(id: string) -> image {
-        if id == "open" || id == "open-with" { return @image-url("icons/m-open.svg"); }
-        if id == "open-window" || id == "new-window" { return @image-url("icons/m-window.svg"); }
-        if id == "trash" || id == "empty-trash" { return @image-url("icons/f-trash.svg"); }
-        if id == "delete-now" { return @image-url("icons/m-xbin.svg"); }
-        if id == "info" { return @image-url("icons/f-info.svg"); }
-        if id == "rename" { return @image-url("icons/m-rename.svg"); }
-        if id == "compress" { return @image-url("icons/m-compress.svg"); }
-        if id == "duplicate" { return @image-url("icons/m-duplicate.svg"); }
-        if id == "alias" { return @image-url("icons/m-alias.svg"); }
-        if id == "quicklook" { return @image-url("icons/m-eye.svg"); }
-        if id == "hidden" { return @image-url("icons/m-eye-slash.svg"); }
-        if id == "copy" || id == "copy-path" { return @image-url("icons/f-copy.svg"); }
-        if id == "paste" { return @image-url("icons/m-paste.svg"); }
-        if id == "cut" { return @image-url("icons/m-cut.svg"); }
-        if id == "share" { return @image-url("icons/f-share.svg"); }
-        if id == "tags-menu" { return @image-url("icons/f-tag.svg"); }
-        if id == "new-folder" { return @image-url("icons/m-folder-plus.svg"); }
-        if id == "reveal" { return @image-url("icons/f-folder.svg"); }
-        if id == "terminal" { return @image-url("icons/f-terminal.svg"); }
-        if id == "customize" { return @image-url("icons/m-brush.svg"); }
-        if id == "put-back" { return @image-url("icons/m-putback.svg"); }
-        if id == "preview" { return @image-url("icons/m-sidebar-right.svg"); }
-        if id == "goto" { return @image-url("icons/m-goto.svg"); }
-        if id == "sort-reverse" { return @image-url("icons/m-sort.svg"); }
-        if id == "mail" { return @image-url("icons/m-mail.svg"); }
-        if id == "eject" { return @image-url("icons/f-eject.svg"); }
-        return @image-url("icons/f-xmark.svg");
-    }
-}
-
-export component FolderIcon inherits Rectangle {
-    in property <length> s: 64px;
-    in property <color> tint: #5ebcf7;
-    in property <string> symbol;
-    width: s; height: s;
-    property <color> back: tint.darker(18%);
-    Rectangle { x: s * 0.04; y: s * 0.13; width: s * 0.40; height: s * 0.16; border-radius: s * 0.05; background: back; }
-    Rectangle { x: s * 0.04; y: s * 0.19; width: s * 0.92; height: s * 0.64; border-radius: s * 0.06; background: back; }
-    Rectangle {
-        x: s * 0.04; y: s * 0.29; width: s * 0.92; height: s * 0.56; border-radius: s * 0.06;
-        background: @linear-gradient(180deg, tint.brighter(14%) 0%, tint 100%);
-        drop-shadow-blur: s * 0.03; drop-shadow-color: #0000001c; drop-shadow-offset-y: -0.5px;
-        Rectangle { y: 0; height: max(1px, s * 0.012); x: parent.border-radius; width: parent.width - 2 * parent.border-radius; background: #ffffff80; }
-        if symbol != "": Text {
-            text: symbol; font-size: s * 0.27; color: tint.darker(38%).with-alpha(0.78);
-            horizontal-alignment: center; vertical-alignment: center;
-        }
-    }
-}
-
-export component FileIcon inherits Rectangle {
-    in property <FItem> item;
-    in property <length> s: 64px;
-    in property <bool> big-text: false;
-    width: s; height: s;
-    property <float> ar: item.thumb.width > 0 ? item.thumb.width / max(1, item.thumb.height) : 1;
-    if item.kind == 0: FolderIcon { s: root.s; tint: item.has-tint ? item.tint : #5ebcf7; symbol: item.symbol; }
-    if item.kind == 9: Rectangle {
-        width: s * 0.86; height: s * 0.5; border-radius: s * 0.1;
-        background: @linear-gradient(180deg, #e9e9ec 0%, #b9b9bf 100%);
-        border-width: 0.5px; border-color: #00000030;
-        drop-shadow-blur: s * 0.04; drop-shadow-color: #00000030; drop-shadow-offset-y: s * 0.02;
-        Rectangle { x: parent.width * 0.76; width: s * 0.06; height: s * 0.06; border-radius: s * 0.03; background: #3ddc5c; }
-    }
-    if (item.kind == 5 || (item.kind == 2 && item.has-thumb)) && item.kind != 0: Rectangle {
-        width: ar >= 1 ? s : s * ar; height: ar >= 1 ? s / ar : s;
-        border-radius: item.kind == 5 ? 0 : max(2px, s * 0.04);
-        clip: item.kind != 5;
-        drop-shadow-blur: item.kind == 5 ? 0 : s * 0.04; drop-shadow-color: item.kind == 5 ? transparent : #00000038; drop-shadow-offset-y: item.kind == 5 ? 0 : 1px;
-        background: item.kind == 5 ? transparent : white;
-        Image { source: item.thumb; width: 100%; height: 100%; image-fit: item.kind == 5 ? contain : cover; }
-    }
-    if item.kind != 0 && item.kind != 5 && item.kind != 9 && !(item.kind == 2 && item.has-thumb): page := Rectangle {
-        width: s * 0.74; height: s * 0.94; border-radius: max(1.5px, s * 0.03);
-        background: Theme.dark ? #f4f4f6 : white;
-        border-width: 0.5px; border-color: #0000002e;
-        drop-shadow-blur: s * 0.03; drop-shadow-color: #00000026; drop-shadow-offset-y: 0.5px;
-        clip: true;
-        if item.has-thumb: Image { source: item.thumb; width: 100%; height: 100%; image-fit: cover; }
-        if !item.has-thumb && item.snippet != "": Text {
-            x: page.width * 0.09; y: page.height * 0.07; width: page.width * 0.82; height: page.height * 0.86;
-            text: item.snippet; font-size: max(1.2px, s * 0.034); color: #333;
-            wrap: word-wrap; overflow: TextOverflow.clip; font-family: "DejaVu Sans Mono";
-        }
-        Path {
-            x: page.width - s * 0.2; y: 0; width: s * 0.2; height: s * 0.2;
-            viewbox-width: 10; viewbox-height: 10;
-            commands: "M0 0 L10 10 L1.5 10 Q0 10 0 8.5 Z";
-            fill: @linear-gradient(225deg, #ffffff 0%, #d9d9de 100%); stroke: #00000024; stroke-width: 0.5px;
-        }
-        Path { x: page.width - s * 0.2; y: 0; width: s * 0.2; height: s * 0.2; viewbox-width: 10; viewbox-height: 10; commands: "M0 0 L10 0 L10 10 Z"; fill: Theme.dark ? #1f1f21 : white; }
-        if !item.has-thumb && item.snippet == "": VerticalLayout {
-            alignment: center; spacing: s * 0.04;
-            Image {
-                height: s * 0.32;
-                source: item.kind == 2 ? F.glyph("pictures") : item.kind == 3 ? F.glyph("music") : item.kind == 4 ? F.glyph("movies") : item.kind == 7 ? F.i-group : F.glyph("docs");
-                colorize: item.kind == 2 ? #34c759 : item.kind == 3 ? #ff2d55 : item.kind == 4 ? #af52de : item.kind == 7 ? #8e8e93 : item.kind == 8 ? #e5463b : #a0a0a8;
-            }
-            if item.ext != "" && s >= 40px: Text {
-                text: item.ext; horizontal-alignment: center; font-size: max(6px, s * 0.11); font-weight: 700;
-                color: item.kind == 8 ? #e5463b : #8e8e93;
-            }
-        }
-    }
-}
-
-component TagDots inherits HorizontalLayout {
-    in property <[color]> tags;
-    spacing: -3px;
-    alignment: center;
-    for c in tags: Rectangle { width: 9px; height: 9px; border-radius: 4.5px; background: c; border-width: 1px; border-color: Theme.window-bg; }
-}
-
-component IconCell inherits Rectangle {
-    in property <FItem> item;
-    in property <int> idx;
-    in property <length> icon: 64px;
-    in property <bool> drop-target;
-    property <bool> sel: item.selected;
-    property <bool> pressed-here;
-    property <length> px; property <length> py;
-    opacity: item.dim ? 0.4 : (item.cut ? 0.55 : 1);
-    Rectangle {
-        x: (parent.width - icon - 8px) / 2; y: -4px; width: icon + 8px; height: icon + 8px;
-        border-radius: 10px;
-        background: drop-target ? Theme.accent.with-alpha(0.25) : sel ? (Theme.dark ? #ffffff24 : #0000001a) : transparent;
-        FileIcon { x: 4px; y: 4px; item: root.item; s: root.icon; }
-    }
-    if F.renaming != idx: Rectangle {
-        property <length> tw: item.tags.length > 0 ? 14px : 0px;
-        property <length> padx: sel ? 6px : 2px;
-        property <bool> two: lbl.preferred-width + tw + 2 * padx > root.width - 4px;
-        y: icon + 7px;
-        height: two ? 33px : 18px;
-        width: two ? root.width - 4px : lbl.preferred-width + tw + 2 * padx;
-        x: (root.width - self.width) / 2;
-        border-radius: 5px;
-        background: sel ? Theme.accent : transparent;
-        if item.tags.length > 0: TagDots { x: padx; y: 4px; height: 9px; tags: item.tags; }
-        lbl := Text {
-            x: padx + tw; width: parent.width - 2 * padx - tw; height: parent.height;
-            text: item.name; font-size: 12px; letter-spacing: 0.35px; color: sel ? white : Theme.text;
-            horizontal-alignment: center; vertical-alignment: center; wrap: word-wrap; overflow: elide;
-        }
-    }
-    if F.renaming == idx: Rectangle {
-        y: icon + 15px; height: 22px; x: 2px; width: parent.width - 4px;
-        background: Theme.window-bg; border-width: 2px; border-color: Theme.accent.with-alpha(0.6); border-radius: 4px;
-        ti := TextInput {
-            x: 4px; width: parent.width - 8px; text: item.name; font-size: 12px; color: Theme.text;
-            horizontal-alignment: center; vertical-alignment: center; single-line: true;
-            accepted => { F.rename(idx, self.text); }
-            key-pressed(e) => { if e.text == Key.Escape { F.renaming = -1; return accept; } reject }
-            init => { self.focus(); self.select-all(); }
-        }
-    }
-    ta := TouchArea {
-        pointer-event(e) => {
-            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
-                if !(sel && !e.modifiers.shift && !e.modifiers.control && !e.modifiers.meta) {
-                    F.select(idx, e.modifiers.control || e.modifiers.meta, e.modifiers.shift);
-                }
-                root.pressed-here = true; root.px = self.mouse-x; root.py = self.mouse-y;
-            }
-            if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
-                if F.dragging { F.drag-end(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, e.modifiers.alt); }
-                else if sel && root.pressed-here && !e.modifiers.shift && !e.modifiers.control && !e.modifiers.meta { F.select(idx, false, false); }
-                root.pressed-here = false;
-            }
-            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
-                F.context(idx, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
-            }
-        }
-        moved => {
-            if root.pressed-here && self.pressed {
-                if !F.dragging && (abs(self.mouse-x - root.px) > 6px || abs(self.mouse-y - root.py) > 6px) && F.mode == 0 { F.drag-start(idx); }
-                if F.dragging { F.drag-move(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, false); }
-            }
-        }
-        double-clicked => { F.open(idx); }
-    }
-}
-
-component ListRow inherits Rectangle {
-    in property <FItem> item;
-    in property <int> idx;
-    in property <length> c1; in property <length> c2; in property <length> c3;
-    in property <bool> drop-target;
-    property <bool> sel: item.selected;
-    property <bool> pressed-here;
-    property <length> px; property <length> py;
-    height: 20px;
-    opacity: item.dim ? 0.4 : (item.cut ? 0.55 : 1);
-    Rectangle {
-        x: 10px; width: parent.width - 20px; border-radius: 6px;
-        background: drop-target ? Theme.accent.with-alpha(0.25) : sel ? Theme.accent : (mod(idx, 2) == 1 ? (Theme.dark ? #ffffff0d : #0000000a) : transparent);
-    }
-    FileIcon { x: 22px; y: 2px; item: root.item; s: 16px; }
-    if F.renaming != idx: Text { x: 46px; width: c1 - 54px; text: item.name; font-size: 13px; letter-spacing: 0.4px; color: sel ? white : Theme.text; vertical-alignment: center; overflow: elide; }
-    if F.renaming == idx: Rectangle {
-        x: 38px; width: c1 - 44px; height: 20px; background: Theme.window-bg; border-width: 2px; border-color: Theme.accent.with-alpha(0.6); border-radius: 4px;
-        TextInput { x: 4px; width: parent.width - 8px; text: item.name; font-size: 13px; color: Theme.text; vertical-alignment: center; single-line: true;
-            accepted => { F.rename(idx, self.text); }
-            key-pressed(e) => { if e.text == Key.Escape { F.renaming = -1; return accept; } reject }
-            init => { self.focus(); self.select-all(); }
-        }
-    }
-    if item.tags.length > 0: TagDots { x: c1 - 8px - self.preferred-width; y: (parent.height - 9px) / 2; height: 9px; tags: item.tags; }
-    Text { x: c1; width: c2 - c1 - 8px; text: item.modified; font-size: 12px; color: sel ? white : Theme.text-secondary; vertical-alignment: center; overflow: elide; }
-    Text { x: c2; width: c3 - c2 - 16px; text: item.size; font-size: 12px; color: sel ? white : Theme.text-secondary; vertical-alignment: center; horizontal-alignment: right; overflow: elide; }
-    Text { x: c3; width: parent.width - c3 - 16px; text: item.kind-label; font-size: 12px; color: sel ? white : Theme.text-secondary; vertical-alignment: center; overflow: elide; }
-    TouchArea {
-        pointer-event(e) => {
-            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
-                if !(sel && !e.modifiers.shift && !e.modifiers.control && !e.modifiers.meta) { F.select(idx, e.modifiers.control || e.modifiers.meta, e.modifiers.shift); }
-                root.pressed-here = true; root.px = self.mouse-x; root.py = self.mouse-y;
-            }
-            if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
-                if F.dragging { F.drag-end(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, e.modifiers.alt); }
-                else if sel && root.pressed-here && !e.modifiers.shift && !e.modifiers.control && !e.modifiers.meta { F.select(idx, false, false); }
-                root.pressed-here = false;
-            }
-            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right { F.context(idx, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
-        }
-        moved => {
-            if root.pressed-here && self.pressed {
-                if !F.dragging && (abs(self.mouse-x - root.px) > 6px || abs(self.mouse-y - root.py) > 6px) && F.mode == 0 { F.drag-start(idx); }
-                if F.dragging { F.drag-move(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, false); }
-            }
-        }
-        double-clicked => { F.open(idx); }
-    }
-}
+import { Theme, Glyphs, Field, PillButton, Checkbox, TrafficLights, PopupSelect, GlassSurround, Backdrop, SliderBar, GlassCapsule, NavArrows } from "common.slint";
+import { F, FItem, FPlace, FColumn, FMenuItem, FKV, FTagDef, FRow, FTab, FCrumb, FLCol, FOpt, FSpot, FCrit, FileIcon, FolderIcon, TagDots } from "finder-model.slint";
+import { IconView, ListViewV, ColumnViewV, GalleryV } from "finder-views.slint";
+import { MenuOverlay, FinderMenuWindow, AlertSheet, GotoPanel, ProgressCard, QuickLook, ViewOptions, PrefsPanel, RenamePanel, CustomizePanel } from "finder-panels.slint";
+export { F, FItem, FPlace, FColumn, FMenuItem, FKV, FTagDef, FRow, FTab, FCrumb, FLCol, FOpt, FSpot, FCrit }
+export { InfoWindow, FInfo } from "finder-info.slint";
+export { FinderMenuWindow }
 
 component ToolGlyph inherits Rectangle {
     in property <image> glyph;
     in property <bool> on;
     in property <bool> chevron;
+    in property <bool> enabled: true;
     in property <length> w: 34px;
     callback clicked(length, length);
+    callback right-clicked(length, length);
     width: w; height: 30px; border-radius: 15px;
-    background: on ? (Theme.dark ? #ffffff2e : #0000001a) : ta.pressed ? Theme.control-pressed : (ta.has-hover ? Theme.hover : transparent);
+    background: on ? (Theme.dark ? #ffffff2e : #0000001a) : ta.pressed && enabled ? Theme.control-pressed : (ta.has-hover && enabled ? Theme.hover : transparent);
     HorizontalLayout {
         alignment: center; spacing: 2px;
-        VerticalLayout { alignment: center; Image { width: 19px; height: 19px; source: glyph; colorize: Theme.text; } }
+        VerticalLayout { alignment: center; Image { width: 19px; height: 19px; source: glyph; colorize: enabled ? Theme.text : Theme.text-tertiary; } }
         if chevron: VerticalLayout { alignment: center; Image { width: 9px; height: 9px; source: F.i-chev-down; colorize: Theme.text; } }
     }
-    ta := TouchArea { clicked => { root.clicked(self.absolute-position.x, self.absolute-position.y + root.height + 6px); } }
+    ta := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.clicked(self.absolute-position.x, self.absolute-position.y + root.height + 6px); }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                root.right-clicked(self.absolute-position.x, self.absolute-position.y + root.height + 6px);
+            }
+        }
+    }
 }
 
-component Capsule inherits Rectangle {
-    height: 36px; border-radius: 18px;
-    background: Theme.dark ? #ffffff17 : #ffffffd9;
-    border-width: 0.5px; border-color: Theme.dark ? #ffffff1f : #0000000f;
-    drop-shadow-blur: 8px; drop-shadow-color: #0000001c; drop-shadow-offset-y: 1px;
+component Capsule inherits GlassCapsule { }
+
+component Sidebar inherits Rectangle {
+    callback want-focus();
+    property <bool> solid: Theme.solid-sidebar;
+    border-radius: solid ? 0px : 20px;
+    background: solid
+        ? (F.glass ? (Theme.dark ? #26262ab8 : #f4f5f7b8) : (Theme.dark ? #29292c : #eeeff2))
+        : (F.glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%));
+    border-width: solid ? 0px : 0.5px;
+    border-color: F.glass ? (Theme.dark ? #ffffff26 : #ffffffb0) : Theme.sidebar-border;
+    drop-shadow-blur: solid ? 0px : 10px; drop-shadow-color: #00000017; drop-shadow-offset-y: 2px;
+    // Solid style: a hairline separates the sidebar from the content, with a faint highlight on its left.
+    if solid: Rectangle { x: parent.width - 1px; width: 1px; background: Theme.dark ? #00000066 : #00000014; }
+    if solid && Theme.dark: Rectangle { x: parent.width - 2px; width: 1px; background: #ffffff0a; }
+    TouchArea {
+        height: 44px;
+        pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.win-drag(); } }
+    }
+    TrafficLights { x: solid ? 18px : 10px; y: solid ? 19px : 10px; active: F.active; close => { F.win-close(); } minimize => { F.win-minimize(); } zoom => { F.win-zoom(); } }
+    Flickable {
+        x: 0; y: solid ? 52px : 44px; width: parent.width; height: parent.height - (solid ? 58px : 50px);
+        content-height: side.preferred-height + 8px;
+        content-y <=> F.side-scroll;
+        side := VerticalLayout {
+            width: parent.width; padding-left: solid ? 10px : 9px; padding-right: solid ? 11px : 9px; spacing: 0px;
+            for p in F.places: Rectangle {
+                height: 32px;
+                if p.path == "": Rectangle {
+                    Text {
+                        x: 8px; y: 0; height: 29px; text: p.header; font-size: 11px; font-weight: 700; letter-spacing: 0.2px;
+                        color: Theme.dark ? #ffffff80 : #00000096; vertical-alignment: TextVerticalAlignment.bottom;
+                    }
+                    if hta.has-hover: Image {
+                        x: parent.width - 20px; y: 15px; width: 10px; height: 10px; source: F.i-chev-right;
+                        colorize: Theme.text-secondary; transform-rotation: p.collapsed ? 0deg : 90deg;
+                    }
+                    hta := TouchArea { clicked => { F.section-toggle(p.section); } }
+                }
+                if p.path != "": Rectangle {
+                    border-radius: 10px;
+                    property <bool> sel: F.cur-place == p.path;
+                    property <bool> drop: F.dragging && F.drop-place == p.path && F.drop-line < 0;
+                    background: drop ? Theme.accent.with-alpha(0.3) : sel ? (Theme.dark ? #ffffff24 : #00000012) : (ta.has-hover ? Theme.hover : transparent);
+                    animate background { duration: 120ms; }
+                    border-width: F.menu-open && F.ctx-place == p.path ? 2px : 0px;
+                    border-color: Theme.accent;
+                    if !p.is-tag: Image {
+                        x: 9px; width: 19px; height: 19px; source: F.glyph(p.icon);
+                        colorize: Theme.accent;
+                    }
+                    if p.is-tag: Rectangle { x: 13px; width: 11px; height: 11px; border-radius: 5.5px; background: p.dot; }
+                    Text {
+                        x: 38px; width: parent.width - 38px - (p.eject ? 24px : 6px); text: p.label; font-size: 13px; letter-spacing: 0.2px;
+                        font-weight: sel ? 500 : 400;
+                        color: Theme.text; vertical-alignment: center; overflow: elide;
+                    }
+                    ta := TouchArea {
+                        clicked => { F.place-click(p.path); root.want-focus(); }
+                        pointer-event(e) => {
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                                F.place-context(p.path, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                            }
+                        }
+                    }
+                    if p.eject: Image {
+                        x: parent.width - 22px; width: 13px; height: 13px; source: F.i-eject; colorize: Theme.text-secondary;
+                        TouchArea { clicked => { F.menu-action("eject:" + p.path); } }
+                    }
+                }
+            }
+        }
+        if F.drop-line >= 0: Rectangle {
+            x: 14px; y: F.drop-line - 1px; width: parent.width - 28px; height: 2px; background: Theme.accent;
+            Rectangle { x: -4px; y: -2px; width: 6px; height: 6px; border-radius: 3px; border-width: 1.5px; border-color: Theme.accent; background: Theme.window-bg; }
+        }
+    }
+}
+
+component PathBar inherits Rectangle {
+    height: 28px;
+    Rectangle { y: 0; height: 1px; background: Theme.separator; }
+    Flickable {
+        x: 12px; width: parent.width - 24px;
+        content-width: max(self.width, crumbs.preferred-width);
+        content-x: min(0px, self.width - crumbs.preferred-width);
+        crumbs := HorizontalLayout {
+            alignment: start; spacing: 2px;
+            for c[i] in F.crumbs: HorizontalLayout {
+                spacing: 2px;
+                if i > 0: VerticalLayout { alignment: center; Image { width: 8px; height: 8px; source: F.i-chev-right; colorize: Theme.text-tertiary; } }
+                Rectangle {
+                    border-radius: 5px; width: cl.preferred-width + 10px;
+                    background: cta.has-hover ? Theme.hover : transparent;
+                    cl := HorizontalLayout {
+                        x: 5px; spacing: 4px; alignment: start;
+                        VerticalLayout {
+                            alignment: center;
+                            if c.icon == "folder": FolderIcon { s: 14px; }
+                            if c.icon != "folder": Image { width: 14px; height: 14px; source: F.glyph(c.icon); colorize: Theme.text-secondary; }
+                        }
+                        Text { text: c.label; font-size: 11px; color: Theme.text-secondary; vertical-alignment: center; }
+                    }
+                    cta := TouchArea {
+                        double-clicked => { F.crumb-click(c.path); }
+                        pointer-event(e) => {
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                                F.crumb-context(c.path, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component StatusBar inherits Rectangle {
+    height: 26px;
+    Rectangle { y: 0; height: 1px; background: Theme.separator; }
+    Text {
+        x: 100px; width: parent.width - 200px; height: parent.height;
+        text: F.status + (F.free != "" ? ", " + F.free : ""); font-size: 11px; color: Theme.text-secondary;
+        horizontal-alignment: center; vertical-alignment: center; overflow: elide;
+    }
+    if F.view == 0 && root.width > 360px: SliderBar {
+        x: parent.width - 112px; y: 2px; width: 96px;
+        value: F.zoom;
+        moved(v) => { F.set-zoom(v); }
+        released(v) => { F.set-zoom(v); }
+    }
+}
+
+component TabBar inherits Rectangle {
+    // A capsule track with equal-width tabs; the current tab is a raised pill. “+” sits beside it.
+    height: 38px;
+    property <length> track-w: self.width - 20px - 38px;
+    property <length> tw: (track-w - 4px) / max(1, F.tabs.length);
+    track := Rectangle {
+        x: 10px; y: 2px; width: track-w; height: 30px; border-radius: 15px;
+        background: Theme.dark ? #ffffff0d : #0000000a;
+        border-width: 0.5px; border-color: Theme.dark ? #ffffff12 : #0000000a;
+        for t[i] in F.tabs: Rectangle {
+            property <length> dx: tta.dragging ? tta.mouse-x - tta.pressed-x : 0px;
+            property <bool> out: tta.dragging && abs(tta.mouse-y - tta.pressed-y) > 36px;
+            property <bool> cur: i == F.tab-idx;
+            x: 2px + i * tw + dx; y: 2px; width: tw; height: parent.height - 4px;
+            z: tta.dragging ? 1 : 0;
+            opacity: out ? 0.6 : 1;
+            border-radius: self.height / 2;
+            background: cur || tta.dragging ? (Theme.dark ? #ffffff24 : #ffffff) : (tta.has-hover ? Theme.hover : transparent);
+            border-width: cur ? 0.5px : 0px; border-color: Theme.dark ? #ffffff1f : #0000000f;
+            drop-shadow-blur: cur || tta.dragging ? 4px : 0px; drop-shadow-color: #00000024; drop-shadow-offset-y: 1px;
+            animate background { duration: 120ms; }
+            if i > 0 && !cur && i - 1 != F.tab-idx: Rectangle {
+                x: -0.5px; y: (parent.height - 14px) / 2; width: 1px; height: 14px; background: Theme.dark ? #ffffff1f : #0000001a;
+            }
+            Text {
+                x: 26px; width: parent.width - 52px; text: t.title; font-size: 12px;
+                font-weight: cur ? 500 : 400;
+                color: cur ? Theme.text : Theme.text-tertiary; horizontal-alignment: center; vertical-alignment: center; overflow: elide;
+            }
+            tta := TouchArea {
+                property <bool> dragging: self.pressed && (abs(self.mouse-x - self.pressed-x) > 6px || abs(self.mouse-y - self.pressed-y) > 6px);
+                pointer-event(e) => {
+                    if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.tab-select(i); }
+                    if e.kind == PointerEventKind.down && e.button == PointerEventButton.middle { F.tab-close(i); }
+                    if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                        F.tab-context(i, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                    }
+                    if e.kind == PointerEventKind.up && e.button == PointerEventButton.left && self.dragging {
+                        if abs(self.mouse-y - self.pressed-y) > 36px {
+                            F.tab-detach(i);
+                        } else {
+                            F.tab-move(i, max(0, min(F.tabs.length - 1, round((i * tw + self.mouse-x - self.pressed-x) / tw))));
+                        }
+                    }
+                }
+            }
+            if F.tabs.length > 1: Rectangle {
+                x: 6px; y: (parent.height - 16px) / 2; width: 16px; height: 16px; border-radius: 8px;
+                opacity: tta.has-hover || xta.has-hover ? 1 : 0;
+                background: xta.has-hover ? Theme.control-pressed : transparent;
+                Image { width: 8px; height: 8px; source: F.i-xmark; colorize: Theme.text-secondary; }
+                xta := TouchArea { clicked => { F.tab-close(i); } }
+            }
+        }
+    }
+    Rectangle {
+        x: parent.width - 10px - 30px; y: 2px; width: 30px; height: 30px; border-radius: 15px;
+        background: pta.pressed ? Theme.control-pressed : (pta.has-hover ? (Theme.dark ? #ffffff24 : #0000000f) : (Theme.dark ? #ffffff17 : #ffffffd9));
+        border-width: 0.5px; border-color: Theme.dark ? #ffffff1f : #0000000f;
+        Image { width: 13px; height: 13px; source: F.i-plus; colorize: Theme.text; }
+        pta := TouchArea { clicked => { F.tab-new(); } }
+    }
+}
+
+// Small rounded-rect bezel button of the search bar (Save, −, +).
+component BarButton inherits Rectangle {
+    in property <string> text;
+    in property <image> glyph;
+    in property <bool> has-glyph;
+    callback clicked();
+    height: 24px; border-radius: 7px;
+    width: has-glyph ? 40px : max(56px, bt.preferred-width + 24px);
+    background: rta.pressed ? Theme.control-pressed : (rta.has-hover ? (Theme.dark ? #ffffff2b : #00000014) : Theme.control-bg);
+    border-width: 0.5px; border-color: Theme.control-border;
+    animate background { duration: 100ms; }
+    bt := Text { visible: !has-glyph; text: root.text; font-size: 13px; color: Theme.text; horizontal-alignment: center; vertical-alignment: center; }
+    if has-glyph: Image { width: 11px; height: 11px; source: root.glyph; colorize: Theme.text; }
+    rta := TouchArea { clicked => { root.clicked(); } }
+}
+
+component ScopeBar inherits Rectangle {
+    height: 40px + F.crit.length * 36px;
+    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.separator; }
+    HorizontalLayout {
+        height: 36px; y: 2px;
+        padding-left: 14px; padding-right: 12px; spacing: 6px;
+        VerticalLayout { alignment: center; Text { text: @tr("Search:"); font-size: 13px; font-weight: 700; color: Theme.text-secondary; } }
+        Rectangle { width: 2px; }
+        for s[i] in [@tr("This Computer"), F.scope-folder]: VerticalLayout {
+            alignment: center;
+            if s != "": Rectangle {
+                property <bool> on: F.search-scope == i;
+                height: 24px; width: st.preferred-width + 22px; border-radius: 7px;
+                background: on ? (Theme.dark ? #ffffff29 : #0000001a) : (sta.has-hover ? Theme.hover : transparent);
+                animate background { duration: 120ms; }
+                st := Text {
+                    text: i == 1 ? "“" + s + "”" : s; font-size: 13px; font-weight: 700;
+                    color: on ? Theme.text : Theme.text-secondary;
+                }
+                sta := TouchArea { clicked => { F.set-scope(i); } }
+            }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        VerticalLayout { alignment: center; BarButton { text: @tr("Save"); clicked => { F.save-search(); } } }
+        if F.crit.length == 0: VerticalLayout { alignment: center; BarButton { has-glyph: true; glyph: F.i-plus; clicked => { F.crit-add(-1); } } }
+        if F.crit.length > 0: VerticalLayout { alignment: center; BarButton { has-glyph: true; glyph: F.i-minus; clicked => { F.menu-action("crit-clear"); } } }
+    }
+    for c[i] in F.crit: HorizontalLayout {
+        y: 38px + i * 36px; height: 36px;
+        padding-left: 12px; padding-right: 12px; spacing: 8px;
+        VerticalLayout { alignment: center; PopupSelect { width: c.attr == 0 ? 96px : 170px; bezel: true; items: F.crit-attrs; current: c.attr; changed(v) => { F.crit-set(i, "attr", v); } } }
+        if c.attr == 0: VerticalLayout { alignment: center; Text { text: @tr("is"); font-size: 13px; color: Theme.text-secondary; } }
+        if c.ops.length > 0: VerticalLayout { alignment: center; PopupSelect { width: 156px; bezel: true; items: c.ops; current: c.op; changed(v) => { F.crit-set(i, "op", v); } } }
+        if c.has-value: VerticalLayout {
+            alignment: center;
+            Field { width: c.units.length > 0 ? 70px : 200px; height: 24px; font-size: 13px; text: c.value; edited(t) => { F.crit-value(i, t); } }
+        }
+        if c.units.length > 0: VerticalLayout { alignment: center; PopupSelect { width: 96px; bezel: true; items: c.units; current: c.unit; changed(v) => { F.crit-set(i, "unit", v); } } }
+        Rectangle { horizontal-stretch: 1; }
+        VerticalLayout { alignment: center; BarButton { has-glyph: true; glyph: F.i-minus; clicked => { F.crit-remove(i); } } }
+        VerticalLayout { alignment: center; BarButton { has-glyph: true; glyph: F.i-plus; clicked => { F.crit-add(i); } } }
+    }
+}
+
+// Suggestions under the search field while typing (Filenames / Content / Kinds).
+component SearchSuggestions inherits Rectangle {
+    property <string> q: F.query;
+    border-radius: 12px;
+    background: Theme.dark ? #2e2e31f5 : #f6f6f8f7;
+    border-width: 0.5px; border-color: Theme.dark ? #ffffff2e : #0000001f;
+    drop-shadow-blur: 22px; drop-shadow-color: Theme.dark ? #00000080 : #00000030; drop-shadow-offset-y: 8px;
+    height: lay.preferred-height;
+    TouchArea {}
+    lay := VerticalLayout {
+        padding: 6px; padding-top: 4px; spacing: 0px;
+        for g[gi] in [
+            { title: @tr("Filenames"), label: @tr("Name Contains “{}”", q), id: "search-pick:0" },
+            { title: @tr("Content"), label: @tr("Contains “{}”", q), id: "search-pick:1" },
+        ]: VerticalLayout {
+            if gi > 0: Rectangle { height: 9px; Rectangle { x: 12px; width: parent.width - 24px; height: 1px; background: Theme.separator; } }
+            Rectangle {
+                height: 22px;
+                Text { x: 12px; text: g.title; font-size: 12px; font-weight: 700; color: Theme.text-tertiary; vertical-alignment: center; }
+            }
+            Rectangle {
+                height: 24px; border-radius: 6px;
+                background: gta.has-hover ? Theme.accent : transparent;
+                Text { x: 12px; width: parent.width - 20px; text: g.label; font-size: 13px; color: gta.has-hover ? white : Theme.text; vertical-alignment: center; overflow: elide; }
+                gta := TouchArea { clicked => { F.sugg-hide = true; F.menu-action(g.id); } }
+            }
+        }
+        if F.sugg-kinds.length > 0: VerticalLayout {
+            Rectangle { height: 9px; Rectangle { x: 12px; width: parent.width - 24px; height: 1px; background: Theme.separator; } }
+            Rectangle {
+                height: 22px;
+                Text { x: 12px; text: @tr("Kinds"); font-size: 12px; font-weight: 700; color: Theme.text-tertiary; vertical-alignment: center; }
+            }
+            for k in F.sugg-kinds: Rectangle {
+                height: 24px; border-radius: 6px;
+                background: kta.has-hover ? Theme.accent : transparent;
+                Text { x: 12px; width: parent.width - 20px; text: k.label; font-size: 13px; color: kta.has-hover ? white : Theme.text; vertical-alignment: center; overflow: elide; }
+                kta := TouchArea { clicked => { F.sugg-hide = true; F.menu-action("search-pick:" + k.id); } }
+            }
+        }
+    }
+}
+
+// “Loading…” pill with a spinner shown while a search is running.
+component LoadingPill inherits Rectangle {
+    width: lt.preferred-width + 46px; height: 30px; border-radius: 9px;
+    background: Theme.dark ? #3a3a3ce6 : #ffffffeb;
+    border-width: 0.5px; border-color: Theme.dark ? #ffffff1a : #0000001a;
+    drop-shadow-blur: 12px; drop-shadow-color: #00000033; drop-shadow-offset-y: 3px;
+    property <int> phase: mod(floor(animation-tick() / 90ms), 8);
+    for d in 8: Rectangle {
+        property <angle> a: d * 45deg;
+        x: 18px + 6px * cos(a) - 1.25px; y: 15px + 6px * sin(a) - 1.25px;
+        width: 2.5px; height: 2.5px; border-radius: 1.25px;
+        background: Theme.text-secondary;
+        opacity: 0.2 + 0.8 * mod(d - phase + 8, 8) / 7;
+    }
+    lt := Text { x: 32px; text: @tr("Loading…"); font-size: 13px; color: Theme.text-secondary; vertical-alignment: center; }
+}
+
+component SaveSearchPanel inherits Rectangle {
+    background: #00000030;
+    TouchArea {}
+    Rectangle {
+        x: (parent.width - 340px) / 2; y: 70px; width: 340px; height: lay.preferred-height;
+        border-radius: 22px; background: Theme.menu-bg;
+        border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+        drop-shadow-blur: 30px; drop-shadow-color: #00000055; drop-shadow-offset-y: 10px;
+        lay := VerticalLayout {
+            padding: 18px; spacing: 10px;
+            Text { text: @tr("Save As:"); font-size: 13px; font-weight: 700; color: Theme.text; }
+            Field { text <=> F.ss-name; accepted => { F.save-search-done(); } init => { self.focus(); } }
+            HorizontalLayout {
+                spacing: 6px; alignment: start;
+                VerticalLayout { alignment: center; Checkbox { checked <=> F.ss-side; } }
+                Text { text: @tr("Add To Sidebar"); font-size: 13px; color: Theme.text; vertical-alignment: center; }
+            }
+            HorizontalLayout {
+                spacing: 8px; alignment: end;
+                PillButton { text: @tr("Cancel"); min-w: 80px; clicked => { F.ss-open = false; } }
+                PillButton { text: @tr("Save"); primary: true; min-w: 80px; enabled: F.ss-name != ""; clicked => { F.save-search-done(); } }
+            }
+        }
+    }
+}
+
+component ToolbarPanel inherits Rectangle {
+    background: #00000030;
+    TouchArea {}
+    pure function icon(id: string) -> image {
+        if id == "back" { return F.i-back; }
+        if id == "view" { return F.i-icons; }
+        if id == "group" { return F.i-group; }
+        if id == "action" { return F.i-more; }
+        if id == "share" { return F.i-share; }
+        if id == "tags" { return F.i-tag; }
+        if id == "newfolder" { return @image-url("icons/m-folder-plus.svg"); }
+        if id == "delete" { return @image-url("icons/f-trash.svg"); }
+        if id == "info" { return F.i-info; }
+        if id == "ql" { return @image-url("icons/m-eye.svg"); }
+        if id == "connect" { return @image-url("icons/f-network.svg"); }
+        if id == "eject" { return F.i-eject; }
+        return F.i-search;
+    }
+    Rectangle {
+        x: (parent.width - self.width) / 2; y: 60px; width: 4 * 104px + 36px; height: lay.preferred-height;
+        border-radius: 22px; background: Theme.menu-bg;
+        border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+        drop-shadow-blur: 30px; drop-shadow-color: #00000055; drop-shadow-offset-y: 10px;
+        lay := VerticalLayout {
+            padding: 18px; spacing: 12px;
+            Text { text: @tr("Choose the items shown in the toolbar."); font-size: 13px; font-weight: 700; color: Theme.text; }
+            Rectangle {
+                height: ceil(F.tb-opts.length / 4) * 78px;
+                for o[i] in F.tb-opts: Rectangle {
+                    x: mod(i, 4) * 104px; y: floor(i / 4) * 78px; width: 98px; height: 72px; border-radius: 12px;
+                    background: o.on ? Theme.accent.with-alpha(0.16) : (ota.has-hover ? Theme.hover : transparent);
+                    border-width: o.on ? 1px : 0px; border-color: Theme.accent.with-alpha(0.6);
+                    Rectangle {
+                        y: 8px; width: 40px; height: 32px; border-radius: 16px;
+                        background: Theme.dark ? #ffffff17 : #ffffffd9;
+                        border-width: 0.5px; border-color: Theme.dark ? #ffffff1f : #0000001a;
+                        Image { width: 18px; height: 18px; source: icon(o.id); colorize: Theme.text; }
+                    }
+                    Text { y: 46px; width: parent.width - 8px; x: 4px; text: o.label; font-size: 11px; color: Theme.text; horizontal-alignment: center; overflow: elide; }
+                    ota := TouchArea { clicked => { F.tb-toggle(o.id); } }
+                }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                PillButton { text: @tr("Restore Default"); clicked => { F.tb-reset(); } }
+                Rectangle { horizontal-stretch: 1; }
+                PillButton { text: @tr("Done"); primary: true; min-w: 80px; clicked => { F.tb-open = false; } }
+            }
+        }
+    }
+}
+
+component ConnectPanel inherits Rectangle {
+    background: #00000030;
+    TouchArea {}
+    Rectangle {
+        x: (parent.width - self.width) / 2; y: 60px; width: 460px; height: lay.preferred-height;
+        border-radius: 22px; background: Theme.menu-bg;
+        border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+        drop-shadow-blur: 30px; drop-shadow-color: #00000055; drop-shadow-offset-y: 10px;
+        lay := VerticalLayout {
+            padding: 18px; spacing: 10px;
+            Text { text: @tr("Connect to Server"); font-size: 13px; font-weight: 700; color: Theme.text; }
+            HorizontalLayout {
+                spacing: 8px;
+                Field {
+                    horizontal-stretch: 1; text <=> F.cs-addr; placeholder: @tr("smb://server/share, sftp://host, ftp://…");
+                    accepted(t) => { F.cs-connect(t); }
+                    init => { self.focus(); }
+                }
+                if F.cs-recent.length > 0: PopupSelect {
+                    width: 34px; bezel: true; items: F.cs-recent; current: -1;
+                    changed(i) => { F.cs-addr = F.cs-recent[i]; }
+                }
+            }
+            Text { text: @tr("Favorite Servers:"); font-size: 12px; color: Theme.text-secondary; }
+            Rectangle {
+                height: 120px; border-radius: 8px; background: Theme.field-bg; clip: true;
+                border-width: 0.5px; border-color: Theme.control-border;
+                Flickable {
+                    content-height: F.cs-favs.length * 24px + 8px;
+                    for a[i] in F.cs-favs: Rectangle {
+                        x: 4px; y: 4px + i * 24px; width: parent.width - 8px; height: 24px; border-radius: 6px;
+                        background: F.cs-sel == i ? Theme.accent : transparent;
+                        Image { x: 8px; y: 4px; width: 16px; height: 16px; source: @image-url("icons/f-network.svg"); colorize: F.cs-sel == i ? white : Theme.accent; }
+                        Text { x: 32px; width: parent.width - 40px; text: a; font-size: 13px; color: F.cs-sel == i ? white : Theme.text; vertical-alignment: center; overflow: elide; }
+                        TouchArea {
+                            clicked => { F.cs-sel = i; F.cs-addr = a; }
+                            double-clicked => { F.cs-connect(a); }
+                        }
+                    }
+                }
+                if F.cs-favs.length == 0: Text {
+                    text: @tr("No favorite servers"); font-size: 12px; color: Theme.text-tertiary;
+                    horizontal-alignment: center; vertical-alignment: center;
+                }
+            }
+            HorizontalLayout {
+                spacing: 6px;
+                PillButton { text: "+"; min-w: 32px; enabled: F.cs-addr != ""; clicked => { F.cs-add(F.cs-addr); } }
+                PillButton { text: "−"; min-w: 32px; enabled: F.cs-sel >= 0; clicked => { F.cs-remove(F.cs-sel); } }
+                Rectangle { horizontal-stretch: 1; }
+                if F.cs-busy: Text { text: @tr("Connecting…"); font-size: 12px; color: Theme.text-secondary; vertical-alignment: center; }
+                PillButton { text: @tr("Cancel"); min-w: 80px; clicked => { F.cs-open = false; } }
+                PillButton { text: @tr("Connect"); primary: true; min-w: 80px; enabled: F.cs-addr != "" && !F.cs-busy; clicked => { F.cs-connect(F.cs-addr); } }
+            }
+        }
+    }
 }
 
 export component FinderWindow inherits Window {
@@ -423,145 +495,63 @@ export component FinderWindow inherits Window {
     default-font-family: Theme.font;
     forward-focus: keys;
     in property <int> repaint;
-    property <length> side-w: 157px;
-    property <length> cx: side-w + 8px;
+    property <bool> side-on: F.show-sidebar || F.mode != 0;
+    property <length> side-w: side-on ? F.side-w : 0px;
+    property <bool> solid-side: Theme.solid-sidebar;
+    property <length> cx: side-on ? side-w + 8px : 0px;
     property <length> pv-w: F.show-preview && F.mode == 0 && root.width > 820px ? 268px : 0px;
-    property <length> top-h: F.mode == 2 ? 52px + 78px : 52px;
-    property <length> bot-h: F.mode != 0 ? 52px : 0px;
+    property <length> tab-h: F.show-tabbar && F.mode == 0 ? 38px : 0px;
+    property <length> scope-h: F.in-search ? 40px + F.crit.length * 36px : 0px;
+    property <length> top-h: 52px + tab-h + scope-h + (F.mode == 2 ? 78px : 0px);
+    property <length> path-h: F.show-pathbar && F.mode == 0 ? 28px : 0px;
+    property <length> stat-h: F.show-statusbar && F.mode == 0 ? 26px : 0px;
+    property <length> bot-h: F.mode != 0 ? 52px : path-h + stat-h;
     property <length> cw: root.width - cx - pv-w;
     property <length> ch: root.height - top-h - bot-h;
-    property <length> icon-s: 64px;
-    property <length> cell-w: 127px;
-    property <length> cell-h: 116px;
-    property <int> cols: max(1, floor((cw - 16px) / cell-w));
-    property <length> pad: (cw - 16px - cols * cell-w) / 2;
-    property <length> c1: max(220px, (cw - 16px) * 0.45);
-    property <length> c2: c1 + max(150px, (cw - 16px) * 0.25);
-    property <length> c3: c2 + 80px;
+    property <length> search-w: root.width > 980px ? 300px : 230px;
+    property <string> geo: F.view + ":" + cx / 1px + ":" + top-h / 1px + ":" + cw / 1px + ":" + ch / 1px + ":" + F.items.length + ":" + F.icon-s / 1px;
+    changed geo => { F.relayout(F.view, cx, top-h, cw, ch); }
+    init => { F.relayout(F.view, cx, top-h, cw, ch); }
     Rectangle { background: mod(repaint, 2) == 0 ? #00000000 : #00000001; }
 
     if !F.glass: Rectangle { background: Theme.window-bg; }
-    if F.glass: GlassSurround { width: root.width; height: root.height; color: Theme.window-bg;
-        hole-x: 8px; hole-y: 8px; hole-w: side-w; hole-h: root.height - 16px; hole-r: 20px; }
+    if F.glass: GlassSurround {
+        width: root.width; height: root.height; color: Theme.window-bg;
+        hole-x: solid-side ? 0px : 8px; hole-y: solid-side ? 0px : 8px;
+        hole-w: side-on ? (solid-side ? cx : side-w) : 0px; hole-h: solid-side ? root.height : root.height - 16px;
+        hole-r: solid-side ? 0px : 20px;
+    }
 
     keys := FocusScope {
         key-pressed(e) => {
             if F.renaming >= 0 { return reject; }
-            if e.text == Key.Escape && (F.menu-open || F.tags-open || F.custom-open || F.goto-open) {
-                F.menu-open = false; F.tags-open = false; F.custom-open = false; F.goto-open = false; return accept;
+            if e.text == Key.Escape && (F.menu-open || F.tags-open || F.custom-open || F.goto-open || F.vo-open || F.prefs-open || F.rn-open || F.ss-open || F.tb-open || F.cs-open) {
+                F.menu-open = false; F.sub-open = false; F.tags-open = false; F.custom-open = false; F.goto-open = false;
+                F.vo-open = false; F.prefs-open = false; F.rn-open = false; F.ss-open = false; F.tb-open = false; F.cs-open = false;
+                return accept;
             }
-            if F.key(e.text, e.modifiers.control || e.modifiers.meta, e.modifiers.shift, e.modifiers.alt, cols) { return accept; }
+            if F.key(e.text, e.modifiers.control, e.modifiers.meta, e.modifiers.shift, e.modifiers.alt, 0) { return accept; }
             reject
         }
     }
 
     content := Rectangle {
         x: cx; y: top-h; width: cw; height: ch;
-        TouchArea {
-            pointer-event(e) => {
-                if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.select-none(); keys.focus(); }
-                if e.kind == PointerEventKind.down && e.button == PointerEventButton.right { F.select-none(); F.context(-1, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
-            }
-        }
+        clip: true;
+        if F.view == 0: IconView { want-focus => { keys.focus(); } }
+        if F.view == 1: ListViewV { want-focus => { keys.focus(); } }
+        if F.view == 2: ColumnViewV { want-focus => { keys.focus(); } }
+        if F.view == 3: GalleryV { want-focus => { keys.focus(); } }
         if F.items.length == 0 && F.view != 2: Text {
+            y: F.view == 3 ? 0 : 0; height: F.view == 3 ? parent.height - 90px : parent.height;
             text: F.empty-text; font-size: 13px; color: Theme.text-tertiary;
             horizontal-alignment: center; vertical-alignment: center;
         }
-        if F.view == 0: iv := ListView {
-            changed content-y => { F.scroll-y = self.content-y; }
-            for r in ceil(F.items.length / cols): Rectangle {
-                height: r == ceil(F.items.length / cols) - 1 ? cell-h + 24px : cell-h;
-                TouchArea {
-                    pointer-event(e) => {
-                        if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.select-none(); keys.focus(); }
-                        if e.kind == PointerEventKind.down && e.button == PointerEventButton.right { F.select-none(); F.context(-1, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
-                    }
-                }
-                for c in cols: Rectangle {
-                    x: pad + c * cell-w; y: 24px; width: cell-w; height: cell-h - 24px;
-                    if r * cols + c < F.items.length: IconCell {
-                        item: F.items[r * cols + c]; idx: r * cols + c; icon: icon-s;
-                        drop-target: F.drop-idx == r * cols + c;
-                    }
-                }
-            }
-        }
-        if F.view == 1: Rectangle {
-            Rectangle {
-                height: 28px; y: 0;
-                for h[i] in [{ t: @tr("Name"), x: 46px, k: 0 }, { t: @tr("Date Modified"), x: c1, k: 2 }, { t: @tr("Size"), x: c2, k: 3 }, { t: @tr("Kind"), x: c3, k: 1 }]: Rectangle {
-                    x: h.x - 6px; width: i == 0 ? c1 - 40px : i == 1 ? c2 - c1 : i == 2 ? c3 - c2 : cw - c3 - 8px; height: 28px;
-                    Text { x: 6px; width: parent.width - 24px; text: h.t; font-size: 11px; font-weight: F.sort-key == h.k ? 700 : 400; color: F.sort-key == h.k ? Theme.text : Theme.text-secondary; vertical-alignment: center; horizontal-alignment: left; }
-                    if F.sort-key == h.k: Image { x: parent.width - 18px; width: 9px; height: 9px; y: 10px; source: F.i-chev-down; colorize: Theme.text-secondary; transform-rotation: F.sort-desc ? 0deg : 180deg; }
-                    TouchArea { clicked => { F.sort-by(h.k); } }
-                    if i > 0: Rectangle { x: 0; width: 1px; y: 5px; height: 18px; background: Theme.separator; }
-                }
-                Rectangle { y: parent.height - 1px; height: 1px; x: 0; width: parent.width; background: Theme.separator; }
-            }
-            ListView {
-                y: 32px; height: parent.height - 32px;
-                changed content-y => { F.scroll-y = self.content-y; }
-                for it[i] in F.items: ListRow { item: it; idx: i; c1: c1; c2: c2; c3: c3; drop-target: F.drop-idx == i; }
-            }
-        }
-        if F.view == 2: Flickable {
-            content-width: max(self.width, F.columns.length * 230px);
-            content-x: min(0px, self.width - F.columns.length * 230px);
-            for col[ci] in F.columns: Rectangle {
-                x: ci * 230px; width: 230px;
-                Rectangle { x: parent.width - 1px; width: 1px; background: Theme.separator; }
-                ListView {
-                    width: parent.width - 1px;
-                    for it[i] in col.items: Rectangle {
-                        height: 24px;
-                        opacity: it.dim ? 0.4 : 1;
-                        property <bool> on: it.selected;
-                        Rectangle { x: 6px; width: parent.width - 12px; border-radius: 6px;
-                            background: on ? (col.active ? Theme.accent : (Theme.dark ? #ffffff2e : #0000001f)) : transparent; }
-                        FileIcon { x: 14px; y: 4px; item: it; s: 16px; }
-                        Text { x: 36px; width: parent.width - 60px; text: it.name; font-size: 13px; vertical-alignment: center; overflow: elide; color: on && col.active ? white : Theme.text; }
-                        if it.is-dir: Image { x: parent.width - 22px; y: 7px; width: 10px; height: 10px; source: F.i-chev-right; colorize: on && col.active ? white : Theme.text-secondary; }
-                        TouchArea {
-                            pointer-event(e) => {
-                                if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.column-click(ci, i, e.modifiers.control || e.modifiers.meta, e.modifiers.shift); keys.focus(); }
-                                if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
-                                    F.column-click(ci, i, false, false);
-                                    F.context(-3, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
-                                }
-                            }
-                            double-clicked => { F.column-open(ci, i); }
-                        }
-                    }
-                }
-            }
-        }
-        if F.view == 3: Rectangle {
-            property <length> strip: 86px;
-            Rectangle {
-                y: 8px; height: parent.height - strip - 16px;
-                if F.pv-any: FileIcon { item: F.pv; s: min(parent.width - 40px, parent.height - 20px); }
-            }
-            Flickable {
-                y: parent.height - strip; height: strip;
-                content-width: max(self.width, F.items.length * 64px + 24px);
-                content-x: F.focus-idx >= 0 ? max(min(0px, self.width - F.items.length * 64px - 24px), min(0px, self.width / 2 - F.focus-idx * 64px - 44px)) : 0px;
-                animate content-x { duration: 180ms; easing: ease-out; }
-                for it[i] in F.items: Rectangle {
-                    x: 12px + i * 64px; y: 10px; width: 60px; height: 60px; border-radius: 8px;
-                    background: it.selected ? Theme.accent.with-alpha(0.22) : transparent;
-                    border-width: it.selected ? 2px : 0px; border-color: Theme.accent;
-                    FileIcon { item: it; s: 46px; }
-                    TouchArea {
-                        pointer-event(e) => {
-                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.select(i, e.modifiers.control || e.modifiers.meta, e.modifiers.shift); keys.focus(); }
-                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right { F.select(i, false, false); F.context(i, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
-                        }
-                        double-clicked => { F.open(i); }
-                    }
-                }
-            }
-            Rectangle { y: parent.height - strip - 1px; height: 1px; background: Theme.separator; }
-        }
+    }
+
+    if F.mq-on && F.mq-w > 0 && F.mq-h > 0: Rectangle {
+        x: F.mq-x; y: F.mq-y; width: F.mq-w; height: F.mq-h;
+        background: Theme.accent.with-alpha(0.15); border-width: 1px; border-color: Theme.accent.with-alpha(0.7);
     }
 
     if F.mode == 2: Rectangle {
@@ -574,12 +564,17 @@ export component FinderWindow inherits Window {
             }
             Row {
                 Text { text: @tr("Tags:"); font-size: 13px; color: Theme.text; vertical-alignment: center; horizontal-alignment: right; }
-                Rectangle { height: 28px; border-radius: 7px; background: Theme.field-bg;
-                    HorizontalLayout { padding-left: 8px; spacing: 6px; alignment: start;
-                        for t in F.tag-defs: VerticalLayout { alignment: center;
-                            Rectangle { width: 14px; height: 14px; border-radius: 7px; background: t.color;
+                Rectangle {
+                    height: 28px; border-radius: 7px; background: Theme.field-bg;
+                    HorizontalLayout {
+                        padding-left: 8px; spacing: 6px; alignment: start;
+                        for t in F.tag-defs: VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 14px; height: 14px; border-radius: 7px; background: t.color;
                                 border-width: t.on ? 2px : 0px; border-color: Theme.text;
-                                TouchArea { clicked => { F.tag-toggle(t.name); } } }
+                                TouchArea { clicked => { F.tag-toggle(t.name); } }
+                            }
                         }
                     }
                 }
@@ -588,12 +583,22 @@ export component FinderWindow inherits Window {
         Rectangle { y: parent.height - 1px; height: 1px; background: Theme.separator; }
     }
 
+    if tab-h > 0: TabBar { x: cx; y: 52px; width: root.width - cx; }
+    if scope-h > 0: ScopeBar { x: cx; y: 52px + tab-h; width: root.width - cx; }
+
     if pv-w > 0: Rectangle {
-        x: root.width - pv-w; y: 52px; width: pv-w; height: root.height - 52px - bot-h;
+        x: root.width - pv-w; y: top-h; width: pv-w; height: root.height - top-h - bot-h;
         Rectangle { x: 0; width: 1px; background: Theme.separator; }
-        if !F.pv-any: Text { text: F.pv-count > 1 ? F.pv-count + " items selected" : @tr("No Selection"); font-size: 13px; color: Theme.text-tertiary; horizontal-alignment: center; vertical-alignment: center; }
-        if F.pv-any: Flickable {
-            x: 1px; width: parent.width - 1px; height: parent.height - 52px;
+        if !F.pv-any: Text {
+            text: F.pv-count > 1 ? @tr("{} items selected", F.pv-count) : @tr("No Selection"); font-size: 13px; color: Theme.text-tertiary;
+            horizontal-alignment: center; vertical-alignment: center;
+        }
+        // Clip explicitly: a Flickable does not clip its content, so the information rows
+        // used to slide under the quick-action bar ("More…") in short windows.
+        if F.pv-any: Rectangle {
+          x: 1px; y: 0; width: parent.width - 1px; height: max(0px, parent.height - 64px); clip: true;
+          Flickable {
+            width: parent.width; height: parent.height;
             content-height: pvl.preferred-height;
             pvl := VerticalLayout {
                 width: parent.width;
@@ -612,7 +617,7 @@ export component FinderWindow inherits Window {
                 }
                 Rectangle { height: 6px; }
                 Text { text: F.pv.name; font-size: 15px; font-weight: 700; color: Theme.text; wrap: word-wrap; }
-                Text { text: F.pv.kind-label + (F.pv.size != "" && F.pv.size != "--" ? " - " + F.pv.size : ""); font-size: 12px; color: Theme.text-secondary; }
+                Text { text: F.pv.kind-label + (F.pv.size != "" && F.pv.size != "--" ? " – " + F.pv.size : ""); font-size: 12px; color: Theme.text-secondary; }
                 if F.pv.tags.length > 0: HorizontalLayout { alignment: start; TagDots { tags: F.pv.tags; } }
                 Rectangle { height: 8px; }
                 Text { text: @tr("Information"); font-size: 13px; font-weight: 700; color: Theme.text; }
@@ -626,86 +631,148 @@ export component FinderWindow inherits Window {
                 }
             }
         }
+        }
         if F.pv-any: Rectangle {
             y: parent.height - 64px; height: 64px;
             Rectangle { y: 0; height: 1px; x: 1px; background: Theme.separator; }
-            VerticalLayout { alignment: center; spacing: 3px;
-                HorizontalLayout { alignment: center;
-                    Rectangle { width: 26px; height: 26px; border-radius: 13px; background: pmore.has-hover ? Theme.hover : transparent;
-                        border-width: 1px; border-color: Theme.text-secondary;
-                        Image { width: 13px; height: 13px; source: F.i-more; colorize: Theme.text-secondary; } }
+            HorizontalLayout {
+                alignment: center; spacing: 14px;
+                for b[i] in F.pv-quick ? [
+                    { id: "quick:rotl", label: @tr("Rotate Left"), icon: @image-url("icons/f-rotate-left.svg") },
+                    { id: "quick:pdf", label: @tr("Create PDF"), icon: @image-url("icons/f-pdf.svg") },
+                    { id: "more", label: F.pv-more ? @tr("Less") : @tr("More..."), icon: F.i-more },
+                ] : [{ id: "more", label: F.pv-more ? @tr("Less") : @tr("More..."), icon: F.i-more }]: VerticalLayout {
+                    alignment: center; spacing: 3px; width: 64px;
+                    HorizontalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 26px; height: 26px; border-radius: 13px; background: qta.has-hover ? Theme.hover : transparent;
+                            border-width: 1px; border-color: Theme.text-secondary;
+                            Image { width: 13px; height: 13px; source: b.icon; colorize: Theme.text-secondary; }
+                            qta := TouchArea { clicked => { if b.id == "more" { F.pv-more = !F.pv-more; } else { F.menu-action(b.id); } } }
+                        }
+                    }
+                    Text { text: b.label; font-size: 11px; color: Theme.text-secondary; horizontal-alignment: center; overflow: elide; }
                 }
-                Text { text: F.pv-more ? @tr("Less") : @tr("More..."); font-size: 11px; color: Theme.text-secondary; horizontal-alignment: center; }
             }
-            pmore := TouchArea { clicked => { F.pv-more = !F.pv-more; } }
         }
     }
 
-    Rectangle {
+    toolbar := Rectangle {
         x: cx; y: 0; width: root.width - self.x; height: 52px;
+        property <length> lead: side-on ? 0px : 86px;
         TouchArea {
-            pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.win-drag(); } }
-        }
-        Capsule {
-            x: 7px; y: 8px; width: 72px;
-            for d in 2: Rectangle { x: d * 36px; width: 36px; height: 36px; border-radius: 18px;
-                property <bool> on: d == 0 ? F.can-back : F.can-forward;
-                background: bta.pressed && on ? Theme.control-pressed : transparent;
-                Image { x: d == 0 ? 14px : 13px; width: 9px; height: 15px; source: d == 0 ? F.i-back : F.i-forward; colorize: on ? Theme.text : Theme.text-tertiary; }
-                bta := TouchArea { enabled: on; clicked => { if (d == 0) { F.back(); } else { F.forward(); } } }
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.win-drag(); }
+                if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                    F.toolbar-menu("toolbar", self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                }
             }
-            Rectangle { x: 36px; y: 9px; width: 1px; height: 18px; background: Theme.dark ? #ffffff14 : #0000000d; }
         }
-        Text {
-            x: 93px; height: 52px; width: max(40px, tools.x - 100px);
+        if !side-on: TrafficLights { x: 18px; y: 19px; active: F.active; close => { F.win-close(); } minimize => { F.win-minimize(); } zoom => { F.win-zoom(); } }
+        if F.tb-back: NavArrows {
+            x: 7px + lead; y: 8px;
+            can-back: F.can-back; can-forward: F.can-forward;
+            back => { F.back(); }
+            forward => { F.forward(); }
+            history-menu(b, x, y) => { F.toolbar-menu(b ? "history-back" : "history-forward", x, y); }
+        }
+        title-text := Text {
+            x: (F.tb-back ? 93px : 14px) + lead; height: 52px; width: min(self.preferred-width, max(40px, tools.x - 100px - lead));
             vertical-alignment: center; font-size: 15px; font-weight: 700; color: Theme.text; text: F.title; overflow: elide;
+            TouchArea {
+                pointer-event(e) => {
+                    if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                        F.toolbar-menu("path", self.absolute-position.x + 120px, self.absolute-position.y + 40px);
+                    }
+                    if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.win-drag(); }
+                }
+            }
         }
         property <bool> wide: root.width > 900px;
+        // Room for the four view buttons next to the title (otherwise one view pop-up button).
+        property <bool> roomy: root.width - cx > (F.searching ? 940px : 800px);
         tools := HorizontalLayout {
             x: parent.width - self.preferred-width - 9px; y: 8px; height: 36px; spacing: 14px;
-            Capsule {
+            if F.tb-view && !roomy: Capsule {
+                width: 56px;
+                ToolGlyph {
+                    x: 3px; y: 3px; w: 50px; chevron: true;
+                    glyph: F.view == 0 ? F.i-icons : F.view == 1 ? F.i-list : F.view == 2 ? F.i-columns : F.i-gallery;
+                    clicked(x, y) => { F.toolbar-menu("view", x, y); }
+                }
+            }
+            if F.tb-view && roomy: Capsule {
                 width: vh.preferred-width + 8px;
-                vh := HorizontalLayout { x: 4px; padding-top: 3px; padding-bottom: 3px; spacing: 0px;
+                vh := HorizontalLayout {
+                    x: 4px; padding-top: 3px; padding-bottom: 3px; spacing: 0px;
                     ToolGlyph { w: 35px; glyph: F.i-icons; on: F.view == 0; clicked => { F.set-view(0); } }
                     ToolGlyph { w: 35px; glyph: F.i-list; on: F.view == 1; clicked => { F.set-view(1); } }
                     ToolGlyph { w: 35px; glyph: F.i-columns; on: F.view == 2; clicked => { F.set-view(2); } }
                     ToolGlyph { w: 35px; glyph: F.i-gallery; on: F.view == 3; clicked => { F.set-view(3); } }
                 }
             }
-            if wide: Capsule {
+            if wide && F.tb-group: Capsule {
                 width: 49px;
-                ToolGlyph { x: 2px; y: 3px; w: 45px; glyph: F.i-group; chevron: true; clicked(x, y) => { F.toolbar-menu("sort", x, y); } }
+                ToolGlyph { x: 2px; y: 3px; w: 45px; glyph: F.i-group; chevron: true; on: F.group-by != 0; clicked(x, y) => { F.toolbar-menu("group", x, y); } }
             }
-            if F.mode == 0: Capsule {
-                width: th.preferred-width + 8px;
-                th := HorizontalLayout { x: 4px; padding-top: 3px; padding-bottom: 3px; spacing: 0px;
-                    ToolGlyph { w: 36.6px; glyph: F.i-share; clicked(x, y) => { F.toolbar-menu("share", x, y); } }
-                    ToolGlyph { w: 36.6px; glyph: F.i-tag; on: F.tags-open; clicked(x, y) => { F.toolbar-menu("tags", x, y); } }
-                    ToolGlyph { w: 36.6px; glyph: F.i-more; clicked(x, y) => { F.toolbar-menu("more", x, y); } }
+            if F.mode == 0 && (F.tb-newfolder || F.tb-delete || F.tb-info || F.tb-ql || F.tb-connect || F.tb-eject): Capsule {
+                width: xh.preferred-width + 8px;
+                xh := HorizontalLayout {
+                    x: 4px; padding-top: 3px; padding-bottom: 3px; spacing: 0px;
+                    if F.tb-newfolder: ToolGlyph { w: 36.6px; glyph: @image-url("icons/m-folder-plus.svg"); clicked => { F.menu-action("new-folder"); } }
+                    if F.tb-delete: ToolGlyph { w: 36.6px; glyph: @image-url("icons/f-trash.svg"); enabled: F.pv-any || F.pv-count > 0; clicked => { F.menu-action("trash"); } }
+                    if F.tb-info: ToolGlyph { w: 36.6px; glyph: F.i-info; clicked => { F.menu-action("info-window"); } }
+                    if F.tb-ql: ToolGlyph { w: 36.6px; glyph: @image-url("icons/m-eye.svg"); enabled: F.pv-any || F.pv-count > 0; clicked => { F.menu-action("quicklook"); } }
+                    if F.tb-connect: ToolGlyph { w: 36.6px; glyph: @image-url("icons/f-network.svg"); clicked => { F.menu-action("connect"); } }
+                    if F.tb-eject: ToolGlyph { w: 36.6px; glyph: F.i-eject; clicked => { F.menu-action("eject"); } }
                 }
             }
-            if !F.searching: Capsule {
+            if F.mode == 0 && (F.tb-share || F.tb-tags || F.tb-action): Capsule {
+                width: th.preferred-width + 8px;
+                th := HorizontalLayout {
+                    x: 4px; padding-top: 3px; padding-bottom: 3px; spacing: 0px;
+                    if F.tb-share: ToolGlyph { w: 36.6px; glyph: F.i-share; clicked(x, y) => { F.toolbar-menu("share", x, y); } }
+                    if F.tb-tags: ToolGlyph { w: 36.6px; glyph: F.i-tag; on: F.tags-open; clicked(x, y) => { F.toolbar-menu("tags", x, y); } }
+                    if F.tb-action: ToolGlyph { w: 36.6px; glyph: F.i-more; clicked(x, y) => { F.toolbar-menu("more", x, y); } }
+                }
+            }
+            if !F.searching && (F.tb-search || F.mode != 0): Capsule {
                 width: 36px;
                 ToolGlyph { x: 1px; y: 3px; w: 34px; glyph: F.i-search; clicked => { F.searching = true; } }
             }
             if F.searching: Capsule {
-                width: 230px;
+                width: root.search-w;
+                border-width: sf.has-focus ? 3px : 0.5px;
+                border-color: sf.has-focus ? Theme.accent.with-alpha(0.55) : (Theme.dark ? #ffffff1f : #0000000f);
                 Image { x: 12px; width: 14px; height: 14px; source: F.i-search; colorize: Theme.text-secondary; }
                 sf := TextInput {
                     x: 34px; width: parent.width - 62px; height: 100%; text <=> F.query; font-size: 13px; color: Theme.text;
                     vertical-alignment: center; single-line: true;
-                    edited => { F.search(self.text); }
-                    accepted => { F.search-commit(self.text); }
-                    key-pressed(e) => { if e.text == Key.Escape { F.searching = false; F.query = ""; F.search(""); keys.focus(); return accept; } reject }
-                    init => { self.focus(); }
+                    edited => { F.sugg-hide = false; F.search-focus = true; F.search(self.text); }
+                    accepted => { F.sugg-hide = true; F.menu-action("search-pick:0"); }
+                    changed has-focus => { F.search-focus = self.has-focus; }
+                    key-pressed(e) => {
+                        if e.text == Key.Escape && !F.sugg-hide && F.query != "" { F.sugg-hide = true; return accept; }
+                        if e.text == Key.Escape { F.searching = false; F.query = ""; F.search(""); keys.focus(); return accept; }
+                        if e.text == Key.DownArrow { keys.focus(); return accept; }
+                        reject
+                    }
+                    init => { self.focus(); F.search-focus = true; }
                 }
                 if F.query == "": Text { x: 34px; height: 100%; text: @tr("Search"); font-size: 13px; color: Theme.text-tertiary; vertical-alignment: center; }
-                Rectangle { x: parent.width - 26px; width: 18px; height: 18px; border-radius: 9px; background: Theme.text-tertiary;
+                if F.query != "": Rectangle {
+                    x: parent.width - 26px; width: 18px; height: 18px; border-radius: 9px; background: Theme.text-tertiary;
                     Image { width: 9px; height: 9px; source: F.i-xmark; colorize: Theme.window-bg; }
-                    TouchArea { clicked => { F.searching = false; F.query = ""; F.search(""); keys.focus(); } } }
+                    TouchArea { clicked => { F.searching = false; F.query = ""; F.search(""); keys.focus(); } }
+                }
+                init => { F.sugg-hide = true; }
             }
         }
     }
+
+    if path-h > 0: PathBar { x: cx; y: root.height - bot-h; width: root.width - cx; }
+    if stat-h > 0: StatusBar { x: cx; y: root.height - stat-h; width: root.width - cx; }
 
     if F.mode != 0: Rectangle {
         x: cx; y: root.height - 52px; width: root.width - cx; height: 52px;
@@ -714,7 +781,8 @@ export component FinderWindow inherits Window {
             padding-left: 16px; padding-right: 16px; spacing: 10px; alignment: stretch;
             if F.mode == 2 || F.directory-mode: VerticalLayout { alignment: center; PillButton { text: @tr("New Folder"); clicked => { F.menu-action("new-folder"); } } }
             Rectangle { horizontal-stretch: 1; }
-            if F.filters.length > 0: VerticalLayout { alignment: center; width: 170px;
+            if F.filters.length > 0: VerticalLayout {
+                alignment: center; width: 170px;
                 PopupSelect { bezel: true; items: F.filters; current <=> F.filter-idx; changed(i) => { F.filter-changed(i); } }
             }
             VerticalLayout { alignment: center; PillButton { text: @tr("Cancel"); min-w: 76px; clicked => { F.cancel(); } } }
@@ -722,41 +790,21 @@ export component FinderWindow inherits Window {
         }
     }
 
-    Rectangle {
-        x: 8px; y: 8px; width: side-w; height: root.height - 16px;
-        border-radius: 20px;
-        background: F.glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%);
-        border-width: 0.5px; border-color: F.glass ? (Theme.dark ? #ffffff26 : #ffffffb0) : Theme.sidebar-border;
-        drop-shadow-blur: 10px; drop-shadow-color: #00000017; drop-shadow-offset-y: 2px;
-        TouchArea { height: 44px;
-            pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.win-drag(); } }
+    if side-on: Sidebar {
+        x: solid-side ? 0px : 8px; y: solid-side ? 0px : 8px;
+        width: solid-side ? cx : side-w; height: solid-side ? root.height : root.height - 16px;
+        want-focus => { keys.focus(); }
+    }
+    if side-on && F.mode == 0: TouchArea {
+        x: 8px + side-w - 2px; y: 52px; width: 8px; height: root.height - 60px;
+        mouse-cursor: MouseCursor.col-resize;
+        property <length> start;
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down { self.start = F.side-w; }
+            if e.kind == PointerEventKind.up { F.side-resized(F.side-w); }
         }
-        TrafficLights { x: 10px; y: 10px; active: F.active; close => { F.win-close(); } minimize => { F.win-minimize(); } zoom => { F.win-zoom(); } }
-        sideflick := Flickable {
-            x: 0; y: 44px; width: parent.width; height: parent.height - 50px;
-            content-height: side.preferred-height + 8px;
-            side := VerticalLayout {
-                width: parent.width; padding-left: 9px; padding-right: 9px; spacing: 0px;
-                for p in F.places: VerticalLayout {
-                    if p.header != "": Rectangle { height: 32px;
-                        Text { x: 8px; y: 0; height: 29px; text: p.header; font-size: 11px; font-weight: 700; letter-spacing: 0.2px; color: Theme.dark ? #ffffff80 : #00000096; vertical-alignment: TextVerticalAlignment.bottom; } }
-                    Rectangle {
-                        height: 32px; border-radius: 10px;
-                        property <bool> sel: F.cur-place == p.path;
-                        property <bool> drop: F.dragging && F.drop-place == p.path;
-                        background: drop ? Theme.accent.with-alpha(0.3) : sel ? (Theme.dark ? #ffffff1f : #0000000f) : (ta.has-hover ? Theme.hover : transparent);
-                        if !p.is-tag: Image { x: 9px; width: 19px; height: 19px; source: F.glyph(p.icon); colorize: sel ? Theme.accent : (Theme.dark ? #ffffffd0 : #000000d8); }
-                        if p.is-tag: Rectangle { x: 13px; width: 11px; height: 11px; border-radius: 5.5px; background: p.dot; }
-                        Text { x: 38px; width: parent.width - 38px - (p.eject ? 24px : 6px); text: p.label; font-size: 13px; letter-spacing: 0.45px; color: sel ? Theme.accent : Theme.text; vertical-alignment: center; overflow: elide; }
-                        if p.eject: Image { x: parent.width - 22px; width: 13px; height: 13px; source: F.i-eject; colorize: Theme.text-secondary;
-                            TouchArea { clicked => { F.menu-action("eject:" + p.path); } } }
-                        ta := TouchArea {
-                            clicked => { F.go(p.path); keys.focus(); }
-                            pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.right { F.menu-action("place-menu:" + p.path); } }
-                        }
-                    }
-                }
-            }
+        moved => {
+            if self.pressed { F.side-w = max(140px, min(360px, self.start + self.mouse-x - self.pressed-x)); }
         }
     }
 
@@ -779,140 +827,39 @@ export component FinderWindow inherits Window {
         opacity: 0.85;
         Rectangle { width: 48px; height: 48px; border-radius: 10px; background: Theme.accent.with-alpha(0.2); }
         Text { y: 50px; text: F.drag-label; font-size: 11px; color: Theme.text; horizontal-alignment: center; }
-        if F.drag-count > 1: Rectangle { x: 40px; y: 0; width: 20px; height: 20px; border-radius: 10px; background: #ff3b30;
-            Text { text: F.drag-count; color: white; font-size: 11px; font-weight: 700; } }
-        if F.drop-copy: Rectangle { x: 40px; y: 34px; width: 18px; height: 18px; border-radius: 9px; background: #34c759;
-            Text { text: "+"; color: white; font-size: 14px; font-weight: 700; } }
-    }
-
-    if F.menu-open: Rectangle {
-        TouchArea { pointer-event(e) => { if e.kind == PointerEventKind.down { F.menu-open = false; } } }
-        menu := GlassMenu {
-            property <length> h: mv.preferred-height;
-            x: max(6px, min(F.menu-x, root.width - self.width - 6px)); y: max(6px, min(F.menu-y, root.height - h - 6px));
-            ox: self.x; oy: self.y;
-            width: 256px; height: h;
-            TouchArea {}
-            mv := VerticalLayout {
-                padding: 5px;
-                for m in F.menu: VerticalLayout {
-                    if m.separator: Rectangle { height: 11px; Rectangle { height: 1px; x: 12px; width: parent.width - 24px; background: Theme.dark ? #ffffff1f : #0000001a; } }
-                    if m.id == "tags": HorizontalLayout {
-                        padding-left: 12px; padding-top: 5px; padding-bottom: 5px; spacing: 7px; alignment: start;
-                        for t in F.tag-defs: Rectangle { width: 16px; height: 16px; border-radius: 8px; background: t.color;
-                            border-width: tta.has-hover || t.on ? 2px : 0px; border-color: Theme.dark ? #2a2a2e : #f4f4f6;
-                            Rectangle { width: 18px; height: 18px; border-radius: 9px; border-width: tta.has-hover ? 1px : 0px; border-color: Theme.text-secondary; }
-                            if t.on: Image { width: 9px; height: 9px; source: Glyphs.checkmark; colorize: white; }
-                            tta := TouchArea { clicked => { F.tag-toggle(t.name); } }
-                        }
-                    }
-                    if !m.separator && m.id != "tags": Rectangle {
-                        height: 24px; border-radius: 7px;
-                        property <bool> hot: mta.has-hover && m.enabled;
-                        background: hot ? Theme.accent : transparent;
-                        property <color> fg: !m.enabled ? Theme.text-tertiary : hot ? white : Theme.text;
-                        if m.checked: Image { x: 10px; y: 6px; width: 12px; height: 12px; source: Glyphs.checkmark; colorize: fg; }
-                        if !m.checked && F.menu-has-icon(m.id): Image { x: 9px; y: 4.5px; width: 15px; height: 15px; source: F.menu-icon(m.id); colorize: fg; }
-                        Text { x: 32px; text: m.label; font-size: 13px; letter-spacing: 0.35px; vertical-alignment: center; height: parent.height; width: parent.width - 32px - (m.shortcut != "" ? 64px : 10px);
-                            color: fg; overflow: elide; }
-                        Text { x: parent.width - 64px; width: 54px; text: m.shortcut; font-size: 13px; horizontal-alignment: right; vertical-alignment: center; height: parent.height;
-                            color: hot ? #ffffffc0 : Theme.text-tertiary; }
-                        mta := TouchArea { enabled: m.enabled; clicked => { F.menu-open = false; F.menu-action(m.id); } }
-                    }
-                }
-            }
+        if F.drag-count > 1: Rectangle {
+            x: 40px; y: 0; width: 20px; height: 20px; border-radius: 10px; background: #ff3b30;
+            Text { text: F.drag-count; color: white; font-size: 11px; font-weight: 700; }
+        }
+        if F.drop-copy: Rectangle {
+            x: 40px; y: 34px; width: 18px; height: 18px; border-radius: 9px; background: #34c759;
+            Text { text: "+"; color: white; font-size: 14px; font-weight: 700; }
         }
     }
 
-    if F.custom-open: Rectangle {
-        TouchArea { pointer-event(e) => { if e.kind == PointerEventKind.down { F.custom-open = false; } } }
-        Rectangle {
-            x: min(max(8px, F.menu-x - self.width / 2), root.width - self.width - 8px);
-            y: min(max(8px, F.menu-y - 60px), root.height - self.height - 8px);
-            width: 340px; height: 470px;
-            border-radius: 22px;
-            background: Theme.dark ? #2c2c2ef7 : #f6f7fbf7;
-            border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
-            drop-shadow-blur: 30px; drop-shadow-color: #00000050; drop-shadow-offset-y: 10px;
-            TouchArea {}
-            Rectangle { y: 0; height: 150px; border-radius: 22px; background: @linear-gradient(180deg, Theme.accent.with-alpha(0.12) 0%, transparent 100%); }
-            FileIcon { y: 18px; x: (parent.width - 96px) / 2; item: F.custom; s: 96px; }
-            Text { y: 118px; width: parent.width; text: F.custom.name; font-size: 13px; color: Theme.text; horizontal-alignment: center; }
-            HorizontalLayout {
-                y: 146px; height: 32px; padding-left: 14px; padding-right: 14px; spacing: 7px; alignment: center;
-                for c[i] in [#00000000, #f19a37, #ff453a, #ffcc00, #34c759, #0a84ff, #bf5af2, #8e8e93, #5ebcf7]: VerticalLayout { alignment: center;
-                    Rectangle {
-                        width: 24px; height: 24px; border-radius: 12px;
-                        background: i == 0 ? transparent : c;
-                        border-width: i == 0 ? 0px : 0.5px; border-color: #00000030;
-                        if i == 0: Image { width: 20px; height: 20px; source: F.i-tag-off; colorize: Theme.text-secondary; }
-                        property <bool> cur: (i == 0 && !F.custom.has-tint) || (i > 0 && F.custom.has-tint && F.custom.tint == c);
-                        if cur && i > 0: Image { width: 12px; height: 12px; source: Glyphs.checkmark; colorize: white; }
-                        Rectangle { width: 28px; height: 28px; border-radius: 14px; border-width: cur || cta.has-hover ? 2px : 0px; border-color: Theme.accent.with-alpha(cur ? 0.9 : 0.4); }
-                        cta := TouchArea { clicked => { F.custom-color(i); } }
-                    }
-                }
-            }
-            Rectangle { y: 186px; height: 1px; x: 12px; width: parent.width - 24px; background: Theme.separator; }
-            Text { x: 14px; y: 192px; text: F.custom-emoji ? @tr("Emoji") : @tr("Symbols"); font-size: 12px; font-weight: 600; color: Theme.text-secondary; }
-            Flickable {
-                x: 10px; y: 212px; width: parent.width - 20px; height: 208px;
-                property <[string]> syms: ["★", "♥", "♪", "♫", "☀", "☁", "☂", "❄", "⚡", "✈", "⚓", "⚙", "✎", "✂", "☎", "✉", "⌂", "⚑", "☕", "♞", "⚽", "♻", "✿", "☺", "✔", "✖", "⌘", "⌥", "⚠", "☯", "☮", "♠", "♣", "♦", "✚", "∞", "Ω", "π", "$", "€", "@", "#", "§", "¶", "☰", "◉", "▲", "●"];
-                property <[string]> emoji: ["😀", "😎", "🥳", "😍", "🤓", "👻", "🐶", "🐱", "🦊", "🐼", "🌸", "🌵", "🍕", "🍔", "☕", "🍎", "⚽", "🎮", "🎧", "🎸", "🎨", "📷", "🎬", "📚", "💼", "💰", "💡", "🔧", "🚀", "✈️", "🏠", "🌍", "❤️", "⭐", "🔥", "🌈", "📁", "📦", "🔒", "🧪", "💻", "📱", "🗂️", "📝", "🎓", "🏖️", "🎁", "🐞"];
-                property <[string]> cur: F.custom-emoji ? emoji : syms;
-                content-height: ceil(cur.length / 6) * 46px;
-                for s[i] in cur: Rectangle {
-                    x: mod(i, 6) * 53px; y: floor(i / 6) * 46px; width: 46px; height: 42px; border-radius: 21px;
-                    background: F.custom.symbol == s ? Theme.accent.with-alpha(0.22) : sta.has-hover ? Theme.hover : transparent;
-                    border-width: F.custom.symbol == s ? 2px : 0px; border-color: Theme.accent;
-                    Text { text: s; font-size: 21px; color: Theme.text-secondary; horizontal-alignment: center; vertical-alignment: center; }
-                    sta := TouchArea { clicked => { F.custom-symbol(s); } }
-                }
-            }
-            HorizontalLayout {
-                y: parent.height - 44px; height: 36px; padding-left: 10px; padding-right: 10px; spacing: 8px;
-                Rectangle { border-radius: 10px; background: c1a.pressed ? Theme.control-pressed : Theme.control-bg;
-                    Text { text: @tr("Clear"); font-size: 13px; color: Theme.text; } c1a := TouchArea { clicked => { F.custom-symbol(""); } } }
-                Rectangle { border-radius: 10px; background: c2a.pressed ? Theme.control-pressed : Theme.control-bg;
-                    Text { text: F.custom-emoji ? @tr("Symbols") : "☺  Emoji"; font-size: 13px; color: Theme.text; } c2a := TouchArea { clicked => { F.custom-emoji = !F.custom-emoji; } } }
-            }
-        }
+    if F.in-search && F.search-busy && F.mode == 0: LoadingPill {
+        x: cx + (cw - self.width) / 2; y: top-h + max(40px, (ch - self.height) / 2 - 40px);
     }
-
-    if F.goto-open: Rectangle {
-        background: #00000026;
-        TouchArea { clicked => { F.goto-open = false; } }
-        Rectangle {
-            x: (parent.width - self.width) / 2; y: 60px; width: 420px; height: 52px; border-radius: 16px;
-            background: Theme.menu-bg; drop-shadow-blur: 24px; drop-shadow-color: #00000050; drop-shadow-offset-y: 8px;
-            border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
-            TouchArea {}
-            gf := Field { x: 12px; width: parent.width - 24px; height: 30px; placeholder: @tr("Go to Folder (~/Documents, /etc …)"); accepted(t) => { F.goto(t); }
-                init => { self.focus(); } }
-        }
+    if F.searching && F.search-focus && !F.sugg-hide && F.query != "" && F.mode == 0: SearchSuggestions {
+        x: root.width - 9px - search-w; y: 48px; width: search-w;
     }
+    if F.prog-on: ProgressCard { x: root.width - self.width - 16px; y: root.height - self.height - bot-h - 12px; }
+    if F.vo-open: ViewOptions { x: root.width - self.width - 14px; y: 58px; }
+    if F.ql-open: QuickLook { }
+    if F.menu-open && !F.menu-native: MenuOverlay { }
+    property <bool> menu-shown: F.menu-open;
+    changed menu-shown => { if !self.menu-shown { F.menu-closed(); } }
+    if F.custom-open: CustomizePanel { }
+    if F.goto-open: GotoPanel { }
+    if F.prefs-open: PrefsPanel { }
+    if F.rn-open: RenamePanel { }
+    if F.ss-open: SaveSearchPanel { }
+    if F.tb-open: ToolbarPanel { }
+    if F.cs-open: ConnectPanel { }
 
     clip := TextInput { visible: false; width: 0; height: 0; }
     public function copy-text(t: string) { clip.text = t; clip.select-all(); clip.copy(); }
+    public function focus-keys() { keys.focus(); }
 
-    if F.alert != "": Rectangle {
-        background: #00000030;
-        TouchArea {}
-        Rectangle {
-            x: (parent.width - self.width) / 2; y: 70px; width: 300px; height: al.preferred-height;
-            border-radius: 22px; background: Theme.menu-bg;
-            border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
-            drop-shadow-blur: 30px; drop-shadow-color: #00000055; drop-shadow-offset-y: 10px;
-            al := VerticalLayout {
-                padding: 18px; spacing: 10px;
-                HorizontalLayout { alignment: center; FolderIcon { s: 56px; } }
-                Text { text: F.alert; font-size: 13px; font-weight: 700; color: Theme.text; wrap: word-wrap; horizontal-alignment: center; }
-                if F.alert-detail != "": Text { text: F.alert-detail; font-size: 11px; color: Theme.text-secondary; wrap: word-wrap; horizontal-alignment: center; }
-                HorizontalLayout { spacing: 8px;
-                    if F.alert-cancel: PillButton { horizontal-stretch: 1; text: @tr("Cancel"); clicked => { F.alert-done(false); } }
-                    PillButton { horizontal-stretch: 1; text: F.alert-ok; primary: true; clicked => { F.alert-done(true); } }
-                }
-            }
-        }
-    }
+    if F.alert != "": AlertSheet { }
 }

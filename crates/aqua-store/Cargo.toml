@@ -1,0 +1,22 @@
+[package]
+name = "aqua-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "App Store backend: Flatpak, pacman, AUR, dnf and apt packages, catalog, reviews, jobs"
+
+[dependencies]
+serde.workspace = true
+toml.workspace = true
+dirs.workspace = true
+serde_json = "1"
+ureq = { version = "2", default-features = false, features = ["tls", "json"] }
+flate2 = "1"
+roxmltree = "0.21"
+sha1_smol = "1"
+libc = "0.2"
+aqua-apps.workspace = true
+
+[lints]
+workspace = true

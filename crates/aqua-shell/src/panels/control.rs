@@ -9,6 +9,8 @@ pub struct ControlCenter {
     pub bluetooth: bool,
     pub airdrop: bool,
     pub focus: bool,
+    /// Stage Manager is on (mirrored from the compositor).
+    pub stage: bool,
     pub dark: bool,
     pub brightness: f32,
     pub volume: f32,
@@ -25,6 +27,7 @@ impl Default for ControlCenter {
             bluetooth: true,
             airdrop: false,
             focus: false,
+            stage: false,
             dark: false,
             brightness: 0.8,
             volume: 0.6,
@@ -141,7 +144,7 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
         cc.wifi,
         cc.bluetooth,
         cc.airdrop,
-        cc.focus,
+        (cc.focus, cc.stage),
         cc.dark,
         (cc.brightness * 100.0) as i32,
         (cc.volume * 100.0) as i32,
@@ -263,6 +266,9 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
                     );
                 }
                 T::Stage => {
+                    if cc.stage {
+                        c.fill_circle(r.cx(), r.cy(), r.w / 2.0 - 2.0, style::accent(1.0));
+                    }
                     let x = r.cx() - 12.0;
                     for k in 0..3 {
                         c.fill_rrect(Rect::new(x, r.cy() - 10.0 + k as f32 * 7.5, 5.0, 5.0), 1.5, fg);
@@ -402,8 +408,8 @@ pub fn click(sh: &mut Shell, x: f32, y: f32) -> Option<Vec<Action>> {
             out.push(Action::SetFocusMode(cc.focus));
         }
         T::Stage => {
-            cc.open = false;
-            out.push(Action::OpenSettings("desktop".into()));
+            cc.stage = !cc.stage;
+            out.push(Action::SetStageManager(cc.stage));
         }
         T::Mirror => {
             cc.open = false;

@@ -167,6 +167,38 @@ fn strip_markup(s: &str) -> String {
 }
 
 /// Start the daemon on a background thread.
+/// Keep owning the well-known bus `name` on `conn`: report when someone else holds it and
+/// claim it again whenever it has no owner (a queued request can get lost, e.g. after another
+/// session on the same bus came and went — notifications and file dialogs then silently stop
+/// working).
+pub fn keep_name(conn: &zbus::blocking::Connection, name: &'static str) {
+    let conn = conn.clone();
+    let _ = std::thread::Builder::new().name("dbus-name".into()).spawn(move || {
+        let Ok(p) = zbus::blocking::fdo::DBusProxy::new(&conn) else { return };
+        let Ok(wk) = zbus::names::WellKnownName::try_from(name) else { return };
+        let me = conn.unique_name().map(|n| n.to_string());
+        let mut reported = false;
+        loop {
+            match p.get_name_owner(wk.clone().into()) {
+                Ok(owner) => {
+                    let owner = owner.to_string();
+                    if Some(&owner) != me.as_ref() && !reported {
+                        tracing::warn!("{name} is owned by {owner}, not this session; waiting for it");
+                        reported = true;
+                    } else if Some(&owner) == me.as_ref() {
+                        reported = false;
+                    }
+                }
+                Err(_) => match p.request_name(wk.clone(), Default::default()) {
+                    Ok(r) => tracing::info!("claimed {name} on the session bus: {r:?}"),
+                    Err(e) => tracing::warn!("cannot claim {name}: {e}"),
+                },
+            }
+            std::thread::sleep(std::time::Duration::from_secs(10));
+        }
+    });
+}
+
 pub fn spawn() -> Receiver<Event> {
     let (tx, rx) = channel();
     std::thread::Builder::new()
@@ -179,6 +211,7 @@ pub fn spawn() -> Receiver<Event> {
                 .and_then(|b| b.build());
             match conn {
                 Ok(c) => {
+                    keep_name(&c, "org.freedesktop.Notifications");
                     let _ = CONN.set(c);
                     tracing::info!("notification server running on the session bus");
                     loop {

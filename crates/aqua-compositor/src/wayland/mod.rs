@@ -1,4 +1,5 @@
 //! Wayland protocol handlers and XWayland integration.
+pub mod appmenu;
 pub mod blur;
 pub mod handlers;
 pub mod protocols;

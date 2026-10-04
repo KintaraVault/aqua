@@ -18,7 +18,8 @@ Aqua is its own Wayland compositor and shell, built on [Smithay](https://github.
 | `aqua-i18n` | UI translations (gettext `.po` catalogs compiled in, plural forms, `AQUA_LANG`) |
 | `aqua-wm` | window-management rules as plain, unit-tested data: Spaces, placement, zoom, Mission Control grid |
 | `aqua-screencast` | PipeWire video sources for the ScreenCast portal (optional `screencast` feature, on by default) |
-| `aqua-ui` | Slint apps: Finder + file chooser, System Settings, polkit agent, greetd greeter |
+| `aqua-store` | software catalogue and package management: Flathub/AppStream metadata, Flatpak, pacman, AUR, dnf, apt backends, job queue, update checks, reviews |
+| `aqua-ui` | Slint apps: Finder + file chooser, System Settings, App Store, polkit agent, greetd greeter |
 | `aqua-compositor` | binary `aqua`: Smithay compositor |
 
 ### Compositor layout (`crates/aqua-compositor/src`)

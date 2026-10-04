@@ -32,6 +32,22 @@ pub enum Status {
 
 pub const FONT: f32 = aqua_config::metrics::MENUBAR_FONT;
 
+/// Menu-bar titles after the app name: the focused app's own menus when it exports a
+/// global menu, else Aqua's generic set.
+pub fn menu_titles(sh: &Shell) -> Vec<String> {
+    if let Some(t) = crate::tray::app_menu_titles() {
+        return t;
+    }
+    app_menus(&sh.active_app_name()).into_iter().map(String::from).collect()
+}
+
+/// A menu-bar menu is opening: let an app with a global menu fill it lazily.
+pub fn about_to_open(kind: &menu::MenuKind) {
+    if let menu::MenuKind::App(i) = kind {
+        crate::tray::app_menu_opened(*i);
+    }
+}
+
 pub fn app_menus(app: &str) -> Vec<&'static str> {
     if app == "Finder" {
         vec!["File", "Edit", "View", "Go", "Window", "Help"]
@@ -68,7 +84,7 @@ pub fn layout(sh: &Shell) -> Vec<(Item, Rect)> {
     let nw = f.measure(&name, FONT, Weight::Bold) + pad * 2.0;
     v.push((Item::AppName, Rect::new(x, 0.0, nw, h)));
     x += nw;
-    for (i, m) in app_menus(&name).iter().enumerate() {
+    for (i, m) in menu_titles(sh).iter().enumerate() {
         let w = f.measure(m, FONT, Weight::Regular) + pad * 2.0;
         v.push((Item::Menu(i), Rect::new(x, 0.0, w, h)));
         x += w;
@@ -209,8 +225,8 @@ pub fn layer(sh: &mut Shell) -> Layer {
                     );
                 }
                 Item::Menu(i) => {
-                    let name = sh.active_app_name();
-                    let m = app_menus(&name)[*i];
+                    let titles = menu_titles(sh);
+                    let m = titles.get(*i).map(String::as_str).unwrap_or("");
                     c.text(&f, r.x + aqua_config::metrics::MENU_ITEM_PAD, base, FONT, Weight::Regular, fg, m);
                 }
                 Item::Tray(key) => {
@@ -333,6 +349,7 @@ pub fn click(sh: &mut Shell, x: f32, y: f32) -> Vec<Action> {
                 if sh.menu.open.as_ref() == Some(&k) {
                     menu::dismiss(sh);
                 } else {
+                    about_to_open(&k);
                     sh.menu.open = Some(k);
                     sh.menu.anchor = r.x;
                     sh.menu.hover = None;

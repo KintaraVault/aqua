@@ -10,6 +10,9 @@ pub enum Loc {
     Tag(String),
     Trash,
     Search(PathBuf, String),
+    Smart(PathBuf),
+    /// Inside an archive file: (archive, folder inside it, "" = top level).
+    Archive(PathBuf, String),
 }
 
 impl Loc {
@@ -21,6 +24,8 @@ impl Loc {
             Loc::Tag(t) => format!("tag:{t}"),
             Loc::Trash => "trash:".into(),
             Loc::Search(p, _) => p.to_string_lossy().into_owned(),
+            Loc::Smart(p) => format!("smart:{}", p.display()),
+            Loc::Archive(p, inner) => format!("archive:{}::{inner}", p.display()),
         }
     }
     pub fn parse(s: &str) -> Loc {
@@ -30,6 +35,12 @@ impl Loc {
             "apps:" | "applications:" | "applications://" => Loc::Apps,
             "trash:" | "trash://" | "trash:///" => Loc::Trash,
             _ if s.starts_with("tag:") => Loc::Tag(s[4..].to_string()),
+            _ if s.starts_with("smart:") => Loc::Smart(PathBuf::from(&s[6..])),
+            _ if s.starts_with("archive:") => {
+                let rest = &s[8..];
+                let (p, inner) = rest.rsplit_once("::").unwrap_or((rest, ""));
+                Loc::Archive(PathBuf::from(p), inner.trim_matches('/').to_string())
+            }
             _ => {
                 let p = s.strip_prefix("file://").map(percent_decode).unwrap_or_else(|| s.to_string());
                 let p = match p.strip_prefix('~') {
@@ -335,6 +346,13 @@ pub fn list_recents() -> Vec<Entry> {
     out
 }
 
+/// Build output and caches that searches skip, like Spotlight does: `node_modules`,
+/// `__pycache__` and every folder tagged with a `CACHEDIR.TAG` (Cargo `target`, …).
+fn is_cache_dir(p: &Path) -> bool {
+    matches!(p.file_name().and_then(|n| n.to_str()), Some("node_modules" | "__pycache__"))
+        || p.join("CACHEDIR.TAG").exists()
+}
+
 pub fn walk(dir: &Path, depth: usize, f: &mut dyn FnMut(Entry) -> bool) -> bool {
     let Ok(rd) = std::fs::read_dir(dir) else { return true };
     let mut subdirs = vec![];
@@ -346,7 +364,7 @@ pub fn walk(dir: &Path, depth: usize, f: &mut dyn FnMut(Entry) -> bool) -> bool 
         if !f(en) {
             return false;
         }
-        if is_dir && !hidden {
+        if is_dir && !hidden && !is_cache_dir(&p) {
             subdirs.push(p);
         }
     }
@@ -505,6 +523,12 @@ fn local_day(secs: i64, t: &libc::tm) -> i64 {
     (secs + t.tm_gmtoff).div_euclid(86400)
 }
 
+/// (year, month 0-11, local day number) of `secs`.
+pub fn local_parts(secs: i64) -> (i32, i32, i64) {
+    let t = tm(secs);
+    (t.tm_year + 1900, t.tm_mon, local_day(secs, &t))
+}
+
 /// "Today at 10:32", "Yesterday at 09:10", "18 Jun 2025 at 12:57"
 pub fn short_date(secs: i64) -> String {
     if secs <= 0 {
@@ -602,41 +626,36 @@ pub fn trash_dir() -> PathBuf {
     dirs::data_dir().unwrap_or_else(|| home().join(".local/share")).join("Trash")
 }
 
-/// Move to the freedesktop.org trash (with a .trashinfo for "Put Back").
-pub fn trash(p: &Path) -> Result<(), String> {
-    let t = trash_dir();
+/// Move to the freedesktop.org trash (with a .trashinfo for "Put Back"); returns the trashed path.
+pub fn trash(p: &Path) -> Result<PathBuf, String> {
+    trash_in(&trash_dir(), p)
+}
+
+pub fn trash_in(t: &Path, p: &Path) -> Result<PathBuf, String> {
     let (files, info) = (t.join("files"), t.join("info"));
     std::fs::create_dir_all(&files).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&info).map_err(|e| e.to_string())?;
     let name = p.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "item".into());
     let mut dst_name = name.clone();
     let mut k = 2;
-    while files.join(&dst_name).exists() || info.join(format!("{dst_name}.trashinfo")).exists() {
+    while files.join(&dst_name).symlink_metadata().is_ok() || info.join(format!("{dst_name}.trashinfo")).exists() {
         dst_name = format!("{name}.{k}");
         k += 1;
     }
-    let abs = std::fs::canonicalize(p.parent().unwrap_or(Path::new("/"))).unwrap_or_default().join(&name);
-    let n = tm(now_secs());
-    let inf = format!(
-        "[Trash Info]\nPath={}\nDeletionDate={:04}-{:02}-{:02}T{:02}:{:02}:{:02}\n",
-        percent_encode(&abs.to_string_lossy()),
-        n.tm_year + 1900,
-        n.tm_mon + 1,
-        n.tm_mday,
-        n.tm_hour,
-        n.tm_min,
-        n.tm_sec
-    );
+    let abs = std::fs::canonicalize(p.parent().filter(|d| !d.as_os_str().is_empty()).unwrap_or(Path::new(".")))
+        .unwrap_or_default()
+        .join(&name);
     let ipath = info.join(format!("{dst_name}.trashinfo"));
-    std::fs::write(&ipath, inf).map_err(|e| e.to_string())?;
-    match std::fs::rename(p, files.join(&dst_name)) {
-        Ok(()) => Ok(()),
+    std::fs::write(&ipath, trashinfo(&abs, now_secs())).map_err(|e| e.to_string())?;
+    let dst = files.join(&dst_name);
+    match std::fs::rename(p, &dst) {
+        Ok(()) => Ok(dst),
         Err(e) if e.raw_os_error() == Some(libc::EXDEV) => {
             let _ = std::fs::remove_file(&ipath);
             let ok =
                 std::process::Command::new("gio").arg("trash").arg(p).status().map(|s| s.success()).unwrap_or(false);
             if ok {
-                Ok(())
+                Ok(PathBuf::new())
             } else {
                 Err("This item is on another volume and can't be moved to the Trash. Delete it immediately instead?"
                     .into())
@@ -647,6 +666,84 @@ pub fn trash(p: &Path) -> Result<(), String> {
             Err(e.to_string())
         }
     }
+}
+
+pub fn trashinfo(abs: &Path, when: i64) -> String {
+    let n = tm(when);
+    format!(
+        "[Trash Info]\nPath={}\nDeletionDate={:04}-{:02}-{:02}T{:02}:{:02}:{:02}\n",
+        percent_encode(&abs.to_string_lossy()),
+        n.tm_year + 1900,
+        n.tm_mon + 1,
+        n.tm_mday,
+        n.tm_hour,
+        n.tm_min,
+        n.tm_sec
+    )
+}
+
+/// The `.trashinfo` file belonging to a trashed item.
+pub fn info_of(trashed: &Path) -> PathBuf {
+    let name = trashed.file_name().unwrap_or_default().to_string_lossy();
+    trashed.parent().and_then(|f| f.parent()).unwrap_or(Path::new("/")).join("info").join(format!("{name}.trashinfo"))
+}
+
+/// Seconds since the epoch of a `DeletionDate=` value (local time).
+pub fn parse_deletion_date(s: &str) -> Option<i64> {
+    let s = s.trim();
+    let (d, t) = s.split_once('T')?;
+    let mut dp = d.split('-').map(|x| x.parse::<i32>());
+    let (y, mo, da) = (dp.next()?.ok()?, dp.next()?.ok()?, dp.next()?.ok()?);
+    let mut tp = t.split(':').map(|x| x.trim_end_matches('Z').parse::<i32>());
+    let (h, mi, se) = (tp.next()?.ok()?, tp.next()?.ok()?, tp.next().and_then(|x| x.ok()).unwrap_or(0));
+    unsafe {
+        let mut tm: libc::tm = std::mem::zeroed();
+        tm.tm_year = y - 1900;
+        tm.tm_mon = mo - 1;
+        tm.tm_mday = da;
+        tm.tm_hour = h;
+        tm.tm_min = mi;
+        tm.tm_sec = se;
+        tm.tm_isdst = -1;
+        let t = libc::mktime(&mut tm);
+        (t != -1).then_some(t as i64)
+    }
+}
+
+/// Delete trashed items older than `days`; returns how many were removed.
+pub fn purge_trash(t: &Path, days: i64, now: i64) -> usize {
+    let mut n = 0;
+    let Ok(rd) = std::fs::read_dir(t.join("info")) else { return 0 };
+    for e in rd.flatten() {
+        let p = e.path();
+        let Some(stem) = p.file_name().and_then(|s| s.to_str()).and_then(|s| s.strip_suffix(".trashinfo")) else {
+            continue;
+        };
+        let inf = std::fs::read_to_string(&p).unwrap_or_default();
+        let when = inf.lines().find_map(|l| l.strip_prefix("DeletionDate=")).and_then(parse_deletion_date);
+        if when.is_some_and(|w| now - w > days * 86400) {
+            let f = t.join("files").join(stem);
+            if f.symlink_metadata().is_err() || remove_rec(&f).is_ok() {
+                let _ = std::fs::remove_file(&p);
+                n += 1;
+            }
+        }
+    }
+    n
+}
+
+/// Restore a trashed item to `orig` (or a free name next to it); returns where it went.
+pub fn untrash(trashed: &Path, orig: &Path) -> Result<PathBuf, String> {
+    let dir = orig.parent().unwrap_or(Path::new("/"));
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    let dst = if orig.symlink_metadata().is_ok() {
+        unique(dir, &orig.file_name().unwrap_or_default().to_string_lossy(), "")
+    } else {
+        orig.to_path_buf()
+    };
+    move_to(trashed, &dst).map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(info_of(trashed));
+    Ok(dst)
 }
 
 pub fn list_trash() -> Vec<Entry> {
@@ -661,16 +758,7 @@ pub fn list_trash() -> Vec<Entry> {
 
 pub fn put_back(e: &Entry) -> Result<PathBuf, String> {
     let orig = e.orig.clone().ok_or("The original location of this item is unknown.")?;
-    let dir = orig.parent().unwrap_or(Path::new("/"));
-    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    let dst = if orig.exists() {
-        unique(dir, &orig.file_name().unwrap_or_default().to_string_lossy(), "")
-    } else {
-        orig.clone()
-    };
-    move_to(&e.path, &dst).map_err(|e| e.to_string())?;
-    let _ = std::fs::remove_file(trash_dir().join("info").join(format!("{}.trashinfo", e.name)));
-    Ok(dst)
+    untrash(&e.path, &orig)
 }
 
 pub fn empty_trash() {
@@ -801,6 +889,246 @@ pub fn sh_quote(p: &Path) -> String {
     format!("'{}'", p.to_string_lossy().replace('\'', "'\\''"))
 }
 
+/// Free bytes on the file system holding `p`.
+pub fn free_space(p: &Path) -> Option<u64> {
+    use std::os::unix::ffi::OsStrExt;
+    let c = std::ffi::CString::new(p.as_os_str().as_bytes()).ok()?;
+    unsafe {
+        let mut st: libc::statvfs = std::mem::zeroed();
+        (libc::statvfs(c.as_ptr(), &mut st) == 0).then(|| st.f_bavail as u64 * st.f_frsize as u64)
+    }
+}
+
+/// Total size and item count of a folder tree (symlinks are not followed).
+pub fn tree_size(p: &Path, stop: &dyn Fn() -> bool) -> (u64, u64) {
+    let (mut bytes, mut items) = (0u64, 0u64);
+    let mut stack = vec![p.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        if stop() {
+            break;
+        }
+        let Ok(rd) = std::fs::read_dir(&d) else { continue };
+        for e in rd.flatten() {
+            let Ok(md) = e.path().symlink_metadata() else { continue };
+            items += 1;
+            if md.is_dir() {
+                stack.push(e.path());
+            } else {
+                bytes += md.len();
+            }
+        }
+    }
+    (bytes, items)
+}
+
+/// "photo.tar.gz" → ("photo.tar", ".gz"); hidden files and folders have no extension.
+pub fn split_ext(name: &str) -> (&str, &str) {
+    match name.rfind('.') {
+        Some(i) if i > 0 && i + 1 < name.len() => (&name[..i], &name[i..]),
+        _ => (name, ""),
+    }
+}
+
+/// Name as shown when known extensions are hidden.
+pub fn display_name(name: &str, is_dir: bool, show_ext: bool) -> String {
+    if show_ext || is_dir {
+        return name.to_string();
+    }
+    let (stem, ext) = split_ext(name);
+    let known = !ext.is_empty() && classify(name, false).0 != 1
+        || matches!(
+            ext.to_lowercase().as_str(),
+            ".docx" | ".xlsx" | ".pptx" | ".odt" | ".ods" | ".odp" | ".doc" | ".xls" | ".ppt" | ".rtf"
+        );
+    if known {
+        stem.to_string()
+    } else {
+        name.to_string()
+    }
+}
+
+pub fn mime_of(p: &Path, is_dir: bool) -> String {
+    if is_dir {
+        return "inode/directory".into();
+    }
+    let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    let m = match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "bmp" => "image/bmp",
+        "tif" | "tiff" => "image/tiff",
+        "svg" => "image/svg+xml",
+        "heic" | "heif" => "image/heif",
+        "avif" => "image/avif",
+        "ico" => "image/vnd.microsoft.icon",
+        "mp3" => "audio/mpeg",
+        "flac" => "audio/flac",
+        "ogg" | "oga" => "audio/ogg",
+        "opus" => "audio/opus",
+        "wav" => "audio/x-wav",
+        "m4a" | "aac" => "audio/mp4",
+        "mp4" | "m4v" => "video/mp4",
+        "mov" => "video/quicktime",
+        "mkv" => "video/x-matroska",
+        "webm" => "video/webm",
+        "avi" => "video/x-msvideo",
+        "pdf" => "application/pdf",
+        "zip" => "application/zip",
+        "gz" | "tgz" => "application/gzip",
+        "xz" => "application/x-xz",
+        "zst" => "application/zstd",
+        "bz2" => "application/x-bzip2",
+        "7z" => "application/x-7z-compressed",
+        "rar" => "application/vnd.rar",
+        "tar" => "application/x-tar",
+        "iso" => "application/x-cd-image",
+        "deb" => "application/vnd.debian.binary-package",
+        "rpm" => "application/x-rpm",
+        "html" | "htm" => "text/html",
+        "css" => "text/css",
+        "js" => "application/javascript",
+        "json" => "application/json",
+        "xml" => "application/xml",
+        "md" | "markdown" => "text/markdown",
+        "csv" => "text/csv",
+        "sh" | "bash" => "application/x-shellscript",
+        "py" => "text/x-python",
+        "rs" => "text/rust",
+        "c" | "h" => "text/x-csrc",
+        "cpp" | "hpp" | "cc" => "text/x-c++src",
+        "doc" => "application/msword",
+        "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "xls" => "application/vnd.ms-excel",
+        "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "ppt" => "application/vnd.ms-powerpoint",
+        "pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "odt" => "application/vnd.oasis.opendocument.text",
+        "ods" => "application/vnd.oasis.opendocument.spreadsheet",
+        "odp" => "application/vnd.oasis.opendocument.presentation",
+        "rtf" => "application/rtf",
+        "ttf" => "font/ttf",
+        "otf" => "font/otf",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+        "desktop" => "application/x-desktop",
+        "appimage" => "application/vnd.appimage",
+        e if TEXT_EXT.contains(&e) => "text/plain",
+        _ => "",
+    };
+    if !m.is_empty() {
+        return m.into();
+    }
+    match classify(&p.file_name().unwrap_or_default().to_string_lossy(), false).0 {
+        6 => "text/plain".into(),
+        _ => "application/octet-stream".into(),
+    }
+}
+
+/// Comments ("Get Info") live in the `user.xdg.comment` extended attribute.
+pub fn comment(p: &Path) -> String {
+    get_xattr(p, "user.xdg.comment").unwrap_or_default()
+}
+
+pub fn set_comment(p: &Path, c: &str) {
+    set_xattr(p, "user.xdg.comment", c.trim());
+}
+
+fn get_xattr(p: &Path, name: &str) -> Option<String> {
+    use std::os::unix::ffi::OsStrExt;
+    let cp = std::ffi::CString::new(p.as_os_str().as_bytes()).ok()?;
+    let cn = std::ffi::CString::new(name).ok()?;
+    let mut buf = vec![0u8; 4096];
+    let n = unsafe { libc::getxattr(cp.as_ptr(), cn.as_ptr(), buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
+    if n <= 0 {
+        return None;
+    }
+    buf.truncate(n as usize);
+    String::from_utf8(buf).ok()
+}
+
+/// Owner and group names of a path.
+pub fn owner_group(p: &Path) -> (String, String, u32, u32) {
+    use std::os::unix::fs::MetadataExt;
+    let Ok(md) = std::fs::symlink_metadata(p) else { return Default::default() };
+    let name_of = |file: &str, id: u32| {
+        std::fs::read_to_string(file)
+            .ok()
+            .and_then(|s| {
+                s.lines().find_map(|l| {
+                    let mut f = l.split(':');
+                    let n = f.next()?;
+                    f.next();
+                    (f.next()?.parse::<u32>().ok()? == id).then(|| n.to_string())
+                })
+            })
+            .unwrap_or_else(|| id.to_string())
+    };
+    (name_of("/etc/passwd", md.uid()), name_of("/etc/group", md.gid()), md.uid(), md.gid())
+}
+
+/// 0 = Read & Write, 1 = Read only, 2 = Write only, 3 = No Access; `who` 0 owner, 1 group, 2 others.
+pub fn access_level(mode: u32, who: u32) -> i32 {
+    let bits = (mode >> (6 - 3 * who.min(2))) & 0o7;
+    match (bits & 4 != 0, bits & 2 != 0) {
+        (true, true) => 0,
+        (true, false) => 1,
+        (false, true) => 2,
+        _ => 3,
+    }
+}
+
+/// New mode with `who`'s read/write bits set to `level`; folders keep search (x) in step with read.
+pub fn with_access(mode: u32, who: u32, level: i32, is_dir: bool) -> u32 {
+    let shift = 6 - 3 * who.min(2);
+    let (r, w) = match level {
+        0 => (true, true),
+        1 => (true, false),
+        2 => (false, true),
+        _ => (false, false),
+    };
+    let mut bits = (mode >> shift) & 0o7;
+    bits = (bits & 0o1) | if r { 4 } else { 0 } | if w { 2 } else { 0 };
+    if is_dir {
+        bits = (bits & !1) | if r { 1 } else { 0 };
+    }
+    (mode & !(0o7 << shift)) | (bits << shift)
+}
+
+/// The bookmarks file shared with GTK file managers (Favorites in the sidebar).
+pub fn bookmarks_file() -> PathBuf {
+    dirs::config_dir().unwrap_or_else(|| home().join(".config")).join("gtk-3.0/bookmarks")
+}
+
+pub fn read_bookmarks(file: &Path) -> Vec<(PathBuf, String)> {
+    std::fs::read_to_string(file)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| {
+            let (uri, label) = l.split_once(' ').unwrap_or((l, ""));
+            let p = uri.strip_prefix("file://").map(percent_decode).map(PathBuf::from)?;
+            Some((p, label.to_string()))
+        })
+        .collect()
+}
+
+pub fn write_bookmarks(file: &Path, v: &[(PathBuf, String)]) -> std::io::Result<()> {
+    let mut s = String::new();
+    for (p, l) in v {
+        s.push_str(&file_uri(p));
+        if !l.is_empty() {
+            s.push(' ');
+            s.push_str(l);
+        }
+        s.push('\n');
+    }
+    if let Some(d) = file.parent() {
+        std::fs::create_dir_all(d)?;
+    }
+    std::fs::write(file, s)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -812,6 +1140,10 @@ mod tests {
         assert!(matches!(Loc::parse(" trash:/// "), Loc::Trash));
         assert!(matches!(Loc::parse("applications:"), Loc::Apps));
         assert!(matches!(Loc::parse("tag:Red"), Loc::Tag(t) if t == "Red"));
+        let a = Loc::Archive(PathBuf::from("/tmp/x::y.zip"), "docs/sub".into());
+        assert_eq!(Loc::parse(&a.key()), a);
+        assert_eq!(Loc::parse("archive:/tmp/a.zip::"), Loc::Archive("/tmp/a.zip".into(), String::new()));
+        assert_eq!(a.dir(), None);
         assert_eq!(Loc::parse("file:///tmp/a%20b").dir(), Some(Path::new("/tmp/a b")));
         assert_eq!(Loc::parse("~/Docs").dir(), Some(home().join("Docs").as_path()));
         assert_eq!(Loc::parse("~").dir(), Some(home().as_path()));

@@ -32,6 +32,13 @@ impl PointerGrab<Aqua> for MoveSurfaceGrab {
         handle.motion(data, None, event);
 
         let delta = event.location - self.start_data.location;
+        // Dragging a tiled window away gives it back its previous size (macOS).
+        if delta.x.abs().max(delta.y.abs()) > 6.0 && crate::state::meta(&self.window).borrow().tiled.is_some() {
+            if let Some(loc) = data.untile_for_drag(&self.window, event.location) {
+                self.initial_window_location = (loc.x - delta.x.round() as i32, loc.y - delta.y.round() as i32).into();
+            }
+        }
+        data.update_tile_preview(&self.window, event.location);
         let new_location = self.initial_window_location.to_f64() + delta;
         let mut loc: Point<i32, Logical> = new_location.to_i32_round();
         loc.y = loc.y.max(data.top_inset(&self.window));
@@ -56,6 +63,9 @@ impl PointerGrab<Aqua> for MoveSurfaceGrab {
 
         if !handle.current_pressed().contains(&BTN_LEFT) {
             data.window_moved(&self.window);
+            if let Some(p) = data.render_cache.tile_preview.take() {
+                data.tile_window(&self.window, p.tile);
+            }
             handle.unset_grab(self, data, event.serial, event.time, true);
         }
     }
@@ -144,5 +154,9 @@ impl PointerGrab<Aqua> for MoveSurfaceGrab {
         &self.start_data
     }
 
-    fn unset(&mut self, _data: &mut Aqua) {}
+    fn unset(&mut self, data: &mut Aqua) {
+        if data.render_cache.tile_preview.take().is_some() {
+            data.needs_redraw = true;
+        }
+    }
 }

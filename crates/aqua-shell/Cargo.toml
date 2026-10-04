@@ -13,6 +13,7 @@ aqua-apps.workspace = true
 aqua-wallpaper.workspace = true
 aqua-sys.workspace = true
 aqua-tray.workspace = true
+aqua-wm.workspace = true
 
 [[bin]]
 name = "aqua-preview"

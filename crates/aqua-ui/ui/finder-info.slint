@@ -1,0 +1,193 @@
+import { Theme, Glyphs, Field, PillButton, Checkbox, PopupSelect, TrafficLights } from "common.slint";
+import { FItem, FKV, FTagDef, FileIcon } from "finder-model.slint";
+
+export struct FInfo { who: string, name: string, level: int }
+
+component Section inherits VerticalLayout {
+    in property <string> title;
+    in-out property <bool> open: true;
+    spacing: 0px;
+    Rectangle {
+        height: 30px;
+        Image { x: 0; y: 10px; width: 11px; height: 11px; source: @image-url("icons/f-chevron-right.svg"); colorize: Theme.text-secondary; transform-rotation: open ? 90deg : 0deg; animate transform-rotation { duration: 150ms; } }
+        Text { x: 18px; text: title; font-size: 13px; font-weight: 600; color: Theme.text; vertical-alignment: center; }
+        TouchArea { clicked => { root.open = !root.open; } }
+    }
+    Rectangle {
+        height: open ? inner.preferred-height : 0px; clip: true;
+        inner := VerticalLayout { y: 0; height: self.preferred-height; padding-left: 8px; padding-bottom: 8px; spacing: 4px; @children }
+    }
+    Rectangle { x: -14px; width: parent.width + 28px; height: 1px; background: Theme.separator; }
+}
+
+component KV inherits Rectangle {
+    in property <string> k;
+    in property <string> v;
+    height: max(18px, vt.preferred-height + 1px);
+    Text { x: 0; width: 88px; text: k; font-size: 12px; color: Theme.text-secondary; horizontal-alignment: right; vertical-alignment: top; }
+    vt := Text { x: 95px; width: parent.width - 95px; text: v; font-size: 12px; color: Theme.text; wrap: word-wrap; vertical-alignment: top; }
+}
+
+export component InfoWindow inherits Window {
+    in property <FItem> item;
+    in property <string> heading;
+    in property <string> sub;
+    in property <[FKV]> general;
+    in property <[FKV]> more;
+    in property <[FTagDef]> tags;
+    in property <bool> has-tags;
+    in property <[string]> apps;
+    in property <int> app-idx;
+    in property <bool> can-open-with;
+    in property <bool> is-dir;
+    in property <[FInfo]> perms;
+    in property <bool> can-edit: true;
+    in property <bool> active: true;
+    in property <bool> summary;
+    in-out property <string> name;
+    in-out property <string> comment;
+    in-out property <bool> hide-ext;
+    in-out property <bool> locked;
+    in-out property <bool> open-general: true;
+    in-out property <bool> open-more: false;
+    in-out property <bool> open-name: true;
+    in-out property <bool> open-comments: false;
+    in-out property <bool> open-with: true;
+    in-out property <bool> open-preview: false;
+    in-out property <bool> open-perms: true;
+    callback renamed(string);
+    callback comment-done(string);
+    callback hide-ext-changed(bool);
+    callback locked-changed(bool);
+    callback app-changed(int);
+    callback change-all();
+    callback perm-changed(int, int);
+    callback tag-toggle(string);
+    callback close-clicked();
+    callback minimize();
+    callback drag();
+    title: heading;
+    no-frame: true;
+    background: transparent;
+    default-font-family: Theme.font;
+    preferred-width: 320px; preferred-height: 640px;
+    min-width: 280px; min-height: 260px;
+    property <[string]> levels: [@tr("Read & Write"), @tr("Read only"), @tr("Write only"), @tr("No Access")];
+    Rectangle {
+        border-radius: 14px; background: Theme.window-bg; clip: true;
+        border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000002a;
+        TouchArea {
+            height: 36px;
+            pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { root.drag(); } }
+        }
+        TrafficLights { x: 14px; y: 14px; active: root.active; close => { root.close-clicked(); } minimize => { root.minimize(); } zoom => { } }
+        HorizontalLayout {
+            x: 84px; y: 0; height: 42px; width: parent.width - 96px; spacing: 6px; alignment: start;
+            VerticalLayout { alignment: center; FileIcon { item: root.item; s: 16px; } }
+            Text { text: root.heading; font-size: 13px; font-weight: 600; color: root.active ? Theme.text-secondary : Theme.text-tertiary; vertical-alignment: center; overflow: elide; }
+        }
+        Rectangle { y: 42px; height: 1px; background: Theme.separator; }
+        Flickable {
+            y: 43px; height: parent.height - 43px;
+            content-width: self.width;
+            content-height: body.preferred-height + 10px;
+            body := VerticalLayout {
+                width: root.width;
+                padding: 14px; padding-top: 12px; spacing: 0px;
+                HorizontalLayout {
+                    spacing: 12px; padding-bottom: 10px;
+                    FileIcon { item: root.item; s: 52px; }
+                    VerticalLayout {
+                        alignment: center; spacing: 3px;
+                        Text { text: root.item.name; font-size: 15px; font-weight: 700; color: Theme.text; overflow: elide; }
+                        Text { text: root.sub; font-size: 12px; color: Theme.text-secondary; overflow: elide; }
+                    }
+                }
+                // Tags box: the chosen tag names (or a placeholder) with the colour dots to toggle them.
+                Rectangle {
+                    height: 30px; border-radius: 6px;
+                    background: Theme.field-bg; border-width: 0.5px; border-color: Theme.control-border;
+                    HorizontalLayout {
+                        padding-left: 8px; padding-right: 6px; spacing: 5px;
+                        HorizontalLayout {
+                            horizontal-stretch: 1; spacing: 4px; alignment: start;
+                            for t in root.tags: VerticalLayout {
+                                alignment: center;
+                                if t.on: Rectangle {
+                                    height: 18px; width: tl.preferred-width + 20px; border-radius: 9px; background: t.color.with-alpha(0.28);
+                                    Rectangle { x: 6px; width: 7px; height: 7px; border-radius: 3.5px; background: t.color; }
+                                    tl := Text { x: 16px; text: t.name; font-size: 11px; color: Theme.text; vertical-alignment: center; }
+                                }
+                            }
+                            if !root.has-tags: Text { text: @tr("Add Tags…"); font-size: 13px; color: Theme.text-tertiary; vertical-alignment: center; }
+                        }
+                        for t in root.tags: VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 12px; height: 12px; border-radius: 6px; background: t.color;
+                                border-width: t.on ? 1.5px : 0px; border-color: Theme.text;
+                                TouchArea { clicked => { root.tag-toggle(t.name); } }
+                            }
+                        }
+                    }
+                }
+                Rectangle { height: 10px; }
+                Rectangle { x: -14px; width: parent.width + 28px; height: 1px; background: Theme.separator; }
+                Section {
+                    title: @tr("General:"); open <=> root.open-general;
+                    for kv in root.general: KV { k: kv.k; v: kv.v; }
+                    if root.can-edit: HorizontalLayout {
+                        spacing: 6px; padding-left: 92px;
+                        Checkbox { checked <=> root.locked; toggled(v) => { root.locked-changed(v); } }
+                        Text { text: @tr("Locked"); font-size: 12px; color: Theme.text; vertical-alignment: center; }
+                    }
+                }
+                if !root.summary: Section {
+                    title: @tr("More Info:"); open <=> root.open-more;
+                    for kv in root.more: KV { k: kv.k; v: kv.v; }
+                    if root.more.length == 0: Text { text: @tr("No additional information"); font-size: 12px; color: Theme.text-secondary; }
+                }
+                if !root.summary: Section {
+                    title: @tr("Name & Extension:"); open <=> root.open-name;
+                    Field { text <=> root.name; accepted(t) => { root.renamed(t); } }
+                    if !root.is-dir: HorizontalLayout {
+                        spacing: 6px;
+                        Checkbox { checked <=> root.hide-ext; toggled(v) => { root.hide-ext-changed(v); } }
+                        Text { text: @tr("Hide extension"); font-size: 12px; color: Theme.text; vertical-alignment: center; }
+                    }
+                }
+                if !root.summary: Section {
+                    title: @tr("Comments:"); open <=> root.open-comments;
+                    Field { text <=> root.comment; placeholder: @tr("Add Comments"); accepted(t) => { root.comment-done(t); } }
+                }
+                if root.can-open-with: Section {
+                    title: @tr("Open with:"); open <=> root.open-with;
+                    PopupSelect { bezel: true; items: root.apps; current: root.app-idx; changed(i) => { root.app-changed(i); } }
+                    Text { text: @tr("Use this application to open all documents like this one."); font-size: 11px; color: Theme.text-secondary; wrap: word-wrap; }
+                    HorizontalLayout { alignment: start; PillButton { text: @tr("Change All…"); clicked => { root.change-all(); } } }
+                }
+                if !root.summary: Section {
+                    title: @tr("Preview:"); open <=> root.open-preview;
+                    HorizontalLayout { alignment: center; FileIcon { item: root.item; s: 160px; } }
+                }
+                Section {
+                    title: @tr("Sharing & Permissions:"); open <=> root.open-perms;
+                    Text { text: root.can-edit ? @tr("You can read and write") : @tr("You can only read"); font-size: 12px; color: Theme.text-secondary; }
+                    Rectangle {
+                        height: 24px;
+                        Text { x: 0; text: @tr("Name"); font-size: 11px; font-weight: 600; color: Theme.text-secondary; vertical-alignment: center; }
+                        Text { x: parent.width * 0.5; text: @tr("Privilege"); font-size: 11px; font-weight: 600; color: Theme.text-secondary; vertical-alignment: center; }
+                    }
+                    for p[i] in root.perms: Rectangle {
+                        height: 30px;
+                        Text { x: 0; width: parent.width * 0.5 - 6px; text: p.name; font-size: 12px; color: Theme.text; vertical-alignment: center; overflow: elide; }
+                        PopupSelect {
+                            x: parent.width * 0.5; width: parent.width * 0.5; y: 2px;
+                            items: root.levels; current: p.level; changed(l) => { root.perm-changed(i, l); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

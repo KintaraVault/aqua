@@ -1,0 +1,489 @@
+import { Theme, Glyphs } from "common.slint";
+
+export struct FItem {
+    name: string, path: string, is-dir: bool,
+    kind: int, ext: string, size: string, modified: string, kind-label: string,
+    selected: bool, thumb: image, has-thumb: bool, snippet: string,
+    tint: color, has-tint: bool, symbol: string, tags: [color], dim: bool, cut: bool,
+    depth: int, can-expand: bool, expanded: bool, info: string, created: string, opened: string, alias: bool,
+}
+export struct FPlace { label: string, path: string, icon: string, header: string, eject: bool, dot: color, is-tag: bool, collapsed: bool, section: string }
+export struct FColumn { path: string, items: [FItem], active: bool }
+export struct FMenuItem { label: string, id: string, shortcut: string, enabled: bool, separator: bool, checked: bool, sub: bool }
+export struct FKV { k: string, v: string }
+export struct FTagDef { name: string, color: color, on: bool }
+export struct FRow { header: string, start: int, count: int }
+export struct FTab { title: string, path: string }
+export struct FCrumb { label: string, path: string, icon: string }
+export struct FLCol { key: int, title: string, x: length, w: length, right: bool }
+export struct FOpt { id: string, label: string, on: bool }
+export struct FSpot { x: length, y: length }
+export struct FCrit { attr: int, op: int, value: string, unit: int, ops: [string], units: [string], has-value: bool }
+
+export global F {
+    in property <int> mode;
+    in property <bool> glass;
+    // 0: floating glass island, 1: solid full-height sidebar.
+    in property <[FOpt]> sugg-kinds;
+    in-out property <bool> sugg-hide;
+    in-out property <bool> search-focus;
+    in property <bool> active: true;
+    in property <string> title: @tr("Recents");
+    in property <string> title-icon;
+    in property <bool> can-back;
+    in property <bool> can-forward;
+    in-out property <int> view;
+    in property <[FPlace]> places;
+    in property <string> cur-place;
+    in property <string> ctx-place;
+    in property <[FItem]> items;
+    in property <[FRow]> rows;
+    in property <[FSpot]> spots;
+    in property <bool> free-mode;
+    in property <length> free-h;
+    in property <int> arrange;
+    in property <bool> can-arrange;
+    in property <[FColumn]> columns;
+    in property <bool> col-preview;
+    in property <int> focus-idx: -1;
+    in property <string> empty-text;
+    in property <string> status;
+    in-out property <bool> show-preview: false;
+    in-out property <int> renaming: -1;
+    in property <int> rename-sel: -1;
+    in property <int> sort-key;
+    in property <bool> sort-desc;
+    in property <bool> pv-any;
+    in property <FItem> pv;
+    in property <[FKV]> pv-info;
+    in property <int> pv-count;
+    in-out property <bool> pv-more;
+    in property <bool> pv-quick;
+    in property <bool> tb-back: true;
+    in property <bool> tb-view: true;
+    in property <bool> tb-group: true;
+    in property <bool> tb-action: true;
+    in property <bool> tb-share: true;
+    in property <bool> tb-tags: true;
+    in property <bool> tb-newfolder;
+    in property <bool> tb-delete;
+    in property <bool> tb-info;
+    in property <bool> tb-ql;
+    in property <bool> tb-connect;
+    in property <bool> tb-eject;
+    in property <bool> tb-search: true;
+    in-out property <bool> tb-open;
+    in property <[FOpt]> tb-opts;
+    in-out property <bool> searching;
+    in-out property <string> query;
+    in property <bool> search-busy;
+    in property <bool> in-search;
+    in property <int> search-scope;
+    in property <bool> search-content;
+    in property <string> scope-folder;
+    in property <[FCrit]> crit;
+    in property <[string]> crit-attrs;
+    in property <bool> smart;
+    in-out property <bool> ss-open;
+    in-out property <string> ss-name;
+    in-out property <bool> ss-side: true;
+    in-out property <bool> menu-open;
+    /// Menus are shown in their own windows (FinderMenuWindow), not the in-window overlay.
+    in property <bool> menu-native;
+    in property <[FMenuItem]> menu;
+    in property <bool> menu-tags;
+    in property <length> menu-x;
+    in property <length> menu-y;
+    in-out property <bool> sub-open;
+    in property <[FMenuItem]> sub-menu;
+    in property <string> sub-id;
+    in property <length> sub-y;
+    in property <[FTagDef]> tag-defs;
+    in-out property <bool> tags-open;
+    in-out property <bool> custom-open;
+    in property <FItem> custom;
+    in-out property <bool> custom-emoji;
+    in-out property <bool> goto-open;
+    in property <int> goto-kind;
+    in property <[string]> goto-sugg;
+    in-out property <string> goto-text;
+    in-out property <bool> dragging;
+    in property <string> drag-label;
+    in property <int> drag-count;
+    in property <int> drop-idx: -1;
+    in property <string> drop-place;
+    in property <length> drop-line: -1px;
+    in property <bool> drop-copy;
+    in property <length> drag-x;
+    in property <length> drag-y;
+    in-out property <length> scroll-y;
+    in-out property <length> side-scroll;
+    in-out property <string> alert;
+    in property <string> alert-detail;
+    in property <string> alert-ok: @tr("OK");
+    in property <bool> alert-cancel;
+    in property <string> alert-other;
+    in property <string> alert-check;
+    in-out property <bool> alert-checked;
+    in property <string> alert-icon;
+    callback alert-choose(int);
+    in property <string> accept-label: @tr("Open");
+    in property <bool> can-accept;
+    in-out property <string> save-name;
+    in property <[string]> filters;
+    in-out property <int> filter-idx;
+    in property <bool> directory-mode;
+    in property <bool> trash-view;
+
+    in property <length> cell-w: 127px;
+    in property <length> cell-h: 116px;
+    in property <length> grid-pad: 8px;
+    in property <string> free;
+    in property <bool> can-undo;
+    in property <length> icon-s: 64px;
+    in property <length> text-s: 12px;
+    in property <bool> item-info;
+    in property <length> list-text: 13px;
+    in property <[FLCol]> lcols;
+    in property <[FTab]> tabs;
+    in property <int> tab-idx;
+    in property <bool> show-tabbar;
+    in property <bool> show-pathbar;
+    in property <bool> show-statusbar;
+    in property <bool> show-sidebar: true;
+    in-out property <length> side-w: 157px;
+    in property <[FCrumb]> crumbs;
+    in property <float> zoom;
+
+    in-out property <bool> mq-on;
+    in property <length> mq-x;
+    in property <length> mq-y;
+    in property <length> mq-w;
+    in property <length> mq-h;
+
+    in property <bool> prog-on;
+    in property <string> prog-title;
+    in property <string> prog-detail;
+    in property <float> prog-frac;
+
+    in-out property <bool> ql-open;
+    in property <FItem> ql;
+    in property <image> ql-img;
+    in property <bool> ql-has-img;
+    in property <string> ql-text;
+    in property <string> ql-info;
+    in property <string> ql-pos;
+    in property <bool> ql-media;
+    in property <bool> ql-playing;
+    in property <float> ql-frac;
+    in property <string> ql-time;
+    in property <int> ql-page: 1;
+    in property <int> ql-pages;
+    in-out property <bool> cs-open;
+    in-out property <string> cs-addr;
+    in property <[string]> cs-favs;
+    in property <[string]> cs-recent;
+    in-out property <int> cs-sel: -1;
+    in property <bool> cs-busy;
+
+    in-out property <bool> vo-open;
+    in property <int> group-by;
+    in property <bool> icon-preview: true;
+    in property <length> grid-gap;
+    in property <[FOpt]> vo-cols;
+    in property <bool> rel-dates: true;
+    in property <bool> calc-sizes;
+    in property <bool> col-icons: true;
+
+    in-out property <bool> prefs-open;
+    in-out property <int> prefs-tab;
+    in property <[FOpt]> pref-general;
+    in property <[FOpt]> pref-side;
+    in property <[FOpt]> pref-adv;
+    in property <[FOpt]> pref-tags;
+    in property <int> pref-new-window;
+    in property <int> pref-scope;
+
+    in-out property <bool> rn-open;
+    in property <int> rn-count;
+    in-out property <int> rn-mode;
+    in-out property <string> rn-a;
+    in-out property <string> rn-b;
+    in-out property <int> rn-where;
+    in-out property <int> rn-style;
+    in-out property <string> rn-start: "1";
+    in property <string> rn-example;
+
+    callback go(string);
+    callback back();
+    callback forward();
+    callback up();
+    callback select(int, bool, bool);
+    callback select-none();
+    callback open(int);
+    callback open-tab(int);
+    callback context(int, length, length);
+    callback menu-action(string);
+    callback menu-sub(string, length);
+    callback menu-closed();
+    callback set-view(int);
+    callback sort-by(int);
+    callback search(string);
+    callback search-commit(string);
+    callback set-scope(int);
+    callback crit-add(int);
+    callback crit-remove(int);
+    callback crit-set(int, string, int);
+    callback crit-value(int, string);
+    callback save-search();
+    callback save-search-done();
+    callback tb-toggle(string);
+    callback tb-reset();
+    callback tab-move(int, int);
+    callback tab-detach(int);
+    callback tab-context(int, length, length);
+    callback key(string, bool, bool, bool, bool, int) -> bool;
+    callback rename(int, string);
+    callback label-click(int);
+    callback tag-toggle(string);
+    callback custom-color(int);
+    callback custom-symbol(string);
+    callback column-click(int, int, bool, bool);
+    callback column-open(int, int);
+    callback toolbar-menu(string, length, length);
+    callback drag-start(int);
+    callback drag-move(length, length, bool);
+    callback drag-end(length, length, bool);
+    callback accept();
+    callback cancel();
+    callback filter-changed(int);
+    callback save-edited(string);
+    callback goto(string);
+    callback goto-edited(string);
+    callback win-drag();
+    callback win-close();
+    callback win-minimize();
+    callback win-zoom();
+    callback win-resize(int);
+    callback relayout(int, length, length, length, length);
+    callback marquee(int, length, length, bool);
+    callback expand(int, bool);
+    callback place-context(string, length, length);
+    callback place-click(string);
+    callback section-toggle(string);
+    callback crumb-click(string);
+    callback crumb-context(string, length, length);
+    callback tab-select(int);
+    callback tab-close(int);
+    callback tab-new();
+    callback col-resize(int, length);
+    callback header-context(length, length);
+    callback set-zoom(float);
+    callback prog-cancel();
+    callback ql-close();
+    callback ql-step(int);
+    callback ql-play();
+    callback ql-seek(float);
+    callback ql-page-step(int);
+    callback cs-connect(string);
+    callback cs-add(string);
+    callback cs-remove(int);
+    callback cs-clear-recent();
+    callback opt(string, int);
+    callback rn-changed();
+    callback rn-apply();
+    callback side-resized(length);
+
+    out property <image> i-columns: @image-url("icons/f-columns.svg");
+    out property <image> i-gallery: @image-url("icons/f-gallery.svg");
+    out property <image> i-icons: @image-url("icons/f-icons.svg");
+    out property <image> i-list: @image-url("icons/f-list.svg");
+    out property <image> i-group: @image-url("icons/f-group.svg");
+    out property <image> i-share: @image-url("icons/f-share.svg");
+    out property <image> i-tag: @image-url("icons/f-tag.svg");
+    out property <image> i-tag-off: @image-url("icons/f-tag-off.svg");
+    out property <image> i-more: @image-url("icons/f-ellipsis.svg");
+    out property <image> i-search: @image-url("icons/f-search.svg");
+    out property <image> i-chev-down: @image-url("icons/f-chevron-down.svg");
+    out property <image> i-chev-right: @image-url("icons/f-chevron-right.svg");
+    out property <image> i-xmark: @image-url("icons/f-xmark.svg");
+    out property <image> i-plus: @image-url("icons/f-plus.svg");
+    out property <image> i-minus: @image-url("icons/f-minus.svg");
+    out property <image> i-eject: @image-url("icons/f-eject.svg");
+    out property <image> i-info: @image-url("icons/f-info.svg");
+    out property <image> i-back: @image-url("icons/f-back.svg");
+    out property <image> i-forward: @image-url("icons/f-forward.svg");
+    public pure function glyph(n: string) -> image {
+        if n == "apps" { return @image-url("icons/f-apps.svg"); }
+        if n == "shared" { return @image-url("icons/f-shared.svg"); }
+        if n == "recents" { return @image-url("icons/f-recents.svg"); }
+        if n == "desktop" { return @image-url("icons/f-desktop.svg"); }
+        if n == "docs" { return @image-url("icons/f-docs.svg"); }
+        if n == "downloads" { return @image-url("icons/f-downloads.svg"); }
+        if n == "home" { return @image-url("icons/f-home.svg"); }
+        if n == "computer" { return @image-url("icons/f-computer.svg"); }
+        if n == "disk" { return @image-url("icons/f-disk.svg"); }
+        if n == "network" { return @image-url("icons/f-network.svg"); }
+        if n == "trash" { return @image-url("icons/f-trash.svg"); }
+        if n == "pictures" { return @image-url("icons/f-pictures.svg"); }
+        if n == "music" { return @image-url("icons/f-music.svg"); }
+        if n == "movies" { return @image-url("icons/f-movies.svg"); }
+        if n == "cloud" { return @image-url("icons/f-cloud.svg"); }
+        if n == "smart" { return @image-url("icons/f-smart.svg"); }
+        if n == "terminal" { return @image-url("icons/f-terminal.svg"); }
+        if n == "copy" { return @image-url("icons/f-copy.svg"); }
+        return @image-url("icons/f-folder.svg");
+    }
+    public pure function menu-has-icon(id: string) -> bool {
+        return id == "open" || id == "open-with" || id == "open-window" || id == "trash" || id == "info" || id == "rename"
+            || id == "compress" || id == "duplicate" || id == "alias" || id == "quicklook" || id == "copy" || id == "paste"
+            || id == "cut" || id == "share" || id == "tags-menu" || id == "new-folder" || id == "reveal" || id == "terminal"
+            || id == "new-window" || id == "customize" || id == "put-back" || id == "delete-now" || id == "empty-trash"
+            || id == "hidden" || id == "preview" || id == "goto" || id == "sort-reverse" || id == "mail" || id == "copy-path"
+            || id == "remove-place" || id == "eject" || id == "new-tab" || id == "open-tab" || id == "show-original"
+            || id == "add-sidebar" || id == "view-options" || id == "rename-multi" || id == "new-folder-sel" || id == "sort-menu"
+            || id == "group-menu" || id == "info-window" || id == "connect" || id == "undo" || id == "redo" || id == "move-here"
+            || id == "select-all" || id == "share-menu" || id == "open-with-menu";
+    }
+    public pure function menu-icon(id: string) -> image {
+        if id == "open" || id == "open-with" || id == "open-with-menu" { return @image-url("icons/m-open.svg"); }
+        if id == "new-tab" || id == "open-tab" { return @image-url("icons/m-window.svg"); }
+        if id == "show-original" { return @image-url("icons/f-folder.svg"); }
+        if id == "add-sidebar" { return @image-url("icons/f-plus.svg"); }
+        if id == "view-options" { return @image-url("icons/m-sidebar-right.svg"); }
+        if id == "rename-multi" { return @image-url("icons/m-rename.svg"); }
+        if id == "new-folder-sel" { return @image-url("icons/m-folder-plus.svg"); }
+        if id == "sort-menu" { return @image-url("icons/m-sort.svg"); }
+        if id == "group-menu" { return @image-url("icons/f-group.svg"); }
+        if id == "info-window" { return @image-url("icons/f-info.svg"); }
+        if id == "connect" { return @image-url("icons/f-network.svg"); }
+        if id == "undo" || id == "redo" { return @image-url("icons/m-goto.svg"); }
+        if id == "move-here" { return @image-url("icons/m-paste.svg"); }
+        if id == "select-all" { return @image-url("icons/f-icons.svg"); }
+        if id == "share-menu" { return @image-url("icons/f-share.svg"); }
+        if id == "open-window" || id == "new-window" { return @image-url("icons/m-window.svg"); }
+        if id == "trash" || id == "empty-trash" { return @image-url("icons/f-trash.svg"); }
+        if id == "delete-now" { return @image-url("icons/m-xbin.svg"); }
+        if id == "info" { return @image-url("icons/f-info.svg"); }
+        if id == "rename" { return @image-url("icons/m-rename.svg"); }
+        if id == "compress" { return @image-url("icons/m-compress.svg"); }
+        if id == "duplicate" { return @image-url("icons/m-duplicate.svg"); }
+        if id == "alias" { return @image-url("icons/m-alias.svg"); }
+        if id == "quicklook" { return @image-url("icons/m-eye.svg"); }
+        if id == "hidden" { return @image-url("icons/m-eye-slash.svg"); }
+        if id == "copy" || id == "copy-path" { return @image-url("icons/f-copy.svg"); }
+        if id == "paste" { return @image-url("icons/m-paste.svg"); }
+        if id == "cut" { return @image-url("icons/m-cut.svg"); }
+        if id == "share" { return @image-url("icons/f-share.svg"); }
+        if id == "tags-menu" { return @image-url("icons/f-tag.svg"); }
+        if id == "new-folder" { return @image-url("icons/m-folder-plus.svg"); }
+        if id == "reveal" { return @image-url("icons/f-folder.svg"); }
+        if id == "terminal" { return @image-url("icons/f-terminal.svg"); }
+        if id == "customize" { return @image-url("icons/m-brush.svg"); }
+        if id == "put-back" { return @image-url("icons/m-putback.svg"); }
+        if id == "preview" { return @image-url("icons/m-sidebar-right.svg"); }
+        if id == "goto" { return @image-url("icons/m-goto.svg"); }
+        if id == "sort-reverse" { return @image-url("icons/m-sort.svg"); }
+        if id == "mail" { return @image-url("icons/m-mail.svg"); }
+        if id == "eject" { return @image-url("icons/f-eject.svg"); }
+        return @image-url("icons/f-xmark.svg");
+    }
+    public pure function cell(it: FItem, key: int) -> string {
+        if key == 1 { return it.kind-label; }
+        if key == 2 { return it.modified; }
+        if key == 3 { return it.size; }
+        if key == 4 { return it.created; }
+        if key == 5 { return it.opened; }
+        return "";
+    }
+}
+
+export component FolderIcon inherits Rectangle {
+    in property <length> s: 64px;
+    in property <color> tint: #5ebcf7;
+    in property <string> symbol;
+    width: s; height: s;
+    property <color> back: tint.darker(18%);
+    Rectangle { x: s * 0.04; y: s * 0.13; width: s * 0.40; height: s * 0.16; border-radius: s * 0.05; background: back; }
+    Rectangle { x: s * 0.04; y: s * 0.19; width: s * 0.92; height: s * 0.64; border-radius: s * 0.06; background: back; }
+    Rectangle {
+        x: s * 0.04; y: s * 0.29; width: s * 0.92; height: s * 0.56; border-radius: s * 0.06;
+        background: @linear-gradient(180deg, tint.brighter(14%) 0%, tint 100%);
+        drop-shadow-blur: s * 0.03; drop-shadow-color: #0000001c; drop-shadow-offset-y: -0.5px;
+        Rectangle { y: 0; height: max(1px, s * 0.012); x: parent.border-radius; width: parent.width - 2 * parent.border-radius; background: #ffffff80; }
+        if symbol != "": Text {
+            text: symbol; font-size: s * 0.27; color: tint.darker(38%).with-alpha(0.78);
+            horizontal-alignment: center; vertical-alignment: center;
+        }
+    }
+}
+
+export component FileIcon inherits Rectangle {
+    in property <FItem> item;
+    in property <length> s: 64px;
+    in property <bool> big-text: false;
+    width: s; height: s;
+    property <float> ar: item.thumb.width > 0 ? item.thumb.width / max(1, item.thumb.height) : 1;
+    if item.kind == 0: FolderIcon { s: root.s; tint: item.has-tint ? item.tint : #5ebcf7; symbol: item.symbol; }
+    if item.kind == 9: Rectangle {
+        width: s * 0.86; height: s * 0.5; border-radius: s * 0.1;
+        background: @linear-gradient(180deg, #e9e9ec 0%, #b9b9bf 100%);
+        border-width: 0.5px; border-color: #00000030;
+        drop-shadow-blur: s * 0.04; drop-shadow-color: #00000030; drop-shadow-offset-y: s * 0.02;
+        Rectangle { x: parent.width * 0.76; width: s * 0.06; height: s * 0.06; border-radius: s * 0.03; background: #3ddc5c; }
+    }
+    if (item.kind == 5 || (item.kind == 2 && item.has-thumb)) && item.kind != 0: Rectangle {
+        width: ar >= 1 ? s : s * ar; height: ar >= 1 ? s / ar : s;
+        border-radius: item.kind == 5 ? 0 : max(2px, s * 0.04);
+        clip: item.kind != 5;
+        drop-shadow-blur: item.kind == 5 ? 0 : s * 0.04; drop-shadow-color: item.kind == 5 ? transparent : #00000038; drop-shadow-offset-y: item.kind == 5 ? 0 : 1px;
+        background: item.kind == 5 ? transparent : white;
+        Image { source: item.thumb; width: 100%; height: 100%; image-fit: item.kind == 5 ? contain : cover; }
+    }
+    if item.kind != 0 && item.kind != 5 && item.kind != 9 && !(item.kind == 2 && item.has-thumb): page := Rectangle {
+        width: s * 0.74; height: s * 0.94; border-radius: max(1.5px, s * 0.03);
+        background: Theme.dark ? #f4f4f6 : white;
+        border-width: 0.5px; border-color: #0000002e;
+        drop-shadow-blur: s * 0.03; drop-shadow-color: #00000026; drop-shadow-offset-y: 0.5px;
+        clip: true;
+        if item.has-thumb: Image { source: item.thumb; width: 100%; height: 100%; image-fit: cover; }
+        if !item.has-thumb && item.snippet != "": Text {
+            x: page.width * 0.09; y: page.height * 0.07; width: page.width * 0.82; height: page.height * 0.86;
+            text: item.snippet; font-size: max(1.2px, s * 0.034); color: #333;
+            wrap: word-wrap; overflow: TextOverflow.clip; font-family: "DejaVu Sans Mono";
+        }
+        Path {
+            x: page.width - s * 0.2; y: 0; width: s * 0.2; height: s * 0.2;
+            viewbox-width: 10; viewbox-height: 10;
+            commands: "M0 0 L10 10 L1.5 10 Q0 10 0 8.5 Z";
+            fill: @linear-gradient(225deg, #ffffff 0%, #d9d9de 100%); stroke: #00000024; stroke-width: 0.5px;
+        }
+        Path { x: page.width - s * 0.2; y: 0; width: s * 0.2; height: s * 0.2; viewbox-width: 10; viewbox-height: 10; commands: "M0 0 L10 0 L10 10 Z"; fill: Theme.dark ? #1f1f21 : white; }
+        if !item.has-thumb && item.snippet == "": VerticalLayout {
+            alignment: center; spacing: s * 0.04;
+            Image {
+                height: s * 0.32;
+                source: item.kind == 2 ? F.glyph("pictures") : item.kind == 3 ? F.glyph("music") : item.kind == 4 ? F.glyph("movies") : item.kind == 7 ? F.i-group : F.glyph("docs");
+                colorize: item.kind == 2 ? #34c759 : item.kind == 3 ? #ff2d55 : item.kind == 4 ? #af52de : item.kind == 7 ? #8e8e93 : item.kind == 8 ? #e5463b : #a0a0a8;
+            }
+            if item.ext != "" && s >= 40px: Text {
+                text: item.ext; horizontal-alignment: center; font-size: max(6px, s * 0.11); font-weight: 700;
+                color: item.kind == 8 ? #e5463b : #8e8e93;
+            }
+        }
+    }
+    if item.alias: Rectangle {
+        x: s * 0.06; y: s * 0.7; width: max(7px, s * 0.24); height: self.width; border-radius: self.width * 0.22;
+        background: white; border-width: 0.5px; border-color: #00000059;
+        Path { width: parent.width * 0.62; height: parent.height * 0.62; viewbox-width: 10; viewbox-height: 10;
+            commands: "M2 8 L7.5 2.5 M3.8 2.5 L7.5 2.5 L7.5 6.2"; stroke: #1c1c1e; stroke-width: max(1px, s * 0.022); fill: transparent; }
+    }
+}
+
+export component TagDots inherits HorizontalLayout {
+    in property <[color]> tags;
+    spacing: -3px;
+    alignment: center;
+    for c in tags: Rectangle { width: 9px; height: 9px; border-radius: 4.5px; background: c; border-width: 1px; border-color: Theme.window-bg; }
+}
+

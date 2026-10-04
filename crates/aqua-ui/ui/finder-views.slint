@@ -1,0 +1,421 @@
+import { Theme, Glyphs } from "common.slint";
+import { F, FItem, FileIcon, TagDots } from "finder-model.slint";
+import { ListView } from "std-widgets.slint";
+
+component Marquee inherits TouchArea {
+    in property <int> ctx: -1;
+    callback want-focus();
+    pointer-event(e) => {
+        if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+            F.marquee(0, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, e.modifiers.shift || e.modifiers.control || e.modifiers.meta);
+            root.want-focus();
+        }
+        if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
+            F.marquee(2, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, false);
+        }
+        if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+            F.select-none();
+            F.context(ctx, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+        }
+    }
+    moved => {
+        if self.pressed {
+            F.marquee(1, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, false);
+        }
+    }
+}
+
+component ItemArea inherits TouchArea {
+    in property <int> idx;
+    in property <bool> sel;
+    in property <length> label-top: 0px;
+    in property <length> label-bottom: 100000px;
+    in property <length> label-left: 0px;
+    in property <length> label-right: 100000px;
+    callback want-focus();
+    property <bool> pressed-here;
+    property <bool> was-sel;
+    property <bool> moved-far;
+    property <length> px;
+    property <length> py;
+    pointer-event(e) => {
+        if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+            root.was-sel = sel && !e.modifiers.shift && !e.modifiers.control && !e.modifiers.meta;
+            if !root.was-sel {
+                F.select(idx, e.modifiers.control || e.modifiers.meta, e.modifiers.shift);
+            }
+            root.pressed-here = true; root.moved-far = false; root.px = self.mouse-x; root.py = self.mouse-y;
+            root.want-focus();
+        }
+        if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
+            if F.dragging {
+                F.drag-end(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, e.modifiers.alt);
+            } else if root.was-sel && root.pressed-here && !root.moved-far {
+                F.select(idx, false, false);
+                if self.mouse-y >= label-top && self.mouse-y <= label-bottom && self.mouse-x >= label-left && self.mouse-x <= label-right {
+                    F.label-click(idx);
+                }
+            }
+            root.pressed-here = false;
+        }
+        if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+            F.context(idx, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+        }
+    }
+    moved => {
+        if root.pressed-here && self.pressed {
+            if abs(self.mouse-x - root.px) > 6px || abs(self.mouse-y - root.py) > 6px {
+                root.moved-far = true;
+                if !F.dragging && F.mode == 0 { F.drag-start(idx); }
+            }
+            if F.dragging { F.drag-move(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, false); }
+        }
+    }
+    double-clicked => {
+        if F.renaming < 0 { F.open(idx); }
+    }
+}
+
+component RenameField inherits Rectangle {
+    in property <FItem> item;
+    in property <int> idx;
+    in property <length> fs: 12px;
+    in property <bool> centered;
+    background: Theme.window-bg; border-width: 2px; border-color: Theme.accent.with-alpha(0.6); border-radius: 4px;
+    ti := TextInput {
+        x: 4px; width: parent.width - 8px; text: item.name; font-size: fs; color: Theme.text;
+        horizontal-alignment: centered ? TextHorizontalAlignment.center : TextHorizontalAlignment.left;
+        vertical-alignment: center; single-line: true;
+        accepted => { F.rename(idx, self.text); }
+        key-pressed(e) => {
+            if e.text == Key.Escape { F.renaming = -1; return accept; }
+            if e.text == Key.Tab { F.rename(idx, self.text); return accept; }
+            reject
+        }
+        changed has-focus => { if !self.has-focus && F.renaming == idx { F.rename(idx, self.text); } }
+        init => {
+            self.focus();
+            if F.rename-sel >= 0 { self.set-selection-offsets(0, F.rename-sel); } else { self.select-all(); }
+        }
+    }
+}
+
+export component IconCell inherits Rectangle {
+    in property <FItem> item;
+    in property <int> idx;
+    in property <bool> drop-target;
+    callback want-focus();
+    property <bool> sel: item.selected;
+    property <length> icon: F.icon-s;
+    property <length> lh: F.text-s + 4px;
+    opacity: item.dim ? 0.4 : (item.cut ? 0.55 : 1);
+    Rectangle {
+        x: (parent.width - icon - 8px) / 2; y: 16px; width: icon + 8px; height: icon + 8px;
+        border-radius: min(10px, icon * 0.16);
+        background: drop-target ? Theme.accent.with-alpha(0.25) : sel ? (Theme.dark ? #ffffff24 : #0000001a) : transparent;
+        FileIcon { x: 4px; y: 4px; item: root.item; s: root.icon; }
+    }
+    if F.renaming != idx: lab := Rectangle {
+        property <length> tw: item.tags.length > 0 ? 14px : 0px;
+        property <length> padx: sel ? 6px : 2px;
+        property <bool> two: lbl.preferred-width + tw + 2 * padx > root.width - 4px;
+        y: icon + 25px;
+        height: two ? 2 * lh + 3px : lh + 2px;
+        width: two ? root.width - 4px : lbl.preferred-width + tw + 2 * padx;
+        x: (root.width - self.width) / 2;
+        border-radius: 5px;
+        background: sel ? Theme.accent : transparent;
+        if item.tags.length > 0: TagDots { x: padx; y: (lh + 2px - 9px) / 2; height: 9px; tags: item.tags; }
+        lbl := Text {
+            x: padx + tw; width: parent.width - 2 * padx - tw; height: parent.height;
+            text: item.name; font-size: F.text-s; letter-spacing: 0.35px; color: sel ? white : Theme.text;
+            horizontal-alignment: center; vertical-alignment: center; wrap: word-wrap; overflow: elide;
+        }
+    }
+    if F.renaming != idx && F.item-info && item.info != "": Text {
+        y: icon + 25px + (F.text-s * 2.6 < 1px ? 0px : 0px) + lh + 3px + (lbl-probe.preferred-width + 8px > root.width - 4px ? lh + 1px : 0px);
+        width: root.width; text: item.info; font-size: F.text-s - 1px; color: sel ? Theme.accent : Theme.accent.darker(5%);
+        horizontal-alignment: center; overflow: elide;
+    }
+    lbl-probe := Text { visible: false; text: item.name; font-size: F.text-s; letter-spacing: 0.35px; }
+    if F.renaming == idx: RenameField {
+        y: icon + 25px; height: lh + 8px; x: 2px; width: parent.width - 4px; item: root.item; idx: root.idx; fs: F.text-s; centered: true;
+    }
+    ItemArea {
+        idx: root.idx; sel: root.sel;
+        label-top: icon + 25px; label-bottom: icon + 25px + 2 * lh + 4px;
+        want-focus => { root.want-focus(); }
+    }
+}
+
+export component ListRow inherits Rectangle {
+    in property <FItem> item;
+    in property <int> idx;
+    in property <bool> drop-target;
+    in property <bool> odd;
+    callback want-focus();
+    property <bool> sel: item.selected;
+    property <length> ind: 6px + item.depth * 18px;
+    property <length> name-w: F.lcols.length > 0 ? F.lcols[0].w : 260px;
+    height: 22px;
+    opacity: item.dim ? 0.4 : (item.cut ? 0.55 : 1);
+    Rectangle {
+        x: 10px; width: parent.width - 20px; border-radius: 6px;
+        background: drop-target ? Theme.accent.with-alpha(0.25) : sel ? Theme.accent : (odd ? (Theme.dark ? #ffffff0d : #0000000a) : transparent);
+    }
+    FileIcon { x: 10px + ind + 16px; y: 3px; item: root.item; s: 16px; }
+    if F.renaming != idx: Text {
+        x: 10px + ind + 38px; width: name-w - ind - 44px - (item.tags.length > 0 && !root.tags-col ? 30px : 0px);
+        text: item.name; font-size: F.list-text; letter-spacing: 0.3px; color: sel ? white : Theme.text; vertical-alignment: center; overflow: elide;
+    }
+    if F.renaming == idx: RenameField {
+        x: 10px + ind + 34px; width: name-w - ind - 40px; height: 22px; item: root.item; idx: root.idx; fs: F.list-text;
+    }
+    out property <bool> tags-col: false;
+    if item.tags.length > 0 && !root.tags-col: TagDots { x: 10px + name-w - 8px - self.preferred-width; y: (parent.height - 9px) / 2; height: 9px; tags: item.tags; }
+    for c in F.lcols: Rectangle {
+        x: 10px + c.x; width: c.w; height: parent.height;
+        if c.key == 6 && item.tags.length > 0: TagDots { x: 6px; y: (parent.height - 9px) / 2; height: 9px; tags: item.tags; }
+        if c.key != 0 && c.key != 6: Text {
+            x: 6px; width: parent.width - 14px; text: F.cell(item, c.key); font-size: F.list-text - 1px;
+            color: sel ? white : Theme.text-secondary; vertical-alignment: center; overflow: elide;
+            horizontal-alignment: c.right ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        }
+    }
+    ItemArea {
+        idx: root.idx; sel: root.sel;
+        label-left: 10px + ind + 36px; label-right: 10px + ind + 38px + 200px;
+        want-focus => { root.want-focus(); }
+    }
+    if item.can-expand: Rectangle {
+        x: 10px + ind; width: 16px; height: parent.height;
+        Image {
+            width: 9px; height: 9px; source: F.i-chev-right; colorize: sel ? white : Theme.text-secondary;
+            transform-rotation: item.expanded ? 90deg : 0deg;
+            animate transform-rotation { duration: 120ms; }
+        }
+        TouchArea {
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.expand(idx, e.modifiers.alt); }
+            }
+        }
+    }
+}
+
+export component IconView inherits Rectangle {
+    property <length> pad: F.grid-pad;
+    callback want-focus();
+    Marquee { want-focus => { root.want-focus(); } }
+    if F.free-mode: Flickable {
+        content-y <=> F.scroll-y;
+        content-height: max(self.height, F.free-h + 24px);
+        Marquee { width: parent.width; height: max(parent.height, F.free-h + 24px); want-focus => { root.want-focus(); } }
+        for it[i] in F.items: IconCell {
+            x: F.spots[i].x; y: F.spots[i].y; width: F.cell-w; height: F.cell-h;
+            item: it; idx: i;
+            drop-target: F.drop-idx == i;
+            want-focus => { root.want-focus(); }
+        }
+    }
+    if !F.free-mode: ListView {
+        content-y <=> F.scroll-y;
+        for r in F.rows: Rectangle {
+            height: r.count == 0 ? 34px : F.cell-h;
+            Marquee { want-focus => { root.want-focus(); } }
+            if r.count == 0: Rectangle {
+                Text { x: pad + 8px; y: 12px; height: 18px; text: r.header; font-size: 13px; font-weight: 700; color: Theme.text; vertical-alignment: center; }
+                Rectangle { x: pad + 8px; y: parent.height - 2px; width: parent.width - 2 * pad - 16px; height: 1px; background: Theme.separator; }
+            }
+            for c in r.count: IconCell {
+                x: pad + c * F.cell-w; width: F.cell-w; height: F.cell-h;
+                item: F.items[r.start + c]; idx: r.start + c;
+                drop-target: F.drop-idx == r.start + c;
+                want-focus => { root.want-focus(); }
+            }
+        }
+    }
+}
+
+export component ListViewV inherits Rectangle {
+    callback want-focus();
+    Rectangle {
+        height: 28px; y: 0;
+        for c[i] in F.lcols: Rectangle {
+            x: 10px + c.x; width: c.w; height: 28px;
+            Text {
+                x: 6px; width: parent.width - 24px; text: c.title; font-size: 11px;
+                font-weight: F.sort-key == c.key ? 700 : 400; color: F.sort-key == c.key ? Theme.text : Theme.text-secondary;
+                vertical-alignment: center; overflow: elide;
+                horizontal-alignment: c.right ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+            }
+            if F.sort-key == c.key: Image {
+                x: c.right ? 4px : parent.width - 18px; width: 9px; height: 9px; y: 10px; source: F.i-chev-down;
+                colorize: Theme.text-secondary; transform-rotation: F.sort-desc ? 0deg : 180deg;
+            }
+            TouchArea {
+                clicked => { F.sort-by(c.key); }
+                pointer-event(e) => {
+                    if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                        F.header-context(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                    }
+                }
+            }
+            if i > 0: Rectangle { x: 0; width: 1px; y: 6px; height: 16px; background: Theme.separator; }
+            if i > 0: TouchArea {
+                x: -3px; width: 7px; mouse-cursor: MouseCursor.col-resize;
+                property <length> start-w;
+                pointer-event(e) => {
+                    if e.kind == PointerEventKind.down {
+                        self.start-w = F.lcols[i - 1].w;
+                    }
+                }
+                moved => {
+                    if self.pressed && i > 1 {
+                        F.col-resize(F.lcols[i - 1].key, self.start-w + self.mouse-x - self.pressed-x);
+                    }
+                }
+            }
+        }
+        Rectangle { y: parent.height - 1px; height: 1px; x: 10px; width: parent.width - 20px; background: Theme.separator; }
+    }
+    Rectangle {
+        y: 30px; height: parent.height - 30px;
+        Marquee { want-focus => { root.want-focus(); } }
+        // Alternating stripes continue below the last row, like Finder's list view.
+        if F.group-by == 0 || F.rows.length == 0: Rectangle {
+            property <length> end: F.scroll-y + F.rows.length * 22px;
+            clip: true;
+            for k in 48: Rectangle {
+                y: end + k * 22px; height: 22px;
+                visible: self.y < parent.height && mod(F.rows.length + k, 2) == 1;
+                Rectangle { x: 10px; width: parent.width - 20px; border-radius: 6px; background: Theme.dark ? #ffffff0d : #0000000a; }
+            }
+        }
+        ListView {
+            content-y <=> F.scroll-y;
+            for r[ri] in F.rows: Rectangle {
+                height: r.count == 0 ? 26px : 22px;
+                if r.count == 0: Rectangle {
+                    Marquee { want-focus => { root.want-focus(); } }
+                    Text { x: 18px; text: r.header; font-size: 12px; font-weight: 700; color: Theme.text; vertical-alignment: center; }
+                    Rectangle { x: 16px; y: parent.height - 1px; width: parent.width - 32px; height: 1px; background: Theme.separator; }
+                }
+                if r.count > 0: ListRow {
+                    item: F.items[r.start]; idx: r.start; odd: mod(r.start, 2) == 1;
+                    drop-target: F.drop-idx == r.start;
+                    want-focus => { root.want-focus(); }
+                }
+            }
+        }
+    }
+}
+
+export component ColumnViewV inherits Rectangle {
+    callback want-focus();
+    property <length> col-w: 240px;
+    property <length> pv-w: F.col-preview && F.pv-any && !F.show-preview ? 280px : 0px;
+    property <length> total: F.columns.length * col-w + pv-w;
+    Flickable {
+        content-width: max(self.width, total);
+        content-x: min(0px, self.width - total);
+        for col[ci] in F.columns: Rectangle {
+            x: ci * col-w; width: col-w;
+            Rectangle { x: parent.width - 1px; width: 1px; background: Theme.separator; }
+            TouchArea {
+                pointer-event(e) => {
+                    if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                        F.context(-3, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                    }
+                }
+            }
+            ListView {
+                width: parent.width - 1px;
+                for it[i] in col.items: Rectangle {
+                    height: 24px;
+                    opacity: it.dim ? 0.4 : (it.cut ? 0.55 : 1);
+                    property <bool> on: it.selected;
+                    Rectangle { x: 6px; width: parent.width - 12px; border-radius: 6px;
+                        background: on ? (col.active ? Theme.accent : (Theme.dark ? #ffffff2e : #0000001f)) : transparent; }
+                    if F.col-icons: FileIcon { x: 14px; y: 4px; item: it; s: 16px; }
+                    Text {
+                        x: F.col-icons ? 36px : 16px; width: parent.width - (F.col-icons ? 60px : 40px) - (it.tags.length > 0 ? 24px : 0px);
+                        text: it.name; font-size: F.list-text; vertical-alignment: center; overflow: elide;
+                        color: on && col.active ? white : Theme.text;
+                    }
+                    if it.tags.length > 0: TagDots { x: parent.width - 28px - self.preferred-width; y: 7.5px; height: 9px; tags: it.tags; }
+                    if it.is-dir: Image { x: parent.width - 22px; y: 7px; width: 10px; height: 10px; source: F.i-chev-right; colorize: on && col.active ? white : Theme.text-secondary; }
+                    TouchArea {
+                        pointer-event(e) => {
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                                F.column-click(ci, i, e.modifiers.control || e.modifiers.meta, e.modifiers.shift);
+                                root.want-focus();
+                            }
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                                F.column-click(ci, i, false, false);
+                                F.context(-2, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                            }
+                        }
+                        double-clicked => { F.column-open(ci, i); }
+                    }
+                }
+            }
+        }
+        if pv-w > 0: Rectangle {
+            x: F.columns.length * col-w; width: pv-w;
+            VerticalLayout {
+                padding: 16px; spacing: 6px; alignment: start;
+                Rectangle {
+                    height: 200px;
+                    if F.pv.snippet != "" && !F.pv.has-thumb: Rectangle {
+                        border-radius: 8px; background: Theme.dark ? #2a2a2c : white; border-width: 0.5px; border-color: Theme.separator; clip: true;
+                        Text { x: 8px; y: 8px; width: parent.width - 16px; height: parent.height - 12px; text: F.pv.snippet; font-size: 9.5px; font-family: "DejaVu Sans Mono"; color: Theme.text; wrap: word-wrap; overflow: TextOverflow.clip; }
+                    }
+                    if F.pv.snippet == "" || F.pv.has-thumb: FileIcon { item: F.pv; s: min(parent.width, 180px); }
+                }
+                Text { text: F.pv.name; font-size: 14px; font-weight: 700; color: Theme.text; wrap: word-wrap; horizontal-alignment: center; }
+                Text { text: F.pv.kind-label + (F.pv.size != "" && F.pv.size != "--" ? " – " + F.pv.size : ""); font-size: 11px; color: Theme.text-secondary; horizontal-alignment: center; }
+                Rectangle { height: 6px; }
+                for kv[i] in F.pv-info: Rectangle {
+                    height: i < 4 ? 20px : 0px; visible: i < 4;
+                    Text { x: 0; width: 90px; text: kv.k; font-size: 11px; color: Theme.text-secondary; vertical-alignment: center; overflow: elide; }
+                    Text { x: 90px; width: parent.width - 90px; text: kv.v; font-size: 11px; color: Theme.text; horizontal-alignment: right; vertical-alignment: center; overflow: elide; }
+                }
+            }
+        }
+    }
+}
+
+export component GalleryV inherits Rectangle {
+    callback want-focus();
+    property <length> strip: 86px;
+    Rectangle {
+        y: 8px; height: parent.height - strip - 16px;
+        if F.pv-any && F.pv.snippet != "" && !F.pv.has-thumb: Rectangle {
+            width: min(parent.width - 60px, (parent.height - 20px) * 0.78); height: parent.height - 20px;
+            border-radius: 6px; background: Theme.dark ? #2a2a2c : white; border-width: 0.5px; border-color: Theme.separator; clip: true;
+            drop-shadow-blur: 10px; drop-shadow-color: #00000026;
+            Text { x: 14px; y: 14px; width: parent.width - 28px; height: parent.height - 28px; text: F.pv.snippet; font-size: 11px; font-family: "DejaVu Sans Mono"; color: Theme.text; wrap: word-wrap; overflow: TextOverflow.clip; }
+        }
+        if F.pv-any && (F.pv.snippet == "" || F.pv.has-thumb): FileIcon { item: F.pv; s: min(parent.width - 40px, parent.height - 20px); }
+    }
+    Flickable {
+        y: parent.height - strip; height: strip;
+        content-width: max(self.width, F.items.length * 64px + 24px);
+        content-x: F.focus-idx >= 0 ? max(min(0px, self.width - F.items.length * 64px - 24px), min(0px, self.width / 2 - F.focus-idx * 64px - 44px)) : 0px;
+        animate content-x { duration: 180ms; easing: ease-out; }
+        for it[i] in F.items: Rectangle {
+            x: 12px + i * 64px; y: 10px; width: 60px; height: 60px; border-radius: 8px;
+            background: it.selected ? Theme.accent.with-alpha(0.22) : transparent;
+            border-width: it.selected ? 2px : 0px; border-color: Theme.accent;
+            FileIcon { item: it; s: 46px; }
+            TouchArea {
+                pointer-event(e) => {
+                    if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.select(i, e.modifiers.control || e.modifiers.meta, e.modifiers.shift); root.want-focus(); }
+                    if e.kind == PointerEventKind.down && e.button == PointerEventButton.right { F.select(i, false, false); F.context(i, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+                }
+                double-clicked => { F.open(i); }
+            }
+        }
+    }
+    Rectangle { y: parent.height - strip - 1px; height: 1px; background: Theme.separator; }
+}

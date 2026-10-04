@@ -1,0 +1,227 @@
+export struct SApp {
+    key: string,
+    name: string,
+    summary: string,
+    icon: image,
+    has-icon: bool,
+    letter: string,
+    tint: color,
+    source: string,
+    state: int,
+    progress: float,
+    status: string,
+    verified: bool,
+    category: string,
+    detail: string,
+    badge: string,
+}
+
+export struct SShelf { id: string, title: string, subtitle: string, apps: [SApp] }
+export struct SHero { label: string, title: string, subtitle: string, art: image, has-art: bool, brand: color, app: SApp }
+export struct SCat { id: string, title: string, glyph: string, tint: color }
+export struct SShot { img: image, loaded: bool, ratio: float, caption: string }
+export struct SRelease { version: string, date: string, notes: string }
+export struct SReview { id: int, author: string, title: string, body: string, stars: int, date: string, version: string, up: int, down: int, mine: bool, voted: bool }
+export struct SInfo { label: string, value: string, sub: string, link: string, glyph: string, stars: bool }
+export struct SPerm { id: string, label: string, detail: string, glyph: string, risky: bool, on: bool }
+export struct SUpd { app: SApp, from: string, to: string, notes: string, size: string, date: string, system: bool }
+export struct SSetup { id: string, title: string, detail: string, action: string, state: int, essential: bool, terminal: bool }
+export struct SMenu { id: string, label: string, glyph: string, destructive: bool, separator: bool, enabled: bool }
+export struct SHist { key: string, name: string, action: string, version: string, source: string, date: string }
+
+export struct SDetail {
+    app: SApp,
+    subtitle: string,
+    developer: string,
+    description: string,
+    version: string,
+    updated: string,
+    notes: string,
+    age: string,
+    category: string,
+    category-glyph: string,
+    size: string,
+    size-unit: string,
+    language: string,
+    languages-more: string,
+    rating: string,
+    rating-count: string,
+    stars: float,
+    installs: string,
+    homepage: string,
+    web-url: string,
+    source-label: string,
+    license: string,
+    brand: color,
+    has-releases: bool,
+    has-ratings: bool,
+    has-perms: bool,
+    can-manage-perms: bool,
+    can-review: bool,
+    installed: bool,
+    flatpak: bool,
+    loaded: bool,
+}
+
+export global AS {
+    in property <bool> active: true;
+    in property <bool> glass;
+    in-out property <string> page: "discover";
+    in-out property <int> nav: 0;
+    in property <bool> can-back;
+    in property <bool> can-forward;
+    in property <bool> loading;
+    in property <string> error;
+    in property <string> title;
+    in property <string> subtitle;
+    in property <string> user-name;
+    in property <image> avatar;
+    in property <bool> has-avatar;
+    in property <string> toast;
+    in-out property <length> scroll-y;
+
+    in property <[SHero]> heroes;
+    in property <[SShelf]> shelves;
+    in property <[SCat]> cats;
+    in property <[SApp]> list;
+    in property <bool> list-more;
+    in property <bool> list-loading;
+
+    in-out property <string> search-text;
+    in property <[SApp]> suggestions;
+    in property <[SApp]> results;
+    in property <[SApp]> packages;
+    in property <bool> searching;
+
+    in property <SDetail> detail;
+    in property <[SShot]> shots;
+    in property <[SRelease]> releases;
+    in property <[SReview]> reviews;
+    in property <[float]> histogram;
+    in property <[SPerm]> perms;
+    in property <[SInfo]> info;
+    in property <[SInfo]> strip;
+    in property <[SShelf]> related;
+    in property <[string]> sources;
+    in-out property <int> source-index;
+    in property <[SInfo]> links;
+
+    in property <[SUpd]> updates;
+    in property <[SUpd]> system-updates;
+    in property <[SUpd]> recent;
+    in property <int> badge;
+    in property <bool> checking;
+    in property <string> last-check;
+    in property <bool> updating-all;
+
+    in property <[SApp]> installed;
+    in property <[string]> filters;
+    in-out property <int> filter;
+    in-out property <string> query;
+    in property <int> installed-count;
+
+    in-out property <string> sheet;
+    in property <[SMenu]> menu;
+    in-out property <bool> menu-open;
+    in property <length> menu-x;
+    in property <length> menu-y;
+
+    in-out property <bool> set-auto-check;
+    in-out property <bool> set-auto-update;
+    in-out property <bool> set-notify;
+    in-out property <bool> set-system;
+    in-out property <bool> set-flathub;
+    in-out property <bool> set-native;
+    in-out property <bool> set-aur;
+    in-out property <bool> set-reviews;
+    in-out property <int> set-scope;
+    in-out property <int> set-preferred;
+    in-out property <string> reviewer;
+    in property <[string]> preferred-items;
+    in property <string> native-label;
+    in property <bool> has-native;
+    in property <bool> has-aur;
+    in property <bool> has-flatpak;
+    in property <string> system-info;
+
+    in property <[SSetup]> setup;
+    in property <bool> setup-busy;
+    in property <SSetup> need;
+
+    in property <string> confirm-title;
+    in property <string> confirm-text;
+    in property <string> confirm-button;
+    in property <bool> confirm-has-option;
+    in property <string> confirm-option;
+    in-out property <bool> confirm-checked;
+
+    in property <string> error-title;
+    in property <string> error-text;
+    in property <string> error-log;
+
+    in-out property <int> viewer;
+    in-out property <int> review-stars;
+    in-out property <string> review-title;
+    in-out property <string> review-body;
+    in property <string> review-error;
+    in property <bool> review-sending;
+
+    in property <[SHist]> history;
+    in-out property <string> history-query;
+
+    callback navigate(int);
+    callback open-feed(string, string);
+    callback open-app(string);
+    callback open-category(string);
+    callback open-developer(string);
+    callback back();
+    callback forward();
+    callback search(string);
+    callback search-edited(string);
+    callback load-more();
+    callback retry();
+    callback refresh();
+    callback primary(string);
+    callback cancel(string);
+    callback app-menu(string, length, length);
+    callback page-menu(length, length);
+    callback share-menu(length, length);
+    callback menu-action(string);
+    callback update-all();
+    callback check-updates();
+    callback source-changed(int);
+    callback open-url(string);
+    callback copy-link();
+    callback write-review();
+    callback submit-review();
+    callback vote(int, string);
+    callback all-reviews();
+    callback open-versions();
+    callback open-shot(int);
+    callback manage-perms();
+    callback perm-toggled(string, bool);
+    callback perm-reset();
+    callback setting-toggled(string, bool);
+    callback scope-changed(int);
+    callback preferred-changed(int);
+    callback reviewer-edited(string);
+    callback setup-install(string);
+    callback setup-all();
+    callback setup-dismiss();
+    callback open-setup();
+    callback need-accept();
+    callback confirm-accept();
+    callback close-sheet();
+    callback filter-changed(int);
+    callback query-edited(string);
+    callback open-account();
+    callback open-settings();
+    callback open-history();
+    callback history-edited(string);
+    callback maintenance(string);
+    callback win-drag();
+    callback win-resize(int);
+    callback win-close();
+    callback win-minimize();
+    callback win-zoom();
+}

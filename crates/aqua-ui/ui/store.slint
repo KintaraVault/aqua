@@ -1,0 +1,385 @@
+import { Theme, TrafficLights, GlassSurround, GlassMenu, Backdrop, NavArrows, GlassCapsule } from "common.slint";
+import { SG } from "store/glyphs.slint";
+import { AS, SApp, SShelf, SHero, SCat, SShot, SRelease, SReview, SInfo, SPerm, SUpd, SSetup, SMenu, SHist, SDetail } from "store/model.slint";
+import { Hairline, AppIcon, RoundButton, Badge } from "store/parts.slint";
+import { HomePage, CategoriesPage, ListPage, SearchPage, AppPage, UpdatesPage, AccountPage } from "store/pages.slint";
+import { SettingsSheet, SetupSheet, NeedSheet, ConfirmSheet, ErrorSheet, VersionsSheet, ReviewSheet, ReviewsSheet, PermsSheet, HistorySheet, Viewer, Menu } from "store/sheets.slint";
+
+export { AS, SApp, SShelf, SHero, SCat, SShot, SRelease, SReview, SInfo, SPerm, SUpd, SSetup, SMenu, SHist, SDetail }
+
+component NavItem inherits Rectangle {
+    in property <string> label;
+    in property <image> glyph;
+    in property <bool> selected;
+    in property <int> count;
+    callback clicked();
+    height: 32px;
+    border-radius: 10px;
+    background: selected ? (Theme.dark ? #ffffff24 : #00000012) : (ta.has-hover ? Theme.hover : transparent);
+    animate background { duration: 120ms; }
+    Image {
+        x: 9px;
+        width: 18px;
+        height: 18px;
+        source: root.glyph;
+        colorize: Theme.accent;
+    }
+    Text {
+        x: 36px;
+        width: parent.width - 36px - (root.count > 0 ? 34px : 8px);
+        text: root.label;
+        font-size: 13px;
+        font-weight: root.selected ? 500 : 400;
+        color: Theme.text;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    if root.count > 0: Rectangle {
+        x: parent.width - self.width - 8px;
+        y: (parent.height - self.height) / 2;
+        height: 18px;
+        width: max(18px, ct.preferred-width + 10px);
+        border-radius: 9px;
+        background: Theme.dark ? #ffffff26 : #00000017;
+        ct := Text { text: root.count; font-size: 11px; font-weight: 600; color: Theme.text-secondary; horizontal-alignment: center; vertical-alignment: center; }
+    }
+    ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+export component StoreWindow inherits Window {
+    title: @tr("App Store");
+    no-frame: true;
+    preferred-width: 1180px;
+    preferred-height: 760px;
+    min-width: 760px;
+    min-height: 500px;
+    background: transparent;
+    default-font-family: Theme.font;
+    forward-focus: keys;
+    in property <int> repaint;
+    property <length> side-w: 220px;
+    property <length> cx: side-w + 8px;
+    property <length> cw: root.width - cx;
+    property <bool> search-open: search.has-focus && AS.search-text != "" && AS.suggestions.length > 0;
+    public function focus-search() { search.focus(); }
+    public function copy-text(t: string) {
+        clip.text = t;
+        clip.select-all();
+        clip.copy();
+        keys.focus();
+    }
+    clip := TextInput { x: -2000px; width: 10px; height: 10px; opacity: 0; }
+    property <string> cur-sheet: AS.sheet;
+    property <bool> cur-menu: AS.menu-open;
+    changed cur-sheet => { keys.focus(); }
+    changed cur-menu => { if !search.has-focus { keys.focus(); } }
+    Rectangle { background: mod(repaint, 2) == 0 ? #00000000 : #00000001; }
+
+    if !AS.glass: Rectangle { border-radius: 0px; background: Theme.window-bg; }
+    property <bool> solid: Theme.solid-sidebar;
+    if AS.glass: GlassSurround {
+        width: root.width;
+        height: root.height;
+        color: Theme.window-bg;
+        hole-x: solid ? 0px : 8px;
+        hole-y: solid ? 0px : 8px;
+        hole-w: solid ? cx : side-w;
+        hole-h: solid ? root.height : root.height - 16px;
+        hole-r: solid ? 0px : 20px;
+    }
+
+    keys := FocusScope {
+        key-pressed(e) => {
+            if e.text == Key.Escape {
+                if AS.menu-open { AS.menu-open = false; return accept; }
+                if AS.sheet != "" { AS.close-sheet(); return accept; }
+                if AS.can-back { AS.back(); return accept; }
+                return reject;
+            }
+            if AS.sheet == "viewer" {
+                if e.text == Key.LeftArrow && AS.viewer > 0 { AS.viewer -= 1; return accept; }
+                if e.text == Key.RightArrow && AS.viewer < AS.shots.length - 1 { AS.viewer += 1; return accept; }
+            }
+            if e.modifiers.alt && e.text == Key.LeftArrow { AS.back(); return accept; }
+            if e.modifiers.control || e.modifiers.meta {
+                if e.text == "1" { AS.navigate(0); return accept; }
+                if e.text == "2" { AS.navigate(1); return accept; }
+                if e.text == "3" { AS.navigate(2); return accept; }
+                if e.text == "4" { AS.navigate(3); return accept; }
+                if e.text == "5" { AS.navigate(4); return accept; }
+                if e.text == "6" { AS.navigate(5); return accept; }
+                if e.text == "7" { AS.navigate(6); return accept; }
+                if e.text == "8" { AS.navigate(7); return accept; }
+                if e.text == "f" || e.text == "F" { search.focus(); return accept; }
+                if e.text == "r" || e.text == "R" { AS.refresh(); return accept; }
+                if e.text == "[" { AS.back(); return accept; }
+                if e.text == "," { AS.open-settings(); return accept; }
+                if e.text == "w" || e.text == "W" || e.text == "q" || e.text == "Q" { AS.win-close(); return accept; }
+            }
+            reject
+        }
+    }
+
+    content := Rectangle {
+        x: cx;
+        y: 0;
+        width: cw;
+        height: root.height;
+        if AS.page == "discover" || AS.page == "arcade" || AS.page == "create" || AS.page == "work" || AS.page == "play" || AS.page == "develop": HomePage {}
+        if AS.page == "categories": CategoriesPage {}
+        if AS.page == "list": ListPage {}
+        if AS.page == "search": SearchPage {}
+        if AS.page == "app": AppPage {}
+        if AS.page == "updates": UpdatesPage {}
+        if AS.page == "account": AccountPage {}
+    }
+
+    top := Rectangle {
+        x: cx;
+        width: cw;
+        height: 52px;
+        y: 0;
+        property <bool> solid: AS.scroll-y > 6px;
+        background: solid ? Theme.window-bg : Theme.window-bg.with-alpha(0);
+        TouchArea {
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { AS.win-drag(); }
+            }
+        }
+        if top.solid: Hairline { y: parent.height - 1px; width: parent.width; }
+        property <bool> show-title: AS.page == "app" ? AS.scroll-y > 150px : (AS.page != "list" && AS.page != "search" && AS.page != "updates" && AS.page != "account") || AS.scroll-y > 40px;
+        Text {
+            x: 80px;
+            width: parent.width - 160px;
+            text: AS.page == "app" ? AS.detail.app.name : AS.title;
+            font-size: 13px;
+            font-weight: 700;
+            color: Theme.text;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            overflow: elide;
+            opacity: top.show-title ? 1 : 0;
+            animate opacity { duration: 150ms; }
+        }
+        NavArrows {
+            x: 14px;
+            y: 8px;
+            can-back: AS.can-back;
+            can-forward: AS.can-forward;
+            back => { AS.back(); }
+            forward => { AS.forward(); }
+        }
+        if AS.page == "app": GlassCapsule {
+            x: parent.width - self.width - 14px;
+            y: 8px;
+            width: 36px;
+            Image { width: 16px; height: 16px; source: SG.share; colorize: Theme.text; }
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => { AS.share-menu(self.absolute-position.x + 36px - 240px, self.absolute-position.y + 42px); }
+            }
+        }
+    }
+
+    side := Rectangle {
+        x: solid ? 0px : 8px;
+        y: solid ? 0px : 8px;
+        width: solid ? cx : side-w;
+        height: solid ? root.height : root.height - 16px;
+        border-radius: solid ? 0px : 20px;
+        background: solid
+            ? (AS.glass ? (Theme.dark ? #26262ab8 : #f4f5f7b8) : (Theme.dark ? #29292c : #eeeff2))
+            : (AS.glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%));
+        border-width: solid ? 0px : 0.5px;
+        border-color: AS.glass ? (Theme.dark ? #ffffff26 : #ffffffb0) : Theme.sidebar-border;
+        drop-shadow-blur: solid ? 0px : 10px;
+        drop-shadow-color: #00000017;
+        drop-shadow-offset-y: 2px;
+        if root.solid: Rectangle { x: parent.width - 1px; width: 1px; background: Theme.dark ? #00000066 : #00000014; }
+        if root.solid && Theme.dark: Rectangle { x: parent.width - 2px; width: 1px; background: #ffffff0a; }
+        TouchArea {
+            height: 40px;
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { AS.win-drag(); }
+            }
+        }
+        TrafficLights {
+            x: root.solid ? 18px : 12px;
+            y: root.solid ? 19px : 12px;
+            active: AS.active;
+            close => { AS.win-close(); }
+            minimize => { AS.win-minimize(); }
+            zoom => { AS.win-zoom(); }
+        }
+        Rectangle {
+            x: root.solid ? 14px : 10px;
+            y: root.solid ? 52px : 44px;
+            width: parent.width - (root.solid ? 26px : 20px);
+            height: 30px;
+            border-radius: 15px;
+            background: Theme.dark ? #ffffff17 : #0000000d;
+            border-width: search.has-focus ? 2.5px : 0px;
+            border-color: Theme.accent.with-alpha(0.45);
+            Image { x: 10px; width: 14px; height: 14px; source: SG.search; colorize: Theme.text-secondary; }
+            search := TextInput {
+                x: 31px;
+                width: parent.width - 31px - (AS.search-text != "" ? 26px : 10px);
+                height: parent.height;
+                text <=> AS.search-text;
+                font-size: 13px;
+                color: Theme.text;
+                vertical-alignment: center;
+                single-line: true;
+                accepted => { AS.search(self.text); }
+                edited => { AS.search-edited(self.text); }
+                key-pressed(e) => {
+                    if e.text == Key.Escape { self.text = ""; AS.search-edited(""); keys.focus(); return accept; }
+                    reject
+                }
+            }
+            if AS.search-text == "": Text {
+                x: 31px;
+                height: parent.height;
+                text: @tr("Search");
+                font-size: 13px;
+                color: Theme.text-secondary;
+                vertical-alignment: center;
+            }
+            if AS.search-text != "": Rectangle {
+                x: parent.width - 23px;
+                y: 7px;
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                background: Theme.text-tertiary;
+                Image { width: 8px; height: 8px; source: SG.xmark; colorize: Theme.window-bg; }
+                TouchArea { clicked => { AS.search-text = ""; AS.search-edited(""); } }
+            }
+        }
+        VerticalLayout {
+            x: root.solid ? 14px : 10px;
+            y: root.solid ? 94px : 86px;
+            width: parent.width - (root.solid ? 26px : 20px);
+            spacing: 2px;
+            for n[i] in [
+                { label: @tr("Discover"), glyph: SG.discover },
+                { label: @tr("Arcade"), glyph: SG.arcade },
+                { label: @tr("Create"), glyph: SG.create },
+                { label: @tr("Work"), glyph: SG.work },
+                { label: @tr("Play"), glyph: SG.play },
+                { label: @tr("Develop"), glyph: SG.develop },
+                { label: @tr("Categories"), glyph: SG.categories },
+                { label: @tr("Updates"), glyph: SG.updates },
+            ]: NavItem {
+                label: n.label;
+                glyph: n.glyph;
+                selected: AS.nav == i;
+                count: i == 7 ? AS.badge : 0;
+                clicked => { AS.navigate(i); keys.focus(); }
+            }
+        }
+        acct := Rectangle {
+            x: root.solid ? 14px : 10px;
+            y: parent.height - (root.solid ? 54px : 50px);
+            width: parent.width - (root.solid ? 26px : 20px);
+            height: 40px;
+            border-radius: 12px;
+            background: AS.page == "account" ? (Theme.dark ? #ffffff1f : #0000000f) : (ata.has-hover ? Theme.hover : transparent);
+            Rectangle {
+                x: 6px;
+                width: 28px;
+                height: 28px;
+                border-radius: 14px;
+                clip: true;
+                background: Theme.dark ? #ffffff30 : #c7c8cd;
+                if AS.has-avatar: Image { width: 100%; height: 100%; source: AS.avatar; image-fit: cover; }
+                if !AS.has-avatar: Image { y: 5px; width: 24px; height: 24px; source: SG.person; colorize: white; }
+            }
+            Text {
+                x: 42px;
+                width: parent.width - 48px;
+                text: AS.user-name;
+                font-size: 13px;
+                font-weight: 600;
+                color: Theme.text;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+            ata := TouchArea { clicked => { AS.open-account(); keys.focus(); } }
+        }
+    }
+
+    if root.search-open: GlassMenu {
+        x: root.solid ? 22px : 18px;
+        y: root.solid ? 88px : 80px;
+        ox: self.x;
+        oy: self.y;
+        width: 300px;
+        height: sl.preferred-height;
+        TouchArea {}
+        sl := VerticalLayout {
+            padding: 5px;
+            Rectangle {
+                height: 28px;
+                border-radius: 7px;
+                background: sa.has-hover ? Theme.accent : transparent;
+                Image { x: 9px; width: 14px; height: 14px; source: SG.search; colorize: sa.has-hover ? white : Theme.text-secondary; }
+                Text { x: 32px; width: parent.width - 40px; text: @tr("Search for “{}”", AS.search-text); font-size: 13px; color: sa.has-hover ? white : Theme.text; vertical-alignment: center; overflow: elide; }
+                sa := TouchArea { clicked => { AS.search(AS.search-text); keys.focus(); } }
+            }
+            for s in AS.suggestions: Rectangle {
+                height: 34px;
+                border-radius: 7px;
+                background: su.has-hover ? Theme.accent : transparent;
+                AppIcon { x: 4px; y: 2px; size: 30px; app: s; }
+                Text { x: 40px; width: parent.width - 48px; text: s.name; font-size: 13px; color: su.has-hover ? white : Theme.text; vertical-alignment: center; overflow: elide; }
+                su := TouchArea { clicked => { AS.open-app(s.key); keys.focus(); } }
+            }
+        }
+    }
+
+    if AS.toast != "": Rectangle {
+        x: cx + (cw - self.width) / 2;
+        y: root.height - 64px;
+        height: 36px;
+        width: tt.preferred-width + 36px;
+        border-radius: 18px;
+        background: Theme.dark ? #3a3a3cf2 : #1c1c1ee6;
+        drop-shadow-blur: 14px;
+        drop-shadow-color: #00000040;
+        tt := Text { text: AS.toast; font-size: 13px; color: white; horizontal-alignment: center; vertical-alignment: center; }
+    }
+
+    if AS.sheet == "settings": SettingsSheet {}
+    if AS.sheet == "setup": SetupSheet {}
+    if AS.sheet == "need": NeedSheet {}
+    if AS.sheet == "confirm": ConfirmSheet {}
+    if AS.sheet == "error": ErrorSheet {}
+    if AS.sheet == "versions": VersionsSheet {}
+    if AS.sheet == "review": ReviewSheet {}
+    if AS.sheet == "reviews": ReviewsSheet {}
+    if AS.sheet == "perms": PermsSheet {}
+    if AS.sheet == "history": HistorySheet {}
+    if AS.sheet == "viewer": Viewer {}
+    if AS.menu-open: Menu {}
+
+    for e[i] in [
+        { x: 10px, y: 0px, w: root.width - 20px, h: 4px, c: MouseCursor.ns-resize },
+        { x: 10px, y: root.height - 4px, w: root.width - 20px, h: 4px, c: MouseCursor.ns-resize },
+        { x: 0px, y: 10px, w: 4px, h: root.height - 20px, c: MouseCursor.ew-resize },
+        { x: root.width - 4px, y: 10px, w: 4px, h: root.height - 20px, c: MouseCursor.ew-resize },
+        { x: 0px, y: 0px, w: 10px, h: 10px, c: MouseCursor.nwse-resize },
+        { x: root.width - 10px, y: 0px, w: 10px, h: 10px, c: MouseCursor.nesw-resize },
+        { x: 0px, y: root.height - 10px, w: 10px, h: 10px, c: MouseCursor.nesw-resize },
+        { x: root.width - 10px, y: root.height - 10px, w: 10px, h: 10px, c: MouseCursor.nwse-resize },
+    ]: TouchArea {
+        x: e.x;
+        y: e.y;
+        width: e.w;
+        height: e.h;
+        mouse-cursor: e.c;
+        pointer-event(ev) => {
+            if ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left { AS.win-resize(i); }
+        }
+    }
+}

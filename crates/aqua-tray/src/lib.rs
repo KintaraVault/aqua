@@ -8,6 +8,7 @@
 //!
 //! When another watcher already owns the name, Aqua registers as a host with it and
 //! mirrors its items instead.
+pub mod appmenu;
 mod menu;
 mod service;
 mod value;
@@ -15,7 +16,7 @@ pub mod xembed;
 
 use std::sync::{Arc, Mutex, OnceLock};
 
-pub use menu::{MenuNode, MenuToggle};
+pub use menu::{shortcut_label, MenuNode, MenuToggle};
 
 /// Premultiplied RGBA image.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

@@ -38,6 +38,10 @@ impl Shell {
                     aqua_tray::menu_clicked(&key, id);
                     out.push(Action::Redraw);
                 }
+                Action::AppMenu(id) => {
+                    aqua_tray::appmenu::clicked(id);
+                    out.push(Action::Redraw);
+                }
                 Action::ShowRecent => {
                     self.menu.open = Some(menu::MenuKind::Recent);
                     self.menu.anchor = 44.0;

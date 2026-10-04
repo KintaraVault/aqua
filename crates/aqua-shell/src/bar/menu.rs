@@ -17,12 +17,14 @@ pub enum MenuKind {
     Desktop,
     /// Menu of an application's tray item, by tray key.
     Tray(String),
+    /// The green title-bar button's tiling menu for a window: (window id, tiled now).
+    Window(u64, bool),
 }
 
 impl MenuKind {
     /// Context menus pop up at the pointer instead of hanging from the menu bar.
     pub fn is_context(&self) -> bool {
-        matches!(self, MenuKind::Dock(_) | MenuKind::Desktop)
+        matches!(self, MenuKind::Dock(_) | MenuKind::Desktop | MenuKind::Window(..))
     }
 }
 
@@ -349,15 +351,57 @@ fn context_icon(label: &str) -> Option<&'static str> {
         "Force Quit" => "<circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M12 7.5v5.5M12 16.2v.3\"/>",
         "Restore" => "<path d=\"M12 19V6M7 11l5-5 5 5\"/>",
         "Empty Trash" => "<path d=\"M4.5 7h15M9.5 7V5h5v2M6.5 7l.8 11.5a2 2 0 0 0 2 1.5h5.4a2 2 0 0 0 2-1.5L17.5 7\"/>",
+        "Left" => "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><rect x=\"5.5\" y=\"7\" width=\"5.5\" height=\"10\" rx=\"1\"/>",
+        "Right" => "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><rect x=\"13\" y=\"7\" width=\"5.5\" height=\"10\" rx=\"1\"/>",
+        "Top" => "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><rect x=\"5.5\" y=\"7\" width=\"13\" height=\"4\" rx=\"1\"/>",
+        "Bottom" => "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><rect x=\"5.5\" y=\"13\" width=\"13\" height=\"4\" rx=\"1\"/>",
+        "Top Left" => "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><rect x=\"5.5\" y=\"7\" width=\"5.5\" height=\"4\" rx=\"1\"/>",
+        "Top Right" => "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><rect x=\"13\" y=\"7\" width=\"5.5\" height=\"4\" rx=\"1\"/>",
+        "Bottom Left" => "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><rect x=\"5.5\" y=\"13\" width=\"5.5\" height=\"4\" rx=\"1\"/>",
+        "Bottom Right" => "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><rect x=\"13\" y=\"13\" width=\"5.5\" height=\"4\" rx=\"1\"/>",
+        "Fill" => "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><rect x=\"5.5\" y=\"7\" width=\"13\" height=\"10\" rx=\"1\"/>",
+        "Center" => "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><rect x=\"8\" y=\"8.5\" width=\"8\" height=\"7\" rx=\"1\"/>",
+        "Left & Right" => "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><path d=\"M12 5v14\"/>",
+        "Top & Bottom" => "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><path d=\"M3.5 12h17\"/>",
+        "Quarters" => "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><path d=\"M12 5v14M3.5 12h17\"/>",
+        "Enter Full Screen" => "<path d=\"M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5\"/>",
+        "Return to Previous Size" => "<path d=\"M9 7 4.5 11.5 9 16\"/><path d=\"M5 11.5h9a5 5 0 0 1 0 10\"/>",
         "Options" => "<circle cx=\"6\" cy=\"12\" r=\"1\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/><circle cx=\"18\" cy=\"12\" r=\"1\"/>",
         _ => return None,
     })
+}
+
+/// The green button's menu (macOS 15/26 "Move & Resize" / "Fill & Arrange").
+pub fn window_menu(id: u64, tiled: bool) -> Vec<Option<Entry>> {
+    use aqua_wm::tile::{Arrange, Tile};
+    let t = |tile: Tile| e(tile.label(), "", Some(Action::TileWindow(id, format!("tile-{}", tile.name()))));
+    let mut v = vec![x("Move & Resize", Extra::Caption, false, None)];
+    for tile in [Tile::Left, Tile::Right, Tile::Top, Tile::Bottom] {
+        v.push(t(tile));
+    }
+    for tile in [Tile::TopLeft, Tile::TopRight, Tile::BottomLeft, Tile::BottomRight] {
+        v.push(t(tile));
+    }
+    v.push(None);
+    v.push(x("Fill & Arrange", Extra::Caption, false, None));
+    v.push(t(Tile::Fill));
+    v.push(t(Tile::Center));
+    for a in [Arrange::LeftRight, Arrange::TopBottom, Arrange::Quarters] {
+        v.push(e(a.label(), "", Some(Action::TileWindow(id, format!("arrange-{}", a.name())))));
+    }
+    v.push(None);
+    v.push(e("Enter Full Screen", "", Some(Action::TileWindow(id, "fullscreen".into()))));
+    if tiled {
+        v.push(e("Return to Previous Size", "", Some(Action::TileWindow(id, "tile-restore".into()))));
+    }
+    v
 }
 
 /// Dock and desktop context menus.
 fn context_entries(sh: &Shell, kind: &MenuKind) -> Vec<Option<Entry>> {
     use crate::dock::{self, Kind};
     match kind {
+        MenuKind::Window(id, tiled) => window_menu(*id, *tiled),
         MenuKind::Desktop => {
             let desk = xdg_dir("DESKTOP", "Desktop");
             let widgets = sh.cfg.show_widgets && !sh.widgets.hidden;
@@ -482,7 +526,7 @@ pub fn entries(sh: &Shell, kind: &MenuKind) -> Vec<Option<Entry>> {
                 "App Store…",
                 "",
                 Some(Action::Launch(
-                    "pamac-manager || gnome-software || plasma-discover || bauh || xdg-open https://flathub.org".into(),
+                    "aqua-store || pamac-manager || gnome-software || plasma-discover || bauh || xdg-open https://flathub.org".into(),
                 )),
             ),
             None,
@@ -533,8 +577,108 @@ pub fn entries(sh: &Shell, kind: &MenuKind) -> Vec<Option<Entry>> {
             },
         ],
         MenuKind::App(i) => {
+            if let Some(v) = crate::tray::app_menu_entries(*i) {
+                return v;
+            }
             let menus = menubar::app_menus(&app);
-            match menus.get(*i).copied().unwrap_or("") {
+            let menu = menus.get(*i).copied().unwrap_or("");
+            if has_win && app == "Finder" {
+                let f = match menu {
+                    "File" => vec![
+                        k("New Finder Window", "⌘N", "ctrl+n"),
+                        k("New Folder", "⇧⌘N", "ctrl+shift+n"),
+                        k("New Folder with Selection", "⌃⌘N", "ctrl+super+n"),
+                        k("New Smart Folder", "⌥⌘N", "ctrl+alt+n"),
+                        k("New Tab", "⌘T", "ctrl+t"),
+                        k("Open", "⌘O", "ctrl+o"),
+                        k("Close Tab", "⌘W", "ctrl+w"),
+                        k("Close Window", "⌥⌘W", "ctrl+alt+w"),
+                        None,
+                        k("Get Info", "⌘I", "ctrl+i"),
+                        k("Get Summary Info", "⌃⌘I", "ctrl+super+i"),
+                        k("Rename", "↩", "return"),
+                        None,
+                        k("Duplicate", "⌘D", "ctrl+d"),
+                        k("Make Alias", "⌃⌘A", "ctrl+super+a"),
+                        k("Quick Look", "⌘Y", "ctrl+y"),
+                        k("Show Original", "⌘R", "ctrl+r"),
+                        k("Add to Sidebar", "⌃⌘T", "ctrl+super+t"),
+                        None,
+                        k("Move to Trash", "⌘⌫", "ctrl+backspace"),
+                        k("Eject", "⌘E", "ctrl+e"),
+                        None,
+                        k("Find", "⌘F", "ctrl+f"),
+                    ],
+                    "Edit" => vec![
+                        k("Undo", "⌘Z", "ctrl+z"),
+                        k("Redo", "⇧⌘Z", "ctrl+shift+z"),
+                        None,
+                        k("Cut", "⌘X", "ctrl+x"),
+                        k("Copy", "⌘C", "ctrl+c"),
+                        k("Paste", "⌘V", "ctrl+v"),
+                        k("Move Item Here", "⌥⌘V", "ctrl+alt+v"),
+                        k("Copy as Pathname", "⌥⌘C", "ctrl+alt+c"),
+                        k("Select All", "⌘A", "ctrl+a"),
+                        k("Deselect All", "⌥⌘A", "ctrl+alt+a"),
+                        None,
+                        e("Clipboard History", "⇧⌘V", Some(Action::ShowClipboard)),
+                        e("Emoji & Symbols", "⌃⌘Space", Some(Action::ShowChars)),
+                    ],
+                    "View" => vec![
+                        k("as Icons", "⌘1", "ctrl+1"),
+                        k("as List", "⌘2", "ctrl+2"),
+                        k("as Columns", "⌘3", "ctrl+3"),
+                        k("as Gallery", "⌘4", "ctrl+4"),
+                        None,
+                        k("Use Groups", "⌃⌘0", "ctrl+super+0"),
+                        k("Clean Up", "", "ctrl+super+alt+shift+u"),
+                        None,
+                        k("Show Tab Bar", "⇧⌘T", "ctrl+shift+t"),
+                        k("Show Path Bar", "⌥⌘P", "ctrl+alt+p"),
+                        k("Show Status Bar", "⌘/", "ctrl+/"),
+                        k("Show Sidebar", "⌃⌘S", "ctrl+super+s"),
+                        k("Show Preview", "⇧⌘P", "ctrl+shift+p"),
+                        None,
+                        k("Show Hidden Files", "⇧⌘.", "ctrl+shift+."),
+                        k("Show View Options", "⌘J", "ctrl+j"),
+                        k("Customize Toolbar…", "", "ctrl+super+alt+shift+b"),
+                        None,
+                        e("Enter Full Screen", "⌃⌘F", Some(Action::FullscreenFocused)),
+                    ],
+                    "Go" => vec![
+                        k("Back", "⌘[", "ctrl+["),
+                        k("Forward", "⌘]", "ctrl+]"),
+                        k("Enclosing Folder", "⌘↑", "ctrl+#103"),
+                        None,
+                        k("Recents", "⇧⌘F", "ctrl+shift+f"),
+                        k("Documents", "⇧⌘O", "ctrl+shift+o"),
+                        k("Desktop", "⇧⌘D", "ctrl+shift+d"),
+                        k("Downloads", "⌥⌘L", "ctrl+alt+l"),
+                        k("Home", "⇧⌘H", "ctrl+shift+h"),
+                        k("Computer", "⇧⌘C", "ctrl+shift+c"),
+                        k("Applications", "⇧⌘A", "ctrl+shift+a"),
+                        None,
+                        k("Go to Folder…", "⇧⌘G", "ctrl+shift+g"),
+                        k("Connect to Server…", "⌘K", "ctrl+k"),
+                    ],
+                    "Window" => vec![
+                        e("Minimize", "⌘M", Some(Action::MinimizeFocused)),
+                        e("Zoom", "", Some(Action::ZoomFocused)),
+                        None,
+                        k("Show Previous Tab", "⌃⇧⇥", "ctrl+shift+tab"),
+                        k("Show Next Tab", "⌃⇥", "ctrl+tab"),
+                        k("Move Tab to New Window", "", "ctrl+super+alt+shift+n"),
+                        k("Merge All Windows", "", "ctrl+super+alt+shift+m"),
+                        None,
+                        e("Bring All to Front", "", Some(Action::BringAllToFront)),
+                    ],
+                    _ => vec![],
+                };
+                if !f.is_empty() {
+                    return f;
+                }
+            }
+            match menu {
                 "File" => vec![
                     if has_win {
                         e("New Window", "⌘N", Some(Action::NewWindow(app_id.clone())))
@@ -632,7 +776,7 @@ fn geometry(sh: &Shell, kind: &MenuKind) -> (Rect, Vec<(Option<Entry>, Rect)>) {
             let y = (crate::dock::top(sh) - total_h - 10.0).max(sh.cfg.menubar_height + 4.0);
             (x, y)
         }
-        MenuKind::Desktop => {
+        MenuKind::Desktop | MenuKind::Window(..) => {
             let (px, py) = sh.menu.pos;
             let x = if px + w + 6.0 > sh.w { (px - w).max(6.0) } else { px };
             let y = if py + total_h + 6.0 > sh.h { (py - total_h).max(sh.cfg.menubar_height + 4.0) } else { py };
@@ -984,6 +1128,7 @@ pub fn hover(sh: &mut Shell, x: f32, y: f32) {
                 };
                 if let Some(k) = k {
                     if k != kind {
+                        menubar::about_to_open(&k);
                         sh.menu.open = Some(k);
                         sh.menu.anchor = r.x;
                         sh.menu.hover = None;
@@ -1077,6 +1222,39 @@ pub fn key(sh: &mut Shell, key: Option<crate::Key>) -> (bool, Vec<Action>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn window_menu_actions_are_valid_tile_commands() {
+        use aqua_wm::tile::{Arrange, Tile};
+        for tiled in [false, true] {
+            let menu = window_menu(7, tiled);
+            let acts: Vec<String> = menu
+                .iter()
+                .flatten()
+                .filter_map(|e| match &e.action {
+                    Some(Action::TileWindow(id, what)) => {
+                        assert_eq!(*id, 7);
+                        Some(what.clone())
+                    }
+                    Some(other) => panic!("unexpected action {other:?}"),
+                    None => None,
+                })
+                .collect();
+            for a in &acts {
+                let ok = a == "fullscreen"
+                    || a == "tile-restore"
+                    || a.strip_prefix("tile-").and_then(Tile::parse).is_some()
+                    || a.strip_prefix("arrange-").and_then(Arrange::parse).is_some();
+                assert!(ok, "{a} is not understood by the compositor");
+            }
+            assert_eq!(acts.iter().filter(|a| a.starts_with("tile-") && *a != "tile-restore").count(), 10);
+            assert_eq!(acts.contains(&"tile-restore".to_string()), tiled);
+            // captions are not clickable
+            for e in menu.iter().flatten().filter(|e| e.extra == Extra::Caption) {
+                assert!(e.action.is_none() && !e.enabled);
+            }
+        }
+    }
 
     #[test]
     fn percent_decoding() {

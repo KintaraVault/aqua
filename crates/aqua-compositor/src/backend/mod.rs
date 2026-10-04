@@ -15,6 +15,7 @@ pub const FRAME_INTERVAL: Duration = Duration::from_millis(16);
 /// Create the compositor on the selected backend, start the session and run it until
 /// it quits.
 pub fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
+    crate::system::env::set_nested(!args.tty);
     let cfg = aqua_config::Config::load();
     crate::system::theming::apply(&cfg);
     let mut event_loop: EventLoop<'static, Aqua> = EventLoop::try_new()?;
@@ -64,7 +65,8 @@ pub fn schedule_frames(
 ) -> Result<(), Box<dyn std::error::Error>> {
     event_loop.handle().insert_source(Timer::from_duration(FRAME_INTERVAL), move |_, _, state| {
         state.render_cache.frames += 1;
-        if state.shell.tick() | state.windows_animating() | state.poll_notifications() {
+        state.update_app_menu();
+        if state.shell.tick() | state.windows_animating() | state.poll_notifications() | state.check_zoom_hover() | state.stage_tick() {
             state.needs_redraw = true;
         }
         if state.needs_redraw {

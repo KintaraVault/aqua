@@ -42,6 +42,59 @@ pub fn check_config(path: Option<&str>) -> i32 {
 
 /// Parse the process arguments; without `--tty`/`--winit` the backend is chosen by whether
 /// a parent display server is running.
+/// `aqua logs [PROGRAM]`: where the logs are, and the tail of one of them
+/// (`compositor` by default; e.g. `org.aqua.finder`, `firefox`).
+pub fn logs(which: Option<&str>) -> i32 {
+    let dir = aqua_log::log_dir();
+    let name = which.unwrap_or("compositor");
+    let path = if name.ends_with(".log") { dir.join(name) } else { aqua_log::log_path(name) };
+    println!("logs: {}", dir.display());
+    if let Ok(rd) = std::fs::read_dir(&dir) {
+        let mut v: Vec<_> = rd.flatten().filter(|e| e.path().is_file()).collect();
+        v.sort_by_key(|e| std::cmp::Reverse(e.metadata().and_then(|m| m.modified()).ok()));
+        for e in v.iter().take(12) {
+            println!("  {}", e.file_name().to_string_lossy());
+        }
+    }
+    match std::fs::read_to_string(&path) {
+        Ok(t) => {
+            let lines: Vec<&str> = t.lines().collect();
+            println!("--- {} (last {} lines)", path.display(), lines.len().min(60));
+            for l in &lines[lines.len().saturating_sub(60)..] {
+                println!("{l}");
+            }
+            0
+        }
+        Err(e) => {
+            eprintln!("{}: {e}", path.display());
+            1
+        }
+    }
+}
+
+/// `aqua crash-report`: the newest crash report and the crash index.
+pub fn crash_report() -> i32 {
+    let idx = aqua_log::crash_dir().join("index.log");
+    if let Ok(t) = std::fs::read_to_string(&idx) {
+        let lines: Vec<&str> = t.lines().collect();
+        println!("--- recent crashes ({})", idx.display());
+        for l in &lines[lines.len().saturating_sub(10)..] {
+            println!("{l}");
+        }
+    }
+    match aqua_log::latest_crash() {
+        Some(p) => {
+            println!("--- {}", p.display());
+            print!("{}", std::fs::read_to_string(&p).unwrap_or_default());
+            0
+        }
+        None => {
+            println!("no crash reports in {}", aqua_log::crash_dir().display());
+            0
+        }
+    }
+}
+
 pub fn parse() -> Args {
     let nested = std::env::var_os("WAYLAND_DISPLAY").is_some() || std::env::var_os("DISPLAY").is_some();
     match parse_from(std::env::args().skip(1), !nested) {

@@ -489,6 +489,7 @@ impl Aqua {
         self.pointer_in_shell = in_shell;
         let mut hover_changed = false;
         let hovered = if in_shell { None } else { self.window_frame_under(pos) };
+        let mut on_zoom = None;
         for w in self.space.elements() {
             let mut hv = false;
             if Some(w) == hovered.as_ref() && crate::state::is_ssd(w) {
@@ -496,6 +497,9 @@ impl Aqua {
                     let lx = (pos.x - fr.loc.x as f64) as f32;
                     let ly = (pos.y - fr.loc.y as f64) as f32;
                     hv = ly < aqua_config::metrics::TITLEBAR_HEIGHT && lx < 80.0;
+                    if hv && decor::button_at(lx, ly) == Some(decor::Button::Zoom) {
+                        on_zoom = Some(meta(w).borrow().id);
+                    }
                 }
             }
             let mut m = meta(w).borrow_mut();
@@ -506,6 +510,14 @@ impl Aqua {
         }
         if hover_changed {
             self.needs_redraw = true;
+        }
+        if pointer.is_grabbed() {
+            on_zoom = None;
+        }
+        match (on_zoom, self.render_cache.zoom_hover) {
+            (Some(id), Some((h, _))) if h == id => {}
+            (Some(id), _) => self.render_cache.zoom_hover = Some((id, std::time::Instant::now())),
+            (None, _) => self.render_cache.zoom_hover = None,
         }
         let under = if in_shell { None } else { self.surface_under(pos) };
         self.render_cache.cursor_override =
@@ -557,6 +569,7 @@ impl Aqua {
         let others_held = self.render_cache.held_buttons.iter().any(|b| *b != button);
         match state {
             ButtonState::Pressed => {
+                self.dismiss_menu_popups(Some(pos));
                 self.shell.shot.note_click(x, y);
                 if !self.render_cache.held_buttons.contains(&button) {
                     self.render_cache.held_buttons.push(button);
@@ -700,6 +713,9 @@ impl Aqua {
                     return;
                 }
             } else {
+                if button == BTN_LEFT && self.stage_click(pos) {
+                    return;
+                }
                 let acts = self.shell.pointer_button(x, y, true);
                 self.handle_actions(acts);
                 if self
@@ -747,8 +763,9 @@ impl Aqua {
 }
 
 impl Aqua {
-    /// If `pos` is on the resize border of the topmost server-decorated window under it,
-    /// return that window and the edges to drag.
+    /// If `pos` is on the resize border of the topmost window under it (server-decorated,
+    /// or a client-decorated Wayland window — see [`edge_resizable`]), return that window
+    /// and the edges to drag.
     pub fn resize_edge_at(
         &self,
         pos: Point<f64, Logical>,
@@ -765,7 +782,11 @@ impl Aqua {
             if !inside_expanded {
                 continue;
             }
-            if !crate::state::is_ssd(w) {
+            if !edge_resizable(w) {
+                return None;
+            }
+            // A menu or tooltip of this window hanging over its edge wins over the border.
+            if self.popup_under(pos) {
                 return None;
             }
             let mut e = ResizeEdge::empty();
@@ -791,7 +812,44 @@ impl Aqua {
     }
 }
 
+/// Does the compositor provide the resize border for `w`?
+///
+/// Server-decorated windows obviously. Client-decorated Wayland toplevels too: every
+/// toplevel is told it is tiled on all edges (so GTK/Chromium/Qt drop their own shadows
+/// and let Aqua draw one), and a client that believes it is tiled also removes its
+/// invisible resize handles — Chromium, Telegram and friends would otherwise not be
+/// resizable at all. X11 clients that draw their own frame keep doing their own
+/// resizing (`_NET_WM_MOVERESIZE`).
+pub fn edge_resizable(w: &Window) -> bool {
+    if crate::state::is_ssd(w) {
+        return true;
+    }
+    let Some(t) = w.toplevel() else { return false };
+    if meta(w).borrow().fullscreen.is_some() || std::env::var_os("AQUA_NO_TILED").is_some() {
+        return false;
+    }
+    use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::State;
+    let full = t.with_committed_state(|s| s.is_some_and(|s| s.states.contains(State::Fullscreen)));
+    if full {
+        return false;
+    }
+    // Fixed-size windows (min == max) cannot be resized anyway.
+    let (min, max) = smithay::wayland::compositor::with_states(t.wl_surface(), |st| {
+        let c = *st.cached_state.get::<smithay::wayland::shell::xdg::SurfaceCachedState>().current();
+        (c.min_size, c.max_size)
+    });
+    !(min.w > 0 && min.h > 0 && min == max)
+}
+
 impl Aqua {
+    /// Is an xdg popup (menu, tooltip, completion list) the surface under `pos`?
+    fn popup_under(&self, pos: Point<f64, Logical>) -> bool {
+        use smithay::wayland::seat::WaylandFocus;
+        let Some((target, _)) = self.surface_under(pos) else { return false };
+        let Some(s) = target.wl_surface() else { return false };
+        self.popups.find_popup(&s).is_some()
+    }
+
     /// Is the pointer locked by a client (pointer-constraints lock)?
     fn pointer_locked(&self, pos: Point<f64, Logical>) -> bool {
         use smithay::wayland::pointer_constraints::{with_pointer_constraint, PointerConstraint};
@@ -890,6 +948,9 @@ impl Aqua {
             "close-window" => self.shell_actions(vec![A::CloseFocused]),
             "fullscreen" => self.shell_actions(vec![A::FullscreenFocused]),
             "hide-others" => self.shell_actions(vec![A::HideOthers]),
+            "stage-manager" | "toggle-stage-manager" => self.shell_actions(vec![A::SetStageManager(!self.stage.on)]),
+            "stage-manager-on" => self.shell_actions(vec![A::SetStageManager(true)]),
+            "stage-manager-off" => self.shell_actions(vec![A::SetStageManager(false)]),
             "zoom" => {
                 if let Some(w) = self.focused_window() {
                     self.toggle_zoom(&w);
@@ -906,6 +967,11 @@ impl Aqua {
             "mute" => self.media_key(Media::Mute),
             "brightness-up" => self.media_key(Media::BrightUp),
             "brightness-down" => self.media_key(Media::BrightDown),
+            n if n.starts_with("tile-") || n.starts_with("arrange-") => {
+                if !self.run_tile_action(n) {
+                    return false;
+                }
+            }
             _ => return false,
         }
         self.needs_redraw = true;

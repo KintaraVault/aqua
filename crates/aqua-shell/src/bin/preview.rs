@@ -25,7 +25,7 @@ fn main() {
         let (ww, wh) = (720.0, 460.0);
         let mut c = aqua_gfx::Canvas::new(ww, wh, scale);
         c.fill_rect(aqua_gfx::Rect::new(0.0, 0.0, ww, wh), aqua_gfx::rgba(255, 255, 255, 1.0));
-        let tb = aqua_shell::decor::titlebar(&sh.fonts, ww, scale, "Terminal — zsh — 80×24", true, false, false);
+        let tb = aqua_shell::decor::titlebar(&sh.fonts, ww, scale, "Terminal — zsh — 80×24", true, false, false, true);
         c.blit(&tb, 0.0, 0.0);
         let f = sh.fonts.clone();
         c.text(

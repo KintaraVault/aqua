@@ -241,6 +241,12 @@ impl Shell {
     pub fn set_windows(&mut self, wins: Vec<WindowInfo>) {
         self.dock.track_windows(&wins);
         self.windows = wins;
+        // Start the Dock's appear / disappear / reorder animations right away: the window
+        // list can change between `tick()` and drawing (a restore from the Dock, the end of a
+        // genie), and drawing the new list before `sync` has turned a removed item into a
+        // shrinking ghost made the Dock snap narrower for a frame and jump back — the icons
+        // flickered and seemed duplicated.
+        dock::sync(self, 0.0);
     }
 
     pub fn focused_app(&self) -> Option<&WindowInfo> {
@@ -262,11 +268,7 @@ impl Shell {
         if let Some(a) = aqua_apps::match_app_id(&self.apps, app_id) {
             return a.name.clone();
         }
-        let mut s = app_id.rsplit('.').next().unwrap_or(app_id).replace(['-', '_'], " ");
-        if let Some(f) = s.get(0..1) {
-            s = f.to_uppercase() + &s[1..];
-        }
-        s
+        fallback_app_name(app_id)
     }
 
     /// 1×1 transparent pixmap for glass-only layers.
@@ -589,4 +591,33 @@ fn aqua_sys_user() -> String {
 
 fn tracing_log(msg: &str) {
     eprintln!("aqua-shell: {msg}");
+}
+
+/// Display name for an app id no desktop entry knows: the last component of a reverse-DNS id
+/// (`org.gnome.Maps` → `Maps`), without script/binary suffixes (`menutest.py` → `Menutest`).
+pub fn fallback_app_name(app_id: &str) -> String {
+    let mut id = app_id;
+    for suf in [".py", ".sh", ".pl", ".rb", ".js", ".exe", ".AppImage", ".appimage", ".bin", ".x86_64"] {
+        if let Some(b) = id.strip_suffix(suf) {
+            id = b;
+            break;
+        }
+    }
+    let mut s = id.rsplit('.').next().unwrap_or(id).replace(['-', '_'], " ");
+    if let Some(f) = s.get(0..1) {
+        s = f.to_uppercase() + &s[1..];
+    }
+    s
+}
+
+#[cfg(test)]
+mod name_tests {
+    #[test]
+    fn fallback_names() {
+        use super::fallback_app_name as n;
+        assert_eq!(n("org.gnome.Maps"), "Maps");
+        assert_eq!(n("Menutest.py"), "Menutest");
+        assert_eq!(n("my-tool.AppImage"), "My tool");
+        assert_eq!(n("designer"), "Designer");
+    }
 }

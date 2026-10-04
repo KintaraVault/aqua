@@ -5,6 +5,19 @@ pub mod sysdata;
 
 pub use aqua_i18n::{ntr, plural, tr, trf};
 
+/// Switch every app's sidebar between the floating island and the full-height solid style
+/// (saved to aqua.toml; open windows follow within a second via `apply_theme!`).
+pub fn set_sidebar_style(solid: bool) {
+    let mut cfg = aqua_config::Config::load();
+    let v = if solid { "solid" } else { "floating" };
+    if cfg.sidebar_style != v {
+        cfg.sidebar_style = v.into();
+        if let Err(e) = cfg.save() {
+            eprintln!("cannot save sidebar style: {e}");
+        }
+    }
+}
+
 /// Apply the user's appearance (dark mode, accent) from aqua-config to a window's Theme global.
 #[macro_export]
 macro_rules! apply_theme {
@@ -13,6 +26,10 @@ macro_rules! apply_theme {
         let t = $ui.global::<$crate::Theme>();
         t.set_dark($crate::is_dark(&cfg));
         t.set_accent($crate::accent_color(&cfg.accent));
+        t.set_solid_sidebar(cfg.solid_sidebar());
+        t.set_glass_controls(cfg.glass_controls);
+        t.set_glass_lights(cfg.glass_traffic_lights);
+        t.set_motion(!cfg.reduce_motion);
         {
             let weak = $ui.as_weak();
             let last = std::cell::Cell::new(aqua_config::Config::mtime());
@@ -36,9 +53,24 @@ macro_rules! apply_theme {
                 if t.get_accent() != a {
                     t.set_accent(a);
                 }
+                if t.get_solid_sidebar() != cfg.solid_sidebar() {
+                    t.set_solid_sidebar(cfg.solid_sidebar());
+                }
+                if t.get_glass_controls() != cfg.glass_controls {
+                    t.set_glass_controls(cfg.glass_controls);
+                }
+                if t.get_glass_lights() != cfg.glass_traffic_lights {
+                    t.set_glass_lights(cfg.glass_traffic_lights);
+                }
+                if t.get_motion() == cfg.reduce_motion {
+                    t.set_motion(!cfg.reduce_motion);
+                }
             });
             std::mem::forget(timer);
         }
+        $ui.global::<$crate::WinCtl>().on_tile_menu(|| {
+            $crate::aqua_msg("tilemenu");
+        });
         let weak = $ui.as_weak();
         $ui.global::<$crate::Backdrop>().on_capture(move || {
             if let Some(u) = weak.upgrade() {
@@ -170,6 +202,8 @@ pub fn user_names() -> (String, String) {
 
 /// Common start-up: xdg app id and the renderer.
 pub fn init(app_id: &str) {
+    // `~/.cache/aqua/logs/<app id>.log` + crash reports (see aqua-log).
+    aqua_log::init(app_id);
     if std::env::var_os("SLINT_BACKEND").is_none() {
         let gl = std::env::var_os("AQUA_UI_SOFTWARE").is_none() && gl_available();
         std::env::set_var("SLINT_BACKEND", if gl { "winit-femtovg" } else { "winit-software" });
@@ -287,5 +321,40 @@ pub fn init_translations() {
     if let Ok(l) = std::env::var("AQUA_LANG") {
         let base = aqua_i18n::base_lang(&l);
         let _ = slint::select_bundled_translation(if base == "en" { "" } else { base });
+    }
+}
+
+/// Menus may open as their own windows (placed by Aqua next to their owner, so they can
+/// extend past the window — see the compositor's `wm::popups`). Elsewhere (other
+/// compositors, X11, tests) menus stay inside the window. `AQUA_INWINDOW_MENUS=1` forces
+/// the in-window fallback.
+pub fn native_menus() -> bool {
+    std::env::var("XDG_CURRENT_DESKTOP").map(|d| d.to_lowercase().contains("aqua")).unwrap_or(false)
+        && std::env::var_os("WAYLAND_DISPLAY").is_some()
+        && !std::env::var("SLINT_BACKEND").map(|b| b.contains("x11")).unwrap_or(false)
+        && std::env::var_os("AQUA_INWINDOW_MENUS").is_none()
+}
+
+/// Window title asking Aqua to show a menu window at (`x`, `y`) relative to the app's
+/// active window (`sub`: relative to its top-most open menu), at `alt_x` if it does not fit
+/// to the right.
+pub fn popup_title(x: f32, y: f32, alt_x: Option<f32>, sub: bool) -> String {
+    let mut t = format!("aqua-popup:{}:{}", x.round() as i32, y.round() as i32);
+    if alt_x.is_some() || sub {
+        t.push_str(&format!(":{}", alt_x.map(|a| (a.round() as i32).to_string()).unwrap_or_default()));
+    }
+    if sub {
+        t.push_str(":sub");
+    }
+    t
+}
+
+#[cfg(test)]
+mod popup_tests {
+    #[test]
+    fn popup_titles() {
+        assert_eq!(super::popup_title(10.4, 20.6, None, false), "aqua-popup:10:21");
+        assert_eq!(super::popup_title(256.0, 40.0, Some(-236.0), true), "aqua-popup:256:40:-236:sub");
+        assert_eq!(super::popup_title(5.0, 6.0, None, true), "aqua-popup:5:6::sub");
     }
 }

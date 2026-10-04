@@ -57,6 +57,8 @@ pub struct WinMeta {
     pub display: String,
     /// X11 override-redirect window (menus, tooltips): no decorations, never focused.
     pub override_redirect: bool,
+    /// One of Aqua's app menus shown as its own surface (see `wm::popups`).
+    pub menu_popup: bool,
     /// Fullscreen: geometry to restore.
     pub fullscreen: Option<Rectangle<i32, Logical>>,
     /// xdg-dialog modal hint.
@@ -65,6 +67,13 @@ pub struct WinMeta {
     pub launch_from: Option<aqua_gfx::Rect>,
     /// Zoom / full-screen transition: start, frame before, frame after (logical).
     pub geo_anim: Option<(std::time::Instant, Rectangle<f64, Logical>, Rectangle<f64, Logical>)>,
+    /// Tiled (half / quarter / fill / centre) by a drag to an edge, the green button's
+    /// menu or a shortcut.
+    pub tiled: Option<aqua_wm::tile::Tile>,
+    /// Client rect before it was tiled ("Return to Previous Size", drag out of a tile).
+    pub pre_tile: Option<Rectangle<i32, Logical>>,
+    /// Stage Manager: where the window stood before it was put aside, and when.
+    pub stage_from: Option<(Rectangle<i32, Logical>, std::time::Instant)>,
 }
 
 static REDUCE_MOTION: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -306,6 +315,8 @@ pub struct Aqua {
 
     pub space: Space<Window>,
     pub minimized: Vec<Window>,
+    /// Stage Manager state (windows put aside into the strip live here, unmapped).
+    pub stage: crate::wm::stage::Stage,
     pub popups: PopupManager,
     pub output: Option<Output>,
 
@@ -406,6 +417,7 @@ impl Aqua {
         seat.add_touch();
         let p = crate::wayland::protocols::Protocols::new(&dh, &event_loop.handle(), &primary_selection_state);
         crate::wayland::blur::init(&dh);
+        crate::wayland::appmenu::init(&dh);
 
         let socket_name = Self::init_wayland_listener(display, event_loop);
         let pw = (w as f64 * scale).round() as u32;
@@ -424,6 +436,7 @@ impl Aqua {
             loop_signal: event_loop.get_signal(),
             space: Space::default(),
             minimized: vec![],
+            stage: Default::default(),
             popups: PopupManager::default(),
             output: None,
             compositor_state,
@@ -472,8 +485,13 @@ impl Aqua {
             portal_shots: Vec::new(),
             casts: Vec::new(),
             render_cache: Default::default(),
-            notify_rx: Some(aqua_notify::spawn()),
-            appearance: aqua_notify::portal::spawn(cfg_dark),
+            notify_rx: crate::system::env::owns_session_bus().then(aqua_notify::spawn),
+            appearance: if crate::system::env::owns_session_bus() {
+                aqua_notify::portal::spawn(cfg_dark)
+            } else {
+                tracing::info!("nested session: not taking the host's notification / portal names");
+                aqua_notify::portal::Appearance::offline(cfg_dark)
+            },
             dmabuf_state: smithay::wayland::dmabuf::DmabufState::new(),
             udev: None,
             draw_cursor: false,
@@ -569,11 +587,21 @@ impl Aqua {
 
     pub fn window_for_surface(&self, s: &WlSurface) -> Option<Window> {
         use smithay::wayland::seat::WaylandFocus;
-        self.space.elements().chain(self.minimized.iter()).find(|w| w.wl_surface().as_deref() == Some(s)).cloned()
+        self.space
+            .elements()
+            .chain(self.minimized.iter())
+            .chain(self.stage.staged.iter())
+            .find(|w| w.wl_surface().as_deref() == Some(s))
+            .cloned()
     }
 
     pub fn window_for_x11(&self, x: &smithay::xwayland::X11Surface) -> Option<Window> {
-        self.space.elements().chain(self.minimized.iter()).find(|w| w.x11_surface() == Some(x)).cloned()
+        self.space
+            .elements()
+            .chain(self.minimized.iter())
+            .chain(self.stage.staged.iter())
+            .find(|w| w.x11_surface() == Some(x))
+            .cloned()
     }
 
     pub fn focused_window(&self) -> Option<Window> {
@@ -639,6 +667,7 @@ impl Aqua {
             .filter(|w| !meta(w).borrow().override_redirect)
             .map(|w| (w, matches!(meta(w).borrow().minimizing, Some((_, false)))))
             .chain(self.minimized.iter().map(|w| (w, true)))
+            .chain(self.stage.staged.iter().map(|w| (w, false)))
         {
             let (app_id, title) = title_of(w);
             let id = meta(w).borrow().id;

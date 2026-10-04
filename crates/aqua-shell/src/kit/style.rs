@@ -115,11 +115,12 @@ pub fn glass_menu(base: &GlassStyle, dark: bool) -> GlassStyle {
 pub fn glass_tile(base: &GlassStyle, radius: f32) -> GlassStyle {
     GlassStyle {
         radius,
-        tint: Rgba(1.0, 1.0, 1.0, 0.10),
+        tint: Rgba(1.0, 1.0, 1.0, 0.07),
+        saturation: base.saturation * 1.2,
         refraction: base.refraction * 0.6,
         bevel: base.bevel * 0.8,
         shadow: 0.10,
-        max_luma: 0.58,
+        max_luma: 0.54,
         ..*base
     }
 }

@@ -25,14 +25,48 @@ pub fn button_at(x: f32, y: f32) -> Option<Button> {
 }
 
 /// Draw only the traffic lights (also used by CSD-less overlays).
-pub fn draw_traffic_lights(c: &mut Canvas, focused: bool, hover: bool) {
+/// With `glass` (config `glass_traffic_lights`) each light is a softly domed bead: a lighter
+/// rim, flat colour and a faint glow at the bottom — only slightly more 3-D than flat.
+pub fn draw_traffic_lights(c: &mut Canvas, focused: bool, hover: bool, glass: bool) {
     let cols: [(u32, u32); 3] = [(0xff5f57, 0xe2463f), (0xfebc2e, 0xe1a116), (0x28c840, 0x1aab29)];
     for (i, b) in BUTTONS.iter().enumerate() {
         let r = button_rect(*b);
-        let (fill, edge) = if focused || hover { cols[i] } else { (0xd9d9dc, 0xc6c6c9) };
+        let lit = focused || hover;
+        let (fill, edge) = if lit { cols[i] } else { (0xd9d9dc, 0xc6c6c9) };
         let h = |c: u32| rgba((c >> 16) as u8, (c >> 8) as u8, c as u8, 1.0);
         c.fill_circle(r.cx(), r.cy(), r.w / 2.0, h(edge));
-        c.fill_circle(r.cx(), r.cy(), r.w / 2.0 - 0.6, h(fill));
+        if glass {
+            let mix = |c: u32, t: f32, to: f32| {
+                let ch = |v: u32| ((v & 0xff) as f32 + (to - (v & 0xff) as f32) * t).round().clamp(0.0, 255.0) as u8;
+                rgba(ch(c >> 16), ch(c >> 8), ch(c), 1.0)
+            };
+            // Softly domed bead (macOS 26): rim a touch lighter than the fill, flat colour,
+            // a faint glow pooled at the bottom and a barely-there sheen at the top.
+            c.fill_circle(r.cx(), r.cy(), r.w / 2.0, if lit { mix(fill, 0.22, 255.0) } else { h(edge) });
+            let rad = r.w / 2.0 - 0.75;
+            let body = aqua_gfx::canvas::rad_grad(r.cx(), r.cy(), rad, &[(0.0, h(fill)), (0.7, h(fill)), (1.0, mix(fill, 0.07, 0.0))]);
+            if let Some(p) = aqua_gfx::shapes::rrect(Rect::new(r.cx() - rad, r.cy() - rad, rad * 2.0, rad * 2.0), rad) {
+                c.fill_path(&p, &body);
+            }
+            let ga = if lit { 0.26 } else { 0.08 };
+            let glow = aqua_gfx::canvas::rad_grad(
+                r.cx(),
+                r.cy() + rad * 0.35,
+                rad * 0.7,
+                &[(0.0, rgba(255, 255, 255, ga)), (1.0, rgba(255, 255, 255, 0.0))],
+            );
+            if let Some(p) = aqua_gfx::shapes::rrect(Rect::new(r.cx() - rad, r.cy() - rad, rad * 2.0, rad * 2.0), rad) {
+                c.fill_path(&p, &glow);
+            }
+            let cap = Rect::new(r.cx() - rad * 0.5, r.y + 1.2, rad, rad * 0.42);
+            let a = if lit { 0.14 } else { 0.06 };
+            let hl = aqua_gfx::canvas::lin_grad(0.0, cap.y, 0.0, cap.bottom(), &[(0.0, rgba(255, 255, 255, a)), (1.0, rgba(255, 255, 255, 0.0))]);
+            if let Some(p) = aqua_gfx::shapes::rrect(cap, cap.h / 2.0) {
+                c.fill_path(&p, &hl);
+            }
+        } else {
+            c.fill_circle(r.cx(), r.cy(), r.w / 2.0 - 0.6, h(fill));
+        }
         if hover {
             let g = rgba(0, 0, 0, 0.55);
             let mut pb = PathBuilder::new();
@@ -72,10 +106,10 @@ pub fn draw_traffic_lights(c: &mut Canvas, focused: bool, hover: bool) {
 }
 
 /// Titlebar content (transparent background – the compositor draws glass behind it).
-pub fn titlebar(fonts: &Fonts, w: f32, scale: f32, title: &str, focused: bool, hover: bool, dark: bool) -> Pixmap {
+pub fn titlebar(fonts: &Fonts, w: f32, scale: f32, title: &str, focused: bool, hover: bool, dark: bool, glass: bool) -> Pixmap {
     let h = metrics::TITLEBAR_HEIGHT;
     let mut c = Canvas::new(w, h, scale);
-    draw_traffic_lights(&mut c, focused, hover);
+    draw_traffic_lights(&mut c, focused, hover, glass);
     let col: Color = match (dark, focused) {
         (false, true) => rgba(38, 38, 40, 0.88),
         (false, false) => rgba(38, 38, 40, 0.42),

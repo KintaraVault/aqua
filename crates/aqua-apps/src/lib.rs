@@ -68,6 +68,8 @@ pub struct App {
     pub terminal: bool,
     /// Extra search terms (`Keywords=`, `GenericName=`).
     pub keywords: Vec<String>,
+    /// `Path=`: working directory to start the program in.
+    pub workdir: Option<String>,
 }
 
 impl App {
@@ -166,10 +168,11 @@ impl App {
     /// invisibly and "nothing happens".
     pub fn launch_command(&self) -> String {
         let cmd = self.command();
-        if !self.terminal {
-            return cmd;
+        let cmd = if self.terminal { terminal_wrap(&cmd) } else { cmd };
+        match self.workdir.as_deref().filter(|d| Path::new(d).is_dir()) {
+            Some(d) => format!("cd {} && exec {cmd}", shell_quote(d)),
+            None => cmd,
         }
-        terminal_wrap(&cmd)
     }
 }
 
@@ -420,7 +423,7 @@ fn current_desktops() -> Vec<String> {
 
 /// Result of parsing one desktop entry.
 enum Parsed {
-    App(App),
+    App(Box<App>),
     /// A valid entry that must not be shown (NoDisplay/Hidden, other desktop, missing
     /// program): it still masks entries with the same id in lower-priority directories.
     Masked,
@@ -431,7 +434,7 @@ enum Parsed {
 pub fn parse_desktop(path: &Path) -> Option<App> {
     let id = path.file_stem()?.to_string_lossy().to_string();
     match parse_entry(path, id) {
-        Parsed::App(a) => Some(a),
+        Parsed::App(a) => Some(*a),
         _ => None,
     }
 }
@@ -443,6 +446,7 @@ fn parse_entry(path: &Path, id: String) -> Parsed {
         (None, None, String::new(), vec![], None, false, String::new());
     let (mut try_exec, mut only, mut not, mut terminal, mut keywords, mut generic) =
         (None::<String>, None::<Vec<String>>, vec![], false, vec![], None::<String>);
+    let mut workdir = None::<String>;
     let lang = std::env::var("LC_MESSAGES")
         .ok()
         .filter(|s| !s.is_empty())
@@ -477,6 +481,7 @@ fn parse_entry(path: &Path, id: String) -> Parsed {
             "Terminal" => terminal = v.eq_ignore_ascii_case("true"),
             "Keywords" => keywords.extend(list(v)),
             "GenericName" => generic = Some(v.to_string()),
+            "Path" if !v.is_empty() => workdir = Some(v.to_string()),
             _ if !full.is_empty() && full != short && k == format!("Name[{full}]") => lname_full = Some(clean_name(v)),
             _ if !short.is_empty() && k == format!("Name[{short}]") => lname_short = Some(clean_name(v)),
             _ if !short.is_empty() && (k == format!("Keywords[{short}]") || k == format!("Keywords[{full}]")) => {
@@ -514,7 +519,7 @@ fn parse_entry(path: &Path, id: String) -> Parsed {
     if let Some(g) = generic {
         keywords.push(g);
     }
-    Parsed::App(App {
+    Parsed::App(Box::new(App {
         id,
         name,
         exec,
@@ -524,7 +529,8 @@ fn parse_entry(path: &Path, id: String) -> Parsed {
         path: path.to_path_buf(),
         terminal,
         keywords,
-    })
+        workdir,
+    }))
 }
 
 /// Desktop files below `dir` with their desktop-file ids (`sub/foo.desktop` → `sub-foo`).
@@ -563,7 +569,7 @@ pub fn scan() -> Vec<App> {
             match parse_entry(&f, id.clone()) {
                 Parsed::App(app) => {
                     seen.insert(id);
-                    out.push(app);
+                    out.push(*app);
                 }
                 Parsed::Masked => {
                     seen.insert(id);
@@ -658,6 +664,7 @@ fn builtin_apps(found: &[App]) -> Vec<App> {
             path: PathBuf::new(),
             terminal: false,
             keywords: kw.iter().map(|s| s.to_string()).collect(),
+            workdir: None,
         });
     }
     v
@@ -714,21 +721,204 @@ pub fn launch(cmd: &str) -> bool {
 }
 
 fn spawn_now(cmd: &str) -> bool {
-    use std::os::unix::process::CommandExt;
     let compound = ["||", "&&", ";", "|", "&"].iter().any(|op| cmd.contains(op));
     let script = if compound { cmd.to_string() } else { format!("exec {cmd}") };
-    let mut c = std::process::Command::new("sh");
-    c.arg("-c").arg(script).stdin(std::process::Stdio::null());
-    c.process_group(0);
-    match c.spawn() {
-        Ok(mut child) => {
-            std::thread::spawn(move || {
-                let _ = child.wait();
-            });
-            true
+    let log = exec_program(cmd).map(|p| p.rsplit('/').next().unwrap_or("app").to_string());
+    let res = std::thread::Builder::new().name("aqua-launch".into()).spawn(move || {
+        let mut c = launch_process(&script, log.as_deref());
+        let started = std::time::Instant::now();
+        match c.spawn() {
+            Ok(mut child) => {
+                if let Ok(st) = child.wait() {
+                    report_exit(log.as_deref().unwrap_or("app"), st, started.elapsed());
+                }
+            }
+            Err(e) => tracing::warn!("cannot start `{script}`: {e}"),
         }
-        Err(_) => false,
+    });
+    res.is_ok()
+}
+
+/// Note abnormal app exits in the session log, pointing at the app's own output.
+fn report_exit(prog: &str, st: std::process::ExitStatus, ran: std::time::Duration) {
+    use std::os::unix::process::ExitStatusExt;
+    let log = dirs::cache_dir().map(|d| d.join("aqua/logs").join(format!("{prog}.log")).display().to_string()).unwrap_or_default();
+    if let Some(sig) = st.signal().or_else(|| st.code().filter(|c| *c > 128 && *c < 160).map(|c| c - 128)) {
+        // SIGTERM/SIGINT/SIGKILL/SIGHUP are normal ways to be closed.
+        if ![1, 2, 9, 15].contains(&sig) {
+            tracing::warn!("{prog} crashed: signal {sig} after {:.0?} (output: {log})", ran);
+        }
+    } else if let Some(c) = st.code().filter(|c| *c != 0) {
+        tracing::info!("{prog} exited with status {c} after {:.0?} (output: {log})", ran);
     }
+}
+
+/// The process for a launch: started the way a terminal would start it, so apps that work
+/// from a terminal also work from Spotlight, Launchpad and the Dock — in the home folder,
+/// with the user's login-shell environment (PATH additions, toolkit variables from
+/// `~/.profile`, `~/.bashrc`, `~/.zshrc` …), in its own session, with output going to a
+/// log file instead of the compositor's stdout (a closed pipe there kills apps that print
+/// with SIGPIPE).
+fn launch_process(script: &str, log: Option<&str>) -> std::process::Command {
+    use std::os::unix::process::CommandExt;
+    use std::process::Stdio;
+    let mut c = std::process::Command::new("sh");
+    c.arg("-c").arg(script).stdin(Stdio::null());
+    c.envs(shell_env().iter().map(|(k, v)| (k.as_str(), v.as_str())));
+    if let Some(home) = dirs::home_dir().filter(|h| h.is_dir()) {
+        c.current_dir(home);
+    }
+    match log.and_then(log_file) {
+        Some(f) => {
+            if let Ok(f2) = f.try_clone() {
+                c.stdout(f2);
+            }
+            c.stderr(f);
+        }
+        None => {
+            c.stdout(Stdio::null()).stderr(Stdio::null());
+        }
+    }
+    unsafe {
+        c.pre_exec(|| {
+            libc_setsid();
+            Ok(())
+        });
+    }
+    c
+}
+
+fn libc_setsid() {
+    unsafe extern "C" {
+        fn setsid() -> i32;
+    }
+    unsafe {
+        setsid();
+    }
+}
+
+/// `~/.cache/aqua/logs/<program>.log`, truncated on every launch.
+fn log_file(prog: &str) -> Option<std::fs::File> {
+    let name: String =
+        prog.chars().map(|c| if c.is_ascii_alphanumeric() || "-_.".contains(c) { c } else { '_' }).collect();
+    let dir = dirs::cache_dir()?.join("aqua").join("logs");
+    std::fs::create_dir_all(&dir).ok()?;
+    std::fs::File::create(dir.join(format!("{name}.log"))).ok()
+}
+
+/// Variables owned by the session (the shell must not override them) or meaningful only
+/// inside an interactive shell.
+fn session_owned(k: &str) -> bool {
+    matches!(
+        k,
+        "WAYLAND_DISPLAY"
+            | "WAYLAND_SOCKET"
+            | "DISPLAY"
+            | "XAUTHORITY"
+            | "DBUS_SESSION_BUS_ADDRESS"
+            | "XDG_RUNTIME_DIR"
+            | "XDG_SESSION_ID"
+            | "XDG_SESSION_TYPE"
+            | "XDG_SESSION_CLASS"
+            | "XDG_SESSION_DESKTOP"
+            | "XDG_CURRENT_DESKTOP"
+            | "XDG_SEAT"
+            | "XDG_VTNR"
+            | "XDG_ACTIVATION_TOKEN"
+            | "DESKTOP_STARTUP_ID"
+            | "SHLVL"
+            | "PWD"
+            | "OLDPWD"
+            | "_"
+            | "PS1"
+            | "PS2"
+            | "PROMPT_COMMAND"
+            | "TERM"
+            | "COLORTERM"
+            | "LINES"
+            | "COLUMNS"
+            | "SHELL_SESSION_ID"
+            | "TERM_PROGRAM"
+            | "TERM_PROGRAM_VERSION"
+    ) || k.starts_with("AQUA_")
+        || k.starts_with("BASH_FUNC_")
+}
+
+/// Parse `env -0` output between two markers into the variables to apply.
+fn parse_shell_env(out: &[u8], marker: &str) -> Vec<(String, String)> {
+    let text = String::from_utf8_lossy(out);
+    let Some(start) = text.find(marker) else { return vec![] };
+    let rest = &text[start + marker.len()..];
+    let Some(end) = rest.find(marker) else { return vec![] };
+    rest[..end]
+        .split('\0')
+        .filter_map(|kv| kv.split_once('='))
+        .filter(|(k, _)| !k.is_empty() && !k.contains(char::is_whitespace) && !session_owned(k))
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
+}
+
+/// The user's login-shell environment (resolved once, like VS Code does): `$SHELL -i -l`
+/// reads the same startup files as a terminal. Empty when there is no usable shell, it
+/// takes longer than 4 s, or `AQUA_NO_SHELL_ENV` is set.
+pub fn shell_env() -> &'static [(String, String)] {
+    static ENV: std::sync::OnceLock<Vec<(String, String)>> = std::sync::OnceLock::new();
+    ENV.get_or_init(|| {
+        if std::env::var_os("AQUA_NO_SHELL_ENV").is_some() {
+            return vec![];
+        }
+        let shell = std::env::var("SHELL").ok().filter(|s| Path::new(s).is_file()).unwrap_or_else(|| "/bin/sh".into());
+        let marker = format!("_AQUA_ENV_{}_", std::process::id());
+        let script = format!("printf '%s' '{marker}'; env -0; printf '%s' '{marker}'");
+        let base = Path::new(&shell).file_name().and_then(|n| n.to_str()).unwrap_or("");
+        let mut c = std::process::Command::new(&shell);
+        if matches!(base, "sh" | "dash") {
+            c.args(["-l", "-c", &script]);
+        } else {
+            c.args(["-i", "-l", "-c", &script]);
+        }
+        if let Some(home) = dirs::home_dir() {
+            c.current_dir(home);
+        }
+        c.stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::null());
+        // Only what the startup files add or change matters; the rest is the session's own
+        // environment, which may legitimately change later (DISPLAY once XWayland is up …).
+        let base: std::collections::HashMap<String, String> = std::env::vars().collect();
+        let Ok(mut child) = c.spawn() else { return vec![] };
+        let mut out = child.stdout.take();
+        let reader = std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            if let Some(o) = out.as_mut() {
+                let _ = std::io::Read::read_to_end(o, &mut buf);
+            }
+            buf
+        });
+        let t0 = std::time::Instant::now();
+        loop {
+            match child.try_wait() {
+                Ok(Some(_)) => break,
+                Ok(None) if t0.elapsed() < std::time::Duration::from_secs(4) => {
+                    std::thread::sleep(std::time::Duration::from_millis(20))
+                }
+                _ => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    eprintln!("aqua: reading the login-shell environment from {shell} timed out");
+                    return vec![];
+                }
+            }
+        }
+        let env = reader.join().map(|b| parse_shell_env(&b, &marker)).unwrap_or_default();
+        env.into_iter().filter(|(k, v)| base.get(k) != Some(v)).collect()
+    })
+}
+
+/// Resolve [`shell_env`] in the background (call at session start, so the first launch
+/// doesn't wait for the shell).
+pub fn preload_shell_env() {
+    std::thread::spawn(|| {
+        let _ = shell_env();
+    });
 }
 
 /// Find the app matching a Wayland app_id.
@@ -778,6 +968,7 @@ mod tests {
             path: PathBuf::new(),
             terminal: false,
             keywords: vec![],
+            workdir: None,
         }
     }
 
@@ -787,6 +978,38 @@ mod tests {
         let p = dir.join(name);
         std::fs::write(&p, body).unwrap();
         p
+    }
+
+    #[test]
+    fn shell_env_keeps_user_vars_but_not_session_ones() {
+        let out = b"motd\n_M_PATH=/home/u/.local/bin:/usr/bin\0WAYLAND_DISPLAY=wayland-9\0SHLVL=2\0EDITOR=vim\0A=b=c\0_M_tail";
+        let env = parse_shell_env(out, "_M_");
+        assert_eq!(
+            env,
+            vec![
+                ("PATH".into(), "/home/u/.local/bin:/usr/bin".into()),
+                ("EDITOR".into(), "vim".into()),
+                ("A".into(), "b=c".into())
+            ]
+        );
+        assert!(parse_shell_env(b"no markers", "_M_").is_empty());
+    }
+
+    #[test]
+    fn launch_command_honours_the_working_directory() {
+        let mut a = app("x", "X", "xprog --flag", &[]);
+        assert_eq!(a.launch_command(), "xprog --flag");
+        a.workdir = Some("/tmp".into());
+        assert_eq!(a.launch_command(), "cd /tmp && exec xprog --flag");
+        a.workdir = Some("/nonexistent-aqua-dir".into());
+        assert_eq!(a.launch_command(), "xprog --flag");
+    }
+
+    #[test]
+    fn launched_processes_start_at_home_with_the_shell_env() {
+        let c = launch_process("true", None);
+        assert_eq!(c.get_current_dir(), dirs::home_dir().filter(|h| h.is_dir()).as_deref());
+        assert_eq!(c.get_program(), "sh");
     }
 
     #[test]

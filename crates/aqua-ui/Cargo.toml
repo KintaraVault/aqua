@@ -9,6 +9,8 @@ description = "Aqua system apps written in Rust + Slint: System Settings, file c
 [dependencies]
 slint = { version = "1.13", default-features = false, features = ["std", "compat-1-2", "backend-winit-wayland", "backend-winit-x11", "renderer-software", "renderer-femtovg", "unstable-winit-030"] }
 aqua-config.workspace = true
+aqua-log.workspace = true
+tracing.workspace = true
 aqua-apps.workspace = true
 aqua-sys.workspace = true
 zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"] }
@@ -20,6 +22,7 @@ image.workspace = true
 aqua-icons.workspace = true
 aqua-gfx.workspace = true
 aqua-i18n.workspace = true
+aqua-store.workspace = true
 resvg = { version = "0.45", default-features = false }
 
 [build-dependencies]

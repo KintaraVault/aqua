@@ -1,0 +1,19 @@
+[Desktop Entry]
+Type=Application
+Name=App Store
+GenericName=Software
+Comment=Discover, install and update apps
+Exec=aqua-store %U
+TryExec=aqua-store
+Icon=system-software-install
+Terminal=false
+Categories=System;PackageManager;
+MimeType=x-scheme-handler/appstream;application/vnd.flatpak.ref;application/vnd.flatpak.repo;
+StartupWMClass=org.aqua.store
+Keywords=software;apps;install;update;flatpak;packages;
+OnlyShowIn=Aqua;
+Actions=updates;
+
+[Desktop Action updates]
+Name=Updates
+Exec=aqua-store --updates

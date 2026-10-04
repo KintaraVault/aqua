@@ -68,6 +68,8 @@ Recommends:     upower
 Recommends:     google-noto-emoji-color-fonts
 Recommends:     sound-theme-freedesktop
 Recommends:     (ffmpeg-free or ffmpeg)
+Recommends:     flatpak
+Recommends:     polkit
 Suggests:       greetd
 Suggests:       cage
 Suggests:       brightnessctl
@@ -126,6 +128,7 @@ done
 %{_bindir}/aqua-screenshot
 %{_bindir}/aqua-settings
 %{_bindir}/aqua-finder
+%{_bindir}/aqua-store
 %{_bindir}/aqua-filechooser
 %{_bindir}/aqua-polkit-agent
 %{_bindir}/aqua-greeter
@@ -134,6 +137,8 @@ done
 %{_datadir}/xdg-desktop-portal/aqua-portals.conf
 %{_datadir}/applications/aqua-screenshot.desktop
 %{_datadir}/applications/org.aqua.finder.desktop
+%{_datadir}/applications/org.aqua.store.desktop
+%config(noreplace) %{_sysconfdir}/xdg/autostart/org.aqua.store-updates.desktop
 %{_datadir}/aqua/
 %config(noreplace) %{_sysconfdir}/pam.d/aqua
 

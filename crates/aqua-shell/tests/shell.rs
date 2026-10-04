@@ -181,3 +181,114 @@ fn full_screen_keeps_bar_and_dock_hidden_at_the_edges() {
     sh.pointer_motion(640.0, 799.0);
     assert!(sh.dock_shown(), "auto-hidden Dock reveals at the bottom edge");
 }
+
+/// Drawn centre of every Dock icon (what the next frame would show).
+fn drawn(sh: &Shell) -> Vec<(String, f32)> {
+    let (_, g) = aqua_shell::dock::geometry(sh);
+    g.keys.iter().enumerate().map(|(i, k)| (k.clone(), g.slots[i].cx() + g.dx[i])).collect()
+}
+
+fn pinned_apps(sh: &Shell) -> Vec<String> {
+    sh.cfg.dock.iter().map(|d| d.app.clone()).collect()
+}
+
+/// Dragging a Dock icon across its neighbours: they slide smoothly (no one-frame jump to
+/// the new slot and back — the "blink"), and the drop reorders the kept icons.
+#[test]
+fn dock_drag_reorders_smoothly() {
+    let mut sh = shell(1280.0, 800.0, 1.0);
+    sh.cfg.dock_magnification = 1.0;
+    for _ in 0..3 {
+        aqua_shell::dock::sync(&mut sh, 0.016);
+    }
+    let before = pinned_apps(&sh);
+    assert!(before.len() >= 4, "{before:?}");
+    let (_, g) = aqua_shell::dock::geometry(&sh);
+    let (from, to) = (g.slots[0], g.slots[3]);
+    let dragged = g.keys[0].clone();
+    let step_max = sh.cfg.dock_icon_size * 0.6;
+    let _ = sh.pointer_button(from.cx(), from.cy(), true);
+    let mut prev = drawn(&sh);
+    let n = 24;
+    for k in 1..=n {
+        let f = k as f32 / n as f32;
+        sh.pointer_motion(from.cx() + (to.cx() + 4.0 - from.cx()) * f, from.cy());
+        // The compositor may draw right after the motion, before the next tick.
+        let now = drawn(&sh);
+        for (key, x) in &now {
+            if *key == dragged {
+                continue;
+            }
+            if let Some((_, px)) = prev.iter().find(|(k, _)| k == key) {
+                assert!((x - px).abs() <= step_max, "icon {key} jumped {px} → {x} at step {k}");
+            }
+        }
+        aqua_shell::dock::sync(&mut sh, 0.016);
+        prev = drawn(&sh);
+    }
+    let _ = sh.pointer_button(to.cx() + 4.0, to.cy(), false);
+    for _ in 0..40 {
+        aqua_shell::dock::sync(&mut sh, 0.016);
+    }
+    let after = pinned_apps(&sh);
+    assert_ne!(before, after, "the drop did not reorder the Dock");
+    assert_eq!(after.iter().position(|a| *a == before[0]), Some(3), "{before:?} → {after:?}");
+    assert_eq!(after.len(), before.len());
+}
+
+/// A kept icon dropped after the running-only apps stays the last kept icon instead of
+/// silently snapping back, and running-only apps can be reordered among themselves.
+#[test]
+fn dock_drag_respects_running_apps() {
+    let mut sh = shell(1280.0, 800.0, 1.0);
+    sh.cfg.dock_magnification = 1.0;
+    sh.cfg.dock_keep_order = true;
+    let win = |id: u64, app: &str| aqua_shell::WindowInfo {
+        id,
+        app_id: app.into(),
+        title: app.into(),
+        focused: false,
+        minimized: false,
+    };
+    sh.set_windows(vec![win(1, "org.example.alpha"), win(2, "org.example.beta")]);
+    for _ in 0..40 {
+        aqua_shell::dock::sync(&mut sh, 0.016);
+    }
+    let kept = pinned_apps(&sh);
+    let (items, g) = aqua_shell::dock::geometry(&sh);
+    let sep = items.iter().position(|i| i.kind == aqua_shell::dock::Kind::Separator).unwrap();
+    let alpha = items.iter().position(|i| i.app == "org.example.alpha").unwrap();
+    let beta = items.iter().position(|i| i.app == "org.example.beta").unwrap();
+    assert!(alpha < beta && beta < sep);
+    // Drag beta before alpha.
+    let (b, a) = (g.slots[beta], g.slots[alpha]);
+    let _ = sh.pointer_button(b.cx(), b.cy(), true);
+    for k in 1..=12 {
+        sh.pointer_motion(b.cx() + (a.x + 2.0 - b.cx()) * k as f32 / 12.0, b.cy());
+        aqua_shell::dock::sync(&mut sh, 0.016);
+    }
+    let _ = sh.pointer_button(a.x + 2.0, a.cy(), false);
+    for _ in 0..40 {
+        aqua_shell::dock::sync(&mut sh, 0.016);
+    }
+    let (items, _) = aqua_shell::dock::geometry(&sh);
+    let alpha2 = items.iter().position(|i| i.app == "org.example.alpha").unwrap();
+    let beta2 = items.iter().position(|i| i.app == "org.example.beta").unwrap();
+    assert!(beta2 < alpha2, "running-only apps were not reordered");
+    assert_eq!(pinned_apps(&sh), kept, "reordering running apps must not pin them");
+    // Drag the first kept icon to the far right of the app area.
+    let (_, g) = aqua_shell::dock::geometry(&sh);
+    let first = g.slots[0];
+    let end = g.slots[sep - 1];
+    let _ = sh.pointer_button(first.cx(), first.cy(), true);
+    for k in 1..=20 {
+        sh.pointer_motion(first.cx() + (end.right() - 2.0 - first.cx()) * k as f32 / 20.0, first.cy());
+        aqua_shell::dock::sync(&mut sh, 0.016);
+    }
+    let _ = sh.pointer_button(end.right() - 2.0, end.cy(), false);
+    for _ in 0..40 {
+        aqua_shell::dock::sync(&mut sh, 0.016);
+    }
+    let after = pinned_apps(&sh);
+    assert_eq!(after.last(), kept.first(), "{kept:?} → {after:?}");
+}

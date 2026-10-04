@@ -1,0 +1,676 @@
+import { Theme, Toggle, Segmented, Field, PopupSelect, Checkbox, GlassMenu } from "../common.slint";
+import { SG } from "glyphs.slint";
+import { SSetup, AS } from "model.slint";
+import { Hairline, AppIcon, Link, Badge, Stars, RoundButton, Spinner, Pill, Ring } from "parts.slint";
+
+export component Sheet inherits Rectangle {
+    in property <length> sheet-w: 460px;
+    in property <length> max-h: 600px;
+    in property <length> content-h: 200px;
+    out property <length> card-w: card.width;
+    out property <length> card-h: card.height;
+    // Fade the dim in and grow the card from 94 % like a macOS 26 sheet.
+    property <bool> shown: !Theme.motion;
+    init => { self.shown = true; }
+    background: !shown ? transparent : Theme.dark ? #0000006b : #0000003d;
+    animate background { duration: 200ms; easing: ease-out; }
+    TouchArea {}
+    card := Rectangle {
+        opacity: root.shown ? 1 : 0;
+        transform-scale: root.shown ? 1.0 : 0.94;
+        animate opacity { duration: 180ms; easing: ease-out; }
+        animate transform-scale { duration: 260ms; easing: cubic-bezier(0.2, 1.25, 0.4, 1); }
+        x: (parent.width - self.width) / 2;
+        y: max(20px, (parent.height - self.height) / 2);
+        width: min(root.sheet-w, parent.width - 40px);
+        height: min(root.content-h, min(root.max-h, parent.height - 40px));
+        border-radius: 22px;
+        background: Theme.dark ? #29292c : #ffffff;
+        border-width: 0.5px;
+        border-color: Theme.dark ? #ffffff1f : #0000001a;
+        drop-shadow-blur: 40px;
+        drop-shadow-offset-y: 14px;
+        drop-shadow-color: #00000052;
+        clip: true;
+        @children
+    }
+}
+
+component SettingRow inherits Rectangle {
+    in property <string> title;
+    in property <string> detail;
+    in property <bool> last: false;
+    min-height: detail == "" ? 40px : 54px;
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            spacing: 2px;
+            Text { text: root.title; font-size: 13px; color: Theme.text; wrap: word-wrap; }
+            if root.detail != "": Text { text: root.detail; font-size: 11px; color: Theme.text-secondary; wrap: word-wrap; }
+        }
+        VerticalLayout { alignment: center; @children }
+    }
+    if !last: Hairline { x: 14px; y: parent.height - 1px; width: parent.width - 28px; }
+}
+
+component Group inherits VerticalLayout {
+    in property <string> title;
+    spacing: 6px;
+    Text { text: root.title; font-size: 13px; font-weight: 700; color: Theme.text; }
+    Rectangle {
+        border-radius: 12px;
+        background: Theme.dark ? #ffffff0d : #00000008;
+        border-width: 0.5px;
+        border-color: Theme.separator;
+        VerticalLayout { @children }
+    }
+}
+
+component SheetTitle inherits VerticalLayout {
+    in property <string> title;
+    in property <string> text;
+    in property <image> glyph;
+    in property <bool> has-glyph: false;
+    spacing: 8px;
+    if root.has-glyph: HorizontalLayout {
+        alignment: center;
+        Rectangle {
+            width: 56px;
+            height: 56px;
+            border-radius: 28px;
+            background: Theme.accent.with-alpha(0.12);
+            Image { width: 30px; height: 30px; source: root.glyph; colorize: Theme.accent; }
+        }
+    }
+    Text { text: root.title; font-size: 17px; font-weight: 700; color: Theme.text; horizontal-alignment: center; wrap: word-wrap; }
+    if root.text != "": Text { text: root.text; font-size: 13px; color: Theme.text-secondary; horizontal-alignment: center; wrap: word-wrap; }
+}
+
+export component SettingsSheet inherits Sheet {
+    sheet-w: 560px;
+    max-h: 680px;
+    content-h: lay.preferred-height + 70px;
+    fl := Flickable {
+        x: 0;
+        y: 0;
+        width: root.card-w;
+        height: root.card-h - 64px;
+        content-height: lay.preferred-height;
+        lay := VerticalLayout {
+            width: fl.width;
+            height: self.preferred-height;
+            padding: 24px;
+            padding-bottom: 8px;
+            spacing: 18px;
+            Text { text: @tr("App Store Settings"); font-size: 17px; font-weight: 700; color: Theme.text; horizontal-alignment: center; }
+            Group {
+                title: @tr("Updates");
+                SettingRow {
+                    title: @tr("Check for updates automatically");
+                    detail: @tr("Looks for new versions in the background, also when App Store is closed.");
+                    Toggle { checked <=> AS.set-auto-check; toggled(v) => { AS.setting-toggled("auto_check", v); } }
+                }
+                SettingRow {
+                    title: @tr("Automatic Updates");
+                    detail: @tr("Installs app updates as they become available.");
+                    Toggle { checked <=> AS.set-auto-update; toggled(v) => { AS.setting-toggled("auto_update", v); } }
+                }
+                SettingRow {
+                    title: @tr("Show notifications");
+                    Toggle { checked <=> AS.set-notify; toggled(v) => { AS.setting-toggled("notify", v); } }
+                }
+                SettingRow {
+                    title: @tr("Include system packages");
+                    detail: AS.has-native ? @tr("Updates from {} are shown on the Updates page.", AS.native-label) : @tr("No system package manager was found.");
+                    last: true;
+                    Toggle { enabled: AS.has-native; checked <=> AS.set-system; toggled(v) => { AS.setting-toggled("include_system", v); } }
+                }
+            }
+            Group {
+                title: @tr("Sources");
+                SettingRow {
+                    title: "Flathub";
+                    detail: AS.has-flatpak ? @tr("Universal apps that run on any distribution, in a sandbox.") : @tr("Flatpak is not installed. App Store can install it for you.");
+                    Toggle { checked <=> AS.set-flathub; toggled(v) => { AS.setting-toggled("use_flathub", v); } }
+                }
+                SettingRow {
+                    title: @tr("Install Flatpak apps");
+                    Segmented { items: [@tr("For Me"), @tr("For All Users")]; current <=> AS.set-scope; changed(i) => { AS.scope-changed(i); } }
+                }
+                if AS.has-native: SettingRow {
+                    title: AS.native-label;
+                    detail: @tr("Packages from your distribution’s repositories.");
+                    Toggle { checked <=> AS.set-native; toggled(v) => { AS.setting-toggled("use_native", v); } }
+                }
+                if AS.has-aur: SettingRow {
+                    title: @tr("Arch User Repository (AUR)");
+                    detail: @tr("Community packages built on this computer. Review them before installing.");
+                    Toggle { checked <=> AS.set-aur; toggled(v) => { AS.setting-toggled("use_aur", v); } }
+                }
+                SettingRow {
+                    title: @tr("Preferred source");
+                    detail: @tr("Used when an app is available from more than one source.");
+                    last: true;
+                    PopupSelect { bezel: true; items: AS.preferred-items; current <=> AS.set-preferred; changed(i) => { AS.preferred-changed(i); } }
+                }
+            }
+            Group {
+                title: @tr("Ratings & Reviews");
+                SettingRow {
+                    title: @tr("Show ratings and reviews");
+                    Toggle { checked <=> AS.set-reviews; toggled(v) => { AS.setting-toggled("show_reviews", v); } }
+                }
+                SettingRow {
+                    title: @tr("Name shown with your reviews");
+                    last: true;
+                    Field { width: 180px; text <=> AS.reviewer; edited(t) => { AS.reviewer-edited(t); } }
+                }
+            }
+            Group {
+                title: @tr("Maintenance");
+                SettingRow {
+                    title: @tr("Components");
+                    detail: @tr("Package managers, Flathub and helpers App Store relies on.");
+                    Pill { text: @tr("Check…"); clicked => { AS.open-setup(); } }
+                }
+                SettingRow {
+                    title: @tr("Refresh software catalogs");
+                    Pill { text: @tr("Refresh"); clicked => { AS.maintenance("refresh"); } }
+                }
+                if AS.has-flatpak: SettingRow {
+                    title: @tr("Remove unused runtimes");
+                    detail: @tr("Frees disk space taken by components no app needs anymore.");
+                    Pill { text: @tr("Remove"); clicked => { AS.maintenance("unused"); } }
+                }
+                if AS.has-flatpak: SettingRow {
+                    title: @tr("Repair Flatpak installation");
+                    last: true;
+                    Pill { text: @tr("Repair"); clicked => { AS.maintenance("repair"); } }
+                }
+            }
+            Text { text: AS.system-info; font-size: 11px; color: Theme.text-tertiary; horizontal-alignment: center; wrap: word-wrap; }
+        }
+    }
+    Hairline { x: 0; y: root.card-h - 64px; width: root.card-w; }
+    Pill { x: root.card-w - self.width - 22px; y: root.card-h - 46px; primary: true; text: @tr("Done"); clicked => { AS.close-sheet(); } }
+}
+
+component SetupRow inherits Rectangle {
+    in property <SSetup> r;
+    in property <bool> last;
+    height: lay.preferred-height;
+    lay := HorizontalLayout {
+        padding: 14px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 30px;
+                height: 30px;
+                border-radius: 15px;
+                background: r.state == 2 ? #34c75926 : r.state == 3 ? #ff3b3026 : Theme.accent.with-alpha(0.12);
+                Image {
+                    width: 16px;
+                    height: 16px;
+                    source: r.state == 2 ? SG.checkmark : r.state == 3 ? SG.xmark : r.terminal ? SG.terminal : SG.box;
+                    colorize: r.state == 2 ? #34c759 : r.state == 3 ? #ff3b30 : Theme.accent;
+                }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            horizontal-stretch: 1;
+            HorizontalLayout {
+                spacing: 6px;
+                alignment: start;
+                Text { text: r.title; font-size: 13px; font-weight: 600; color: Theme.text; }
+                if r.essential: VerticalLayout { alignment: center; Badge { text: @tr("Required"); tint: #ff9500; } }
+            }
+            Text { text: r.detail; font-size: 11px; color: Theme.text-secondary; wrap: word-wrap; }
+        }
+        VerticalLayout {
+            alignment: center;
+            if r.state == 1: Ring { progress: -1; size: 22px; stop: false; }
+            if (r.state == 0 || r.state == 3) && r.action != "": Pill {
+                text: r.state == 3 ? @tr("Try Again") : r.action;
+                min-w: 80px;
+                enabled: !AS.setup-busy;
+                clicked => { AS.setup-install(r.id); }
+            }
+            if r.state == 2: Text { text: @tr("Ready"); font-size: 12px; color: #34c759; }
+        }
+    }
+    if !last: Hairline { x: 56px; y: parent.height - 1px; width: parent.width - 70px; }
+}
+
+export component SetupSheet inherits Sheet {
+    sheet-w: 560px;
+    max-h: 640px;
+    content-h: lay.preferred-height + 72px;
+    fl := Flickable {
+        x: 0;
+        y: 0;
+        width: root.card-w;
+        height: root.card-h - 64px;
+        content-height: lay.preferred-height;
+        lay := VerticalLayout {
+            width: fl.width;
+            height: self.preferred-height;
+            padding: 24px;
+            spacing: 16px;
+            SheetTitle {
+                has-glyph: true;
+                glyph: SG.wrench;
+                title: @tr("Set Up App Store");
+                text: @tr("A few components are needed to find, install and update software on this computer. App Store will ask for your password when it needs administrator rights.");
+            }
+            Rectangle {
+                border-radius: 12px;
+                background: Theme.dark ? #ffffff0d : #00000008;
+                border-width: 0.5px;
+                border-color: Theme.separator;
+                VerticalLayout {
+                    for r[i] in AS.setup: SetupRow { r: r; last: i == AS.setup.length - 1; }
+                }
+            }
+            if AS.setup.length == 0: Text { text: @tr("Everything is set up."); font-size: 13px; color: Theme.text-secondary; horizontal-alignment: center; }
+        }
+    }
+    Hairline { x: 0; y: root.card-h - 64px; width: root.card-w; }
+    HorizontalLayout {
+        x: 0;
+        y: root.card-h - 46px;
+        width: root.card-w;
+        height: 28px;
+        padding-left: 22px;
+        padding-right: 22px;
+        spacing: 10px;
+        alignment: end;
+        Pill { text: @tr("Not Now"); clicked => { AS.setup-dismiss(); } }
+        Pill { primary: true; text: @tr("Install All"); enabled: !AS.setup-busy && AS.setup.length > 0; clicked => { AS.setup-all(); } }
+    }
+}
+
+export component NeedSheet inherits Sheet {
+    sheet-w: 420px;
+    content-h: lay.preferred-height;
+    lay := VerticalLayout {
+        x: 0;
+        y: 0;
+        width: root.card-w;
+        padding: 24px;
+        spacing: 18px;
+        SheetTitle { has-glyph: true; glyph: AS.need.terminal ? SG.terminal : SG.box; title: AS.need.title; text: AS.need.detail; }
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: end;
+            Pill { text: @tr("Cancel"); clicked => { AS.close-sheet(); } }
+            Pill { primary: true; text: AS.need.action != "" ? AS.need.action : @tr("OK"); clicked => { AS.need-accept(); } }
+        }
+    }
+}
+
+export component ConfirmSheet inherits Sheet {
+    sheet-w: 420px;
+    content-h: lay.preferred-height;
+    lay := VerticalLayout {
+        x: 0;
+        y: 0;
+        width: root.card-w;
+        padding: 24px;
+        spacing: 16px;
+        SheetTitle { title: AS.confirm-title; text: AS.confirm-text; }
+        if AS.confirm-has-option: HorizontalLayout {
+            spacing: 8px;
+            alignment: center;
+            VerticalLayout { alignment: center; Checkbox { checked <=> AS.confirm-checked; } }
+            Text { text: AS.confirm-option; font-size: 13px; color: Theme.text; vertical-alignment: center; }
+        }
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: end;
+            Pill { text: @tr("Cancel"); clicked => { AS.close-sheet(); } }
+            Pill { primary: true; destructive: true; text: AS.confirm-button; clicked => { AS.confirm-accept(); } }
+        }
+    }
+}
+
+export component ErrorSheet inherits Sheet {
+    sheet-w: 520px;
+    max-h: 620px;
+    property <bool> open: false;
+    content-h: lay.preferred-height;
+    lay := VerticalLayout {
+        x: 0;
+        y: 0;
+        width: root.card-w;
+        padding: 24px;
+        spacing: 14px;
+        SheetTitle { has-glyph: true; glyph: SG.info; title: AS.error-title; text: AS.error-text; }
+        if AS.error-log != "": HorizontalLayout {
+            alignment: center;
+            Link { text: root.open ? @tr("Hide Details") : @tr("Show Details"); clicked => { root.open = !root.open; } }
+        }
+        if root.open: Rectangle {
+            height: 220px;
+            border-radius: 8px;
+            background: Theme.dark ? #00000040 : #0000000a;
+            lf := Flickable {
+                x: 8px;
+                y: 6px;
+                width: parent.width - 16px;
+                height: parent.height - 12px;
+                content-height: max(self.height, lt.preferred-height);
+                lt := TextInput {
+                    width: lf.width;
+                    text: AS.error-log;
+                    read-only: true;
+                    wrap: word-wrap;
+                    font-size: 11px;
+                    font-family: "DejaVu Sans Mono";
+                    color: Theme.text-secondary;
+                }
+            }
+        }
+        HorizontalLayout {
+            alignment: end;
+            Pill { primary: true; text: @tr("OK"); clicked => { AS.close-sheet(); } }
+        }
+    }
+}
+
+export component VersionsSheet inherits Sheet {
+    sheet-w: 560px;
+    max-h: 640px;
+    content-h: lay.preferred-height + 120px;
+    Text { x: 24px; y: 22px; text: @tr("Version History"); font-size: 17px; font-weight: 700; color: Theme.text; }
+    RoundButton { x: root.card-w - 44px; y: 16px; size: 28px; glyph: SG.xmark; plain: true; clicked => { AS.close-sheet(); } }
+    fl := Flickable {
+        x: 0;
+        width: root.card-w;
+        y: 58px;
+        height: root.card-h - 58px;
+        content-height: lay.preferred-height;
+        lay := VerticalLayout {
+            width: fl.width;
+            height: self.preferred-height;
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-bottom: 20px;
+            for r[i] in AS.releases: VerticalLayout {
+                padding-top: 12px;
+                padding-bottom: 12px;
+                spacing: 4px;
+                HorizontalLayout {
+                    Text { text: r.version; font-size: 14px; font-weight: 700; color: Theme.text; horizontal-stretch: 1; }
+                    Text { text: r.date; font-size: 12px; color: Theme.text-secondary; }
+                }
+                Text { text: r.notes != "" ? r.notes : @tr("No release notes."); font-size: 13px; color: r.notes != "" ? Theme.text : Theme.text-tertiary; wrap: word-wrap; }
+                if i < AS.releases.length - 1: Rectangle { height: 10px; Hairline { y: 9px; } }
+            }
+        }
+    }
+}
+
+export component ReviewSheet inherits Sheet {
+    sheet-w: 520px;
+    content-h: lay.preferred-height;
+    lay := VerticalLayout {
+        x: 0;
+        y: 0;
+        width: root.card-w;
+        padding: 24px;
+        spacing: 14px;
+        HorizontalLayout {
+            spacing: 12px;
+            AppIcon { app: AS.detail.app; size: 48px; }
+            VerticalLayout {
+                alignment: center;
+                Text { text: @tr("Write a Review"); font-size: 17px; font-weight: 700; color: Theme.text; }
+                Text { text: AS.detail.app.name; font-size: 13px; color: Theme.text-secondary; }
+            }
+        }
+        HorizontalLayout {
+            alignment: center;
+            spacing: 6px;
+            for i in 5: Rectangle {
+                width: 30px;
+                height: 30px;
+                Image { width: 26px; height: 26px; source: i < AS.review-stars ? SG.star-fill : SG.star-empty; colorize: i < AS.review-stars ? #ff9500 : Theme.text-tertiary; }
+                TouchArea { mouse-cursor: pointer; clicked => { AS.review-stars = i + 1; } }
+            }
+        }
+        Text { text: AS.review-stars == 0 ? @tr("Tap a star to rate.") : ""; font-size: 11px; color: Theme.text-tertiary; horizontal-alignment: center; }
+        Field { placeholder: @tr("Title"); text <=> AS.review-title; }
+        Rectangle {
+            height: 120px;
+            border-radius: 8px;
+            background: Theme.field-bg;
+            border-width: body.has-focus ? 3px : 0.5px;
+            border-color: body.has-focus ? Theme.accent.with-alpha(0.45) : Theme.control-border;
+            body := TextInput {
+                x: 8px;
+                y: 6px;
+                width: parent.width - 16px;
+                height: parent.height - 12px;
+                text <=> AS.review-body;
+                wrap: word-wrap;
+                single-line: false;
+                font-size: 13px;
+                color: Theme.text;
+            }
+            if AS.review-body == "": Text { x: 8px; y: 6px; text: @tr("Review (optional)"); font-size: 13px; color: Theme.text-secondary; }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: @tr("Name"); font-size: 13px; color: Theme.text; vertical-alignment: center; }
+            Field { horizontal-stretch: 1; placeholder: @tr("Your name"); text <=> AS.reviewer; edited(t) => { AS.reviewer-edited(t); } }
+        }
+        if AS.review-error != "": Text { text: AS.review-error; font-size: 12px; color: #ff3b30; wrap: word-wrap; }
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: end;
+            if AS.review-sending: VerticalLayout { alignment: center; Spinner { size: 18px; } }
+            Pill { text: @tr("Cancel"); clicked => { AS.close-sheet(); } }
+            Pill { primary: true; text: @tr("Submit"); enabled: AS.review-stars > 0 && AS.review-title != "" && !AS.review-sending; clicked => { AS.submit-review(); } }
+        }
+    }
+}
+
+export component ReviewsSheet inherits Sheet {
+    sheet-w: 620px;
+    max-h: 700px;
+    content-h: 700px;
+    Text { x: 24px; y: 22px; text: @tr("Ratings & Reviews"); font-size: 17px; font-weight: 700; color: Theme.text; }
+    RoundButton { x: root.card-w - 44px; y: 16px; size: 28px; glyph: SG.xmark; plain: true; clicked => { AS.close-sheet(); } }
+    fl := Flickable {
+        x: 0;
+        width: root.card-w;
+        y: 58px;
+        height: root.card-h - 58px;
+        content-height: lay.preferred-height;
+        lay := VerticalLayout {
+            width: fl.width;
+            height: self.preferred-height;
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-bottom: 20px;
+            spacing: 12px;
+            for r in AS.reviews: Rectangle {
+                height: rl.preferred-height;
+                border-radius: 14px;
+                background: Theme.card-bg;
+                rl := VerticalLayout {
+                    padding: 16px;
+                    spacing: 6px;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: r.title; font-size: 14px; font-weight: 700; color: Theme.text; horizontal-stretch: 1; wrap: word-wrap; }
+                        Text { text: r.date; font-size: 12px; color: Theme.text-secondary; }
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Stars { value: r.stars; size: 11px; tint: #ff9500; }
+                        Text { text: r.author + (r.version != "" ? "  ·  " + r.version : ""); font-size: 12px; color: Theme.text-secondary; horizontal-stretch: 1; overflow: elide; }
+                    }
+                    if r.body != "": Text { text: r.body; font-size: 13px; color: Theme.text; wrap: word-wrap; }
+                    HorizontalLayout {
+                        spacing: 14px;
+                        alignment: start;
+                        if !r.mine && !r.voted: Text { text: @tr("Was this review helpful?"); font-size: 12px; color: Theme.text-secondary; vertical-alignment: center; }
+                        if !r.mine && !r.voted: RoundButton { plain: true; size: 24px; glyph: SG.thumbs-up; clicked => { AS.vote(r.id, "upvote"); } }
+                        if !r.mine && !r.voted: RoundButton { plain: true; size: 24px; glyph: SG.thumbs-down; clicked => { AS.vote(r.id, "downvote"); } }
+                        if r.voted: Text { text: @tr("Thanks for your feedback."); font-size: 12px; color: Theme.text-secondary; vertical-alignment: center; }
+                        if r.up + r.down > 0: Text { text: @tr("{} of {} found this helpful", r.up, r.up + r.down); font-size: 12px; color: Theme.text-tertiary; vertical-alignment: center; horizontal-stretch: 1; }
+                        if !r.mine: Link { text: @tr("Report"); font-size: 12px; clicked => { AS.vote(r.id, "report"); } }
+                        if r.mine: Text { text: @tr("Your review"); font-size: 12px; color: Theme.accent; vertical-alignment: center; }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component PermsSheet inherits Sheet {
+    sheet-w: 500px;
+    content-h: lay.preferred-height;
+    lay := VerticalLayout {
+        x: 0;
+        y: 0;
+        width: root.card-w;
+        padding: 24px;
+        spacing: 14px;
+        HorizontalLayout {
+            spacing: 12px;
+            AppIcon { app: AS.detail.app; size: 48px; }
+            VerticalLayout {
+                alignment: center;
+                Text { text: @tr("Permissions"); font-size: 17px; font-weight: 700; color: Theme.text; }
+                Text { text: AS.detail.app.name; font-size: 13px; color: Theme.text-secondary; }
+            }
+        }
+        Text { text: @tr("Changes take effect the next time the app is opened."); font-size: 12px; color: Theme.text-secondary; wrap: word-wrap; }
+        Rectangle {
+            border-radius: 12px;
+            background: Theme.dark ? #ffffff0d : #00000008;
+            border-width: 0.5px;
+            border-color: Theme.separator;
+            VerticalLayout {
+                for p[i] in AS.perms: SettingRow {
+                    title: p.label;
+                    detail: p.detail;
+                    last: i == AS.perms.length - 1;
+                    Toggle { checked: p.on; toggled(v) => { AS.perm-toggled(p.id, v); } }
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 10px;
+            Pill { text: @tr("Reset to Defaults"); clicked => { AS.perm-reset(); } }
+            Rectangle { horizontal-stretch: 1; }
+            Pill { primary: true; text: @tr("Done"); clicked => { AS.close-sheet(); } }
+        }
+    }
+}
+
+export component HistorySheet inherits Sheet {
+    sheet-w: 640px;
+    max-h: 700px;
+    content-h: 700px;
+    Text { x: 24px; y: 22px; text: @tr("History"); font-size: 17px; font-weight: 700; color: Theme.text; }
+    Field {
+        x: root.card-w - 44px - 12px - self.width;
+        y: 18px;
+        width: 200px;
+        search: true;
+        placeholder: @tr("Search");
+        text <=> AS.history-query;
+        edited(t) => { AS.history-edited(t); }
+    }
+    RoundButton { x: root.card-w - 44px; y: 16px; size: 28px; glyph: SG.xmark; plain: true; clicked => { AS.close-sheet(); } }
+    fl := Flickable {
+        x: 0;
+        width: root.card-w;
+        y: 60px;
+        height: root.card-h - 60px;
+        content-height: lay.preferred-height;
+        lay := VerticalLayout {
+            width: fl.width;
+            height: self.preferred-height;
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-bottom: 20px;
+            for h[i] in AS.history: Rectangle {
+                height: 44px;
+                Text { x: 0; width: parent.width * 0.38; text: h.name; font-size: 13px; color: Theme.text; vertical-alignment: center; overflow: elide; }
+                Badge { x: parent.width * 0.4; y: (parent.height - self.height) / 2; text: h.action; tint: Theme.accent; }
+                Text { x: parent.width * 0.55; width: parent.width * 0.2; text: h.version; font-size: 12px; color: Theme.text-secondary; vertical-alignment: center; overflow: elide; }
+                Text { x: parent.width * 0.75; width: parent.width * 0.25; text: h.date + "\n" + h.source; font-size: 11px; color: Theme.text-secondary; vertical-alignment: center; horizontal-alignment: right; overflow: elide; }
+                Hairline { y: parent.height - 1px; }
+                TouchArea { mouse-cursor: pointer; clicked => { AS.close-sheet(); AS.open-app(h.key); } }
+            }
+            if AS.history.length == 0: Text { text: @tr("Nothing has been installed, updated or removed yet."); font-size: 13px; color: Theme.text-secondary; horizontal-alignment: center; height: 80px; vertical-alignment: center; }
+        }
+    }
+}
+
+export component Viewer inherits Rectangle {
+    background: #000000e6;
+    TouchArea { clicked => { AS.close-sheet(); } }
+    if AS.viewer >= 0 && AS.viewer < AS.shots.length: Image {
+        x: 70px;
+        y: 50px;
+        width: parent.width - 140px;
+        height: parent.height - 100px;
+        source: AS.shots[AS.viewer].img;
+        image-fit: contain;
+    }
+    if AS.viewer >= 0 && AS.viewer < AS.shots.length && AS.shots[AS.viewer].caption != "": Text {
+        y: parent.height - 40px;
+        text: AS.shots[AS.viewer].caption;
+        color: #ffffffcc;
+        font-size: 13px;
+        horizontal-alignment: center;
+        width: parent.width;
+    }
+    Text { y: 18px; width: parent.width; text: (AS.viewer + 1) + " / " + AS.shots.length; color: #ffffffa0; font-size: 12px; horizontal-alignment: center; }
+    if AS.viewer > 0: RoundButton { x: 16px; y: (parent.height - self.height) / 2; size: 40px; glyph: SG.back; clicked => { AS.viewer -= 1; } }
+    if AS.viewer < AS.shots.length - 1: RoundButton { x: parent.width - 56px; y: (parent.height - self.height) / 2; size: 40px; glyph: SG.forward; clicked => { AS.viewer += 1; } }
+    RoundButton { x: parent.width - 52px; y: 14px; size: 32px; glyph: SG.xmark; clicked => { AS.close-sheet(); } }
+}
+
+export component Menu inherits Rectangle {
+    TouchArea { pointer-event(e) => { if e.kind == PointerEventKind.down { AS.menu-open = false; } } }
+    m := GlassMenu {
+        property <length> h: mv.preferred-height;
+        x: max(6px, min(AS.menu-x, root.width - self.width - 6px));
+        y: max(6px, min(AS.menu-y, root.height - h - 6px));
+        ox: self.x;
+        oy: self.y;
+        width: 240px;
+        height: h;
+        TouchArea {}
+        mv := VerticalLayout {
+            padding: 5px;
+            for it in AS.menu: VerticalLayout {
+                if it.separator: Rectangle { height: 11px; Rectangle { height: 1px; x: 10px; width: parent.width - 20px; background: Theme.dark ? #ffffff1f : #0000001a; } }
+                if !it.separator: Rectangle {
+                    height: 26px;
+                    border-radius: 7px;
+                    background: ita.has-hover && it.enabled ? Theme.accent : transparent;
+                    property <color> fg: !it.enabled ? Theme.text-tertiary : ita.has-hover ? white : it.destructive ? #ff3b30 : Theme.text;
+                    if it.glyph != "": Image { x: 9px; width: 15px; height: 15px; source: SG.named(it.glyph); colorize: parent.fg; }
+                    Text { x: 32px; width: parent.width - 40px; text: it.label; font-size: 13px; color: parent.fg; vertical-alignment: center; overflow: elide; }
+                    ita := TouchArea { enabled: it.enabled; clicked => { AS.menu-open = false; AS.menu-action(it.id); } }
+                }
+            }
+        }
+    }
+}

@@ -3,6 +3,7 @@
 //! Usage: `aqua [--winit|--tty] [-c CMD]... [--size WxH] [--scale S] [--screenshot PATH --after SECS]`
 //!        `aqua msg <command>`
 //!        `aqua check-config [FILE]`, `aqua config-schema`
+//!        `aqua logs [PROGRAM]`, `aqua crash-report`
 mod backend;
 mod capture;
 mod cli;
@@ -23,14 +24,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match argv.get(1).map(String::as_str) {
         Some("msg") => std::process::exit(ipc::send(&argv[2..])),
         Some("check-config") => std::process::exit(cli::check_config(argv.get(2).map(String::as_str))),
+        Some("logs") => std::process::exit(cli::logs(argv.get(2).map(String::as_str))),
+        Some("crash-report") => std::process::exit(cli::crash_report()),
         Some("config-schema") => {
             println!("{}", aqua_config::schema::json_schema());
             return Ok(());
         }
         _ => {}
     }
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info,smithay=warn"));
-    tracing_subscriber::fmt().with_env_filter(filter).init();
+    aqua_log::init("compositor");
     backend::run(cli::parse())
 }

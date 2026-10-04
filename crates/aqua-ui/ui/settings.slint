@@ -1,5 +1,5 @@
 import "fonts/AquaKeys.ttf";
-import { Theme, Glyphs, SymbolTile, SidebarRow, Card, SectionHeader, Separator, Toggle, Checkbox, Row, NavRow, PillButton, IconButton, Segmented, Field, SliderBar, PopupSelect, UpDown, TrafficLights, GlassSurround } from "common.slint";
+import { Theme, Glyphs, SymbolTile, SidebarRow, Card, SectionHeader, Separator, Toggle, Checkbox, Row, NavRow, PillButton, IconButton, Segmented, Field, SliderBar, PopupSelect, UpDown, TrafficLights, GlassSurround, NavArrows, GlassCapsule } from "common.slint";
 
 export struct WifiNet { ssid: string, signal: int, secure: bool, active: bool, known: bool }
 export struct BtDev { path: string, name: string, kind: string, connected: bool, paired: bool, battery: int }
@@ -45,6 +45,9 @@ export global S {
     in-out property <bool> clock-seconds: false;
     in-out property <bool> clock-date: true;
     in-out property <bool> menubar-bg: false;
+    in-out property <bool> global-menu: true;
+    in-out property <bool> style-apps: true;
+    in-out property <bool> stage-manager: false;
     in-out property <bool> mb-wifi: true;
     in-out property <bool> mb-battery: true;
     in-out property <bool> mb-input: true;
@@ -52,6 +55,9 @@ export global S {
     in-out property <int> menubar-size: 1;
     in-out property <bool> alert-sound: true;
     in-out property <float> window-radius: 0.5;
+    in-out property <int> sidebar-style: 0;
+    in-out property <bool> glass-controls: true;
+    in-out property <bool> glass-lights: true;
     in-out property <float> dock-size: 0.5;
     in-out property <bool> dock-magnify: true;
     in-out property <float> dock-mag: 0.5;
@@ -164,6 +170,8 @@ export global S {
     in-out property <bool> dock-keep-order: true;
     in-out property <int> title-dbl-idx;
     in-out property <bool> animate-windows: true;
+    in-out property <bool> tile-by-drag: true;
+    in-out property <bool> tile-margins: true;
     in-out property <bool> reduce-motion;
     in-out property <float> cursor-size;
     in-out property <bool> dnd;
@@ -341,7 +349,9 @@ component AppearancePane inherits VerticalLayout {
     } }
     SectionHeader { text: @tr("Theme"); }
     Card { VerticalLayout {
-        Row { title: @tr("Colour"); last: true; AccentPicker {} }
+        Row { title: @tr("Colour"); AccentPicker {} }
+        Row { title: @tr("Style other apps like macOS"); subtitle: @tr("GTK, libadwaita and Qt apps get Aqua colours, rounded controls and glass toolbars (Qt needs qt6ct). Reopen apps to apply."); last: true;
+            Toggle { checked <=> S.style-apps; toggled => { S.commit(); } } }
     } }
     SectionHeader { text: @tr("App Icons"); }
     Card { VerticalLayout {
@@ -359,8 +369,14 @@ component AppearancePane inherits VerticalLayout {
     } }
     SectionHeader { text: @tr("Windows"); }
     Card { VerticalLayout {
-        Row { title: @tr("Window corner radius"); last: true;
+        Row { title: @tr("Window corner radius");
             HorizontalLayout { spacing: 8px; Caption { text: @tr("Square"); vertical-alignment: center; } SliderBar { width: 180px; value <=> S.window-radius; released => { S.commit(); } } Caption { text: @tr("Round"); vertical-alignment: center; } } }
+        Row { title: @tr("Sidebar style"); subtitle: @tr("Finder, System Settings and the App Store");
+            Segmented { items: [@tr("Floating"), @tr("Solid")]; current: S.sidebar-style; changed(v) => { S.sidebar-style = v; Theme.solid-sidebar = v == 1; S.commit(); } } }
+        Row { title: @tr("Glass toolbar buttons"); subtitle: @tr("Navigation arrows and toolbar capsules");
+            Toggle { checked: S.glass-controls; toggled(v) => { S.glass-controls = v; Theme.glass-controls = v; S.commit(); } } }
+        Row { title: @tr("Glass traffic lights"); subtitle: @tr("Close, minimise and zoom buttons with a glossy glass finish"); last: true;
+            Toggle { checked: S.glass-lights; toggled(v) => { S.glass-lights = v; Theme.glass-lights = v; S.commit(); } } }
     } }
 }
 
@@ -390,7 +406,8 @@ component MenuBarPane inherits VerticalLayout {
     Card { VerticalLayout {
         Row { title: @tr("Menu bar size"); PopupSelect { items: [@tr("Small"), @tr("Medium"), @tr("Large")]; current <=> S.menubar-size; changed => { S.commit(); } } }
         Row { title: @tr("Automatically hide and show the menu bar"); PopupSelect { items: [@tr("In Full Screen Only"), @tr("Always"), @tr("Never")]; current <=> S.menubar-autohide-idx; changed => { S.commit(); } } }
-        Row { title: @tr("Show menu bar background"); last: true; Toggle { checked <=> S.menubar-bg; toggled => { S.commit(); } } }
+        Row { title: @tr("Show menu bar background"); Toggle { checked <=> S.menubar-bg; toggled => { S.commit(); } } }
+        Row { title: @tr("Show app menus in the menu bar"); subtitle: @tr("Qt, Electron and X11 apps move their menus to the top of the screen. Takes effect for newly opened apps."); last: true; Toggle { checked <=> S.global-menu; toggled => { S.commit(); } } }
     } }
     SectionHeader { text: @tr("Menu Bar Controls"); }
     HorizontalLayout { padding-left: 10px; padding-right: 10px;
@@ -430,7 +447,10 @@ component DockPane inherits VerticalLayout {
     SectionHeader { text: @tr("Windows"); }
     Card { VerticalLayout {
         Row { title: @tr("Double-click a window's title bar to"); PopupSelect { width: 150px; items: [@tr("Zoom"), @tr("Minimise"), @tr("Do Nothing")]; current <=> S.title-dbl-idx; changed => { S.commit(); } } }
-        Row { title: @tr("Animate zoom and full screen"); subtitle: @tr("Windows grow smoothly into their new size"); last: true; Toggle { checked <=> S.animate-windows; toggled => { S.commit(); } } }
+        Row { title: @tr("Animate zoom and full screen"); subtitle: @tr("Windows grow smoothly into their new size"); Toggle { checked <=> S.animate-windows; toggled => { S.commit(); } } }
+        Row { title: @tr("Stage Manager"); subtitle: @tr("Keep the current app in the centre and the other apps in a strip on the left"); Toggle { checked <=> S.stage-manager; toggled => { S.commit(); } } }
+        Row { title: @tr("Drag windows to screen edges to tile"); subtitle: @tr("Halves at the sides, quarters in the corners, fill at the top"); Toggle { checked <=> S.tile-by-drag; toggled => { S.commit(); } } }
+        Row { title: @tr("Tiled windows have margins"); last: true; Toggle { checked <=> S.tile-margins; toggled => { S.commit(); } } }
     } }
     SectionHeader { text: @tr("Desktop & Widgets"); }
     Card { VerticalLayout {
@@ -889,9 +909,16 @@ component Sheet inherits Rectangle {
     in property <length> sheet-w: 460px;
     in property <length> sheet-h: 380px;
     callback done();
-    background: #00000033;
+    property <bool> shown: !Theme.motion;
+    init => { self.shown = true; }
+    background: shown ? #00000033 : transparent;
+    animate background { duration: 200ms; easing: ease-out; }
     TouchArea {}
     Rectangle {
+        opacity: root.shown ? 1 : 0;
+        transform-scale: root.shown ? 1.0 : 0.94;
+        animate opacity { duration: 180ms; easing: ease-out; }
+        animate transform-scale { duration: 260ms; easing: cubic-bezier(0.2, 1.25, 0.4, 1); }
         width: sheet-w; height: sheet-h; x: (parent.width - self.width) / 2; y: 40px;
         background: Theme.window-bg; border-radius: 18px;
         border-width: 0.5px; border-color: Theme.sidebar-border;
@@ -1074,10 +1101,23 @@ export component SettingsWindow inherits Window {
     in property <int> repaint;
     property <length> side-w: 222px;
     property <length> content-x: side-w + 16px;
+    property <bool> solid: Theme.solid-sidebar;
     Rectangle { background: mod(repaint, 2) == 0 ? #00000000 : #00000001; }
     if glass: GlassSurround { width: root.width; height: root.height; color: Theme.window-bg;
-        hole-x: 8px; hole-y: 8px; hole-w: side-w; hole-h: root.height - 16px; hole-r: 18px; }
+        hole-x: solid ? 0px : 8px; hole-y: solid ? 0px : 8px; hole-w: solid ? side-w + 8px : side-w;
+        hole-h: solid ? root.height : root.height - 16px; hole-r: solid ? 0px : 18px; }
 
+    // Cross-fade the detail pane when switching panes (instant out, eased in).
+    property <string> pane-key: S.pane;
+    property <bool> pane-fresh;
+    changed pane-key => { if Theme.motion { self.pane-fresh = true; } }
+    Timer { interval: 16ms; running: root.pane-fresh; triggered => { root.pane-fresh = false; } }
+    states [
+        fresh when root.pane-fresh: {
+            flick.opacity: 0;
+            out { animate flick.opacity { duration: 200ms; easing: ease-out; } }
+        }
+    ]
     flick := Flickable {
         x: content-x; y: 52px; width: root.width - content-x; height: root.height - 52px;
         content-height: content.preferred-height + 24px;
@@ -1119,34 +1159,28 @@ export component SettingsWindow inherits Window {
         TouchArea {
             pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { S.win-drag(); } }
         }
-        Rectangle { x: 7px; y: 8px; width: 72px; height: 36px; border-radius: 18px;
-            background: Theme.dark ? #ffffff17 : #ffffffd9;
-            border-width: 0.5px; border-color: Theme.dark ? #ffffff1f : #0000000f;
-            drop-shadow-blur: 8px; drop-shadow-color: #0000001c; drop-shadow-offset-y: 1px;
-            for d in 2: Rectangle { x: d * 36px; width: 36px; height: 36px; border-radius: 18px;
-                property <bool> on: d == 0 ? S.can-back : S.can-forward;
-                background: nta.pressed && on ? Theme.control-pressed : transparent;
-                Image { x: d == 0 ? 14px : 13px; width: 9px; height: 15px; source: d == 0 ? Glyphs.nav-back : Glyphs.nav-forward; colorize: on ? Theme.text : Theme.text-tertiary; }
-                nta := TouchArea { enabled: on; clicked => { if (d == 0) { S.go-back(); } else { S.go-forward(); } } }
-            }
-            Rectangle { x: 36px; y: 9px; width: 1px; height: 18px; background: Theme.dark ? #ffffff14 : #0000000d; }
-        }
+        NavArrows { x: 7px; y: 8px; can-back: S.can-back; can-forward: S.can-forward; back => { S.go-back(); } forward => { S.go-forward(); } }
         Text { x: 93px; height: 52px; vertical-alignment: center; font-size: 15px; font-weight: 700; color: Theme.text; text: S.title(S.pane); }
     }
 
     Rectangle {
-        x: 8px; y: 8px; width: side-w; height: root.height - 16px;
-        border-radius: 18px;
-        background: root.glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%);
-        border-width: 0.5px; border-color: Theme.sidebar-border;
-        drop-shadow-blur: 10px; drop-shadow-color: #00000017; drop-shadow-offset-y: 2px;
+        x: solid ? 0px : 8px; y: solid ? 0px : 8px;
+        width: solid ? side-w + 8px : side-w; height: solid ? root.height : root.height - 16px;
+        border-radius: solid ? 0px : 18px;
+        background: solid
+            ? (root.glass ? (Theme.dark ? #26262ab8 : #f4f5f7b8) : (Theme.dark ? #29292c : #eeeff2))
+            : (root.glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%));
+        border-width: solid ? 0px : 0.5px; border-color: Theme.sidebar-border;
+        drop-shadow-blur: solid ? 0px : 10px; drop-shadow-color: #00000017; drop-shadow-offset-y: 2px;
+        if solid: Rectangle { x: parent.width - 1px; width: 1px; background: Theme.dark ? #00000066 : #00000014; }
+        if solid && Theme.dark: Rectangle { x: parent.width - 2px; width: 1px; background: #ffffff0a; }
         TouchArea { height: 40px;
             pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { S.win-drag(); } }
         }
-        TrafficLights { x: 13px; y: 13px; active: S.active; close => { S.win-close(); } minimize => { S.win-minimize(); } zoom => { S.win-zoom(); } }
-        Field { x: 10px; y: 42px; width: parent.width - 20px; search: true; placeholder: @tr("Search"); edited(t) => { S.search(t); } }
+        TrafficLights { x: solid ? 18px : 13px; y: solid ? 19px : 13px; active: S.active; close => { S.win-close(); } minimize => { S.win-minimize(); } zoom => { S.win-zoom(); } }
+        Field { x: solid ? 14px : 10px; y: solid ? 50px : 42px; width: parent.width - (solid ? 26px : 20px); search: true; placeholder: @tr("Search"); edited(t) => { S.search(t); } }
         sideflick := Flickable {
-            x: 0; y: 78px; width: parent.width; height: parent.height - 84px;
+            x: 0; y: solid ? 86px : 78px; width: parent.width; height: parent.height - (solid ? 92px : 84px);
             content-height: side.preferred-height + 8px;
             function reveal(top: length, bottom: length) {
                 if bottom + 8px > -self.content-y + self.height { self.content-y = min(0px, self.height - bottom - 8px); }
@@ -1154,7 +1188,7 @@ export component SettingsWindow inherits Window {
             }
             side := VerticalLayout {
                 width: parent.width;
-                padding-left: 10px; padding-right: 10px; spacing: 1px;
+                padding-left: solid ? 14px : 10px; padding-right: solid ? 12px : 10px; spacing: 1px;
                 Rectangle { height: 48px; border-radius: 10px; background: S.pane == "users" ? Theme.hover : transparent;
                     HorizontalLayout { spacing: 9px; padding-left: 6px;
                         VerticalLayout { alignment: center; Avatar { size: 32px; initials: ""; photo: S.has-avatar; } }

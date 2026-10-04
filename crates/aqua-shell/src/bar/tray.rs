@@ -14,6 +14,8 @@ pub const ICON: f32 = 17.0;
 #[derive(Default)]
 pub struct Tray {
     serial: u64,
+    /// `aqua_tray::appmenu::serial()` seen last (the focused app's global menu).
+    app_serial: u64,
     /// Rendered icons by item key: (fingerprint of the icon data, image).
     icons: HashMap<String, (u64, Option<Arc<Pixmap>>)>,
 }
@@ -21,9 +23,12 @@ pub struct Tray {
 impl Tray {
     /// True when the tray changed since the last call (the menu bar must be redrawn).
     pub fn poll(&mut self) -> bool {
+        let app = aqua_tray::appmenu::serial();
+        let app_changed = app != self.app_serial;
+        self.app_serial = app;
         let snap = aqua_tray::snapshot();
         if snap.serial == self.serial {
-            return false;
+            return app_changed;
         }
         self.serial = snap.serial;
         self.icons.retain(|k, _| snap.items.iter().any(|i| &i.key == k));
@@ -31,7 +36,7 @@ impl Tray {
     }
 
     pub fn serial(&self) -> u64 {
-        self.serial
+        self.serial ^ self.app_serial.rotate_left(32)
     }
 
     /// Image for `item` at `px` physical pixels; symbolic icons are tinted with `fg`.
@@ -153,7 +158,7 @@ pub fn handle_events(sh: &mut Shell) -> bool {
 pub fn menu_entries(key: &str) -> Vec<Option<Entry>> {
     let mut out = vec![];
     if let Some(root) = find(key).and_then(|i| i.menu) {
-        flatten(key, &root.children, &mut out);
+        flatten(&root.children, &mut out, &|id| Action::TrayMenu(key.to_string(), id));
     }
     while matches!(out.last(), Some(None)) {
         out.pop();
@@ -161,7 +166,60 @@ pub fn menu_entries(key: &str) -> Vec<Option<Entry>> {
     out
 }
 
-fn flatten(key: &str, nodes: &[MenuNode], out: &mut Vec<Option<Entry>>) {
+/// Titles of the focused app's global menu, if it exports one.
+pub fn app_menu_titles() -> Option<Vec<String>> {
+    let m = aqua_tray::appmenu::current()?;
+    let t: Vec<String> = m.titles().iter().map(|n| n.label.clone()).collect();
+    (!t.is_empty()).then_some(t)
+}
+
+/// Rows of the `i`-th global menu.
+pub fn app_menu_entries(i: usize) -> Option<Vec<Option<Entry>>> {
+    let m = aqua_tray::appmenu::current()?;
+    let node = *m.titles().get(i)?;
+    Some(global_menu_rows(node))
+}
+
+pub fn app_menu_opened(i: usize) {
+    if let Some(m) = aqua_tray::appmenu::current() {
+        if let Some(n) = m.titles().get(i) {
+            aqua_tray::appmenu::opened(n.id);
+        }
+    }
+}
+
+/// Rows of one global (dbusmenu) menu; submenus are flattened under captions.
+pub fn global_menu_rows(menu: &MenuNode) -> Vec<Option<Entry>> {
+    let mut out = vec![];
+    flatten(&menu.children, &mut out, &Action::AppMenu);
+    while matches!(out.last(), Some(None)) {
+        out.pop();
+    }
+    if out.is_empty() {
+        out.push(Some(Entry { label: crate::tr("No Items").to_string(), shortcut: "", action: None, enabled: false, extra: Extra::None }));
+    }
+    out
+}
+
+/// Shortcut labels live as long as the shell: intern them (the set is small and bounded
+/// by what apps declare).
+fn intern(s: &str) -> &'static str {
+    use std::collections::HashSet;
+    use std::sync::{Mutex, OnceLock};
+    if s.is_empty() {
+        return "";
+    }
+    static SET: OnceLock<Mutex<HashSet<&'static str>>> = OnceLock::new();
+    let mut set = SET.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(v) = set.get(s) {
+        return v;
+    }
+    let v: &'static str = Box::leak(s.to_string().into_boxed_str());
+    set.insert(v);
+    v
+}
+
+fn flatten(nodes: &[MenuNode], out: &mut Vec<Option<Entry>>, act: &dyn Fn(i32) -> Action) {
     for n in nodes {
         if n.separator {
             if !out.is_empty() && !matches!(out.last(), Some(None)) {
@@ -180,7 +238,7 @@ fn flatten(key: &str, nodes: &[MenuNode], out: &mut Vec<Option<Entry>>) {
                 enabled: false,
                 extra: Extra::Caption,
             }));
-            flatten(key, &n.children, out);
+            flatten(&n.children, out, act);
             out.push(None);
             continue;
         }
@@ -190,10 +248,75 @@ fn flatten(key: &str, nodes: &[MenuNode], out: &mut Vec<Option<Entry>>) {
         };
         out.push(Some(Entry {
             label: n.label.clone(),
-            shortcut: "",
-            action: Some(Action::TrayMenu(key.to_string(), n.id)),
+            shortcut: intern(&n.shortcut),
+            action: Some(act(n.id)),
             enabled: n.enabled,
             extra,
         }));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn n(id: i32, label: &str) -> MenuNode {
+        MenuNode { id, label: label.into(), enabled: true, ..Default::default() }
+    }
+
+    #[test]
+    fn global_menu_rows_map_to_app_menu_actions() {
+        let mut file = n(1, "File");
+        let mut recent = n(5, "Open Recent");
+        recent.children = vec![n(6, "a.txt"), n(7, "b.txt")];
+        file.children = vec![
+            MenuNode { shortcut: "⌘O".into(), ..n(2, "Open…") },
+            MenuNode { separator: true, ..n(3, "") },
+            MenuNode { separator: true, ..n(4, "") },
+            recent,
+            MenuNode { enabled: false, ..n(8, "Save") },
+            MenuNode { toggle: MenuToggle::Check(true), ..n(9, "Autosave") },
+            MenuNode { separator: true, ..n(10, "") },
+        ];
+        let rows = global_menu_rows(&file);
+        let labels: Vec<Option<&str>> = rows.iter().map(|r| r.as_ref().map(|e| e.label.as_str())).collect();
+        assert_eq!(
+            labels,
+            vec![
+                Some("Open…"),
+                None,
+                Some("Open Recent"),
+                Some("a.txt"),
+                Some("b.txt"),
+                None,
+                Some("Save"),
+                Some("Autosave")
+            ],
+            "duplicate and trailing separators collapse, submenus flatten under a caption"
+        );
+        let open = rows[0].as_ref().unwrap();
+        assert_eq!(open.action, Some(Action::AppMenu(2)));
+        assert_eq!(open.shortcut, "⌘O");
+        let caption = rows[2].as_ref().unwrap();
+        assert_eq!(caption.extra, Extra::Caption);
+        assert!(caption.action.is_none());
+        assert_eq!(rows[4].as_ref().unwrap().action, Some(Action::AppMenu(7)));
+        assert!(!rows[6].as_ref().unwrap().enabled);
+        assert_eq!(rows[7].as_ref().unwrap().extra, Extra::Check(true));
+    }
+
+    #[test]
+    fn empty_global_menu_shows_placeholder() {
+        let rows = global_menu_rows(&n(1, "Help"));
+        assert_eq!(rows.len(), 1);
+        assert!(!rows[0].as_ref().unwrap().enabled);
+    }
+
+    #[test]
+    fn shortcut_interning_is_stable() {
+        let a = intern("⇧⌘S");
+        let b = intern(&String::from("⇧⌘S"));
+        assert!(std::ptr::eq(a, b));
+        assert_eq!(intern(""), "");
     }
 }

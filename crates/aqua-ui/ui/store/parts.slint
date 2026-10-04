@@ -1,0 +1,444 @@
+import { Theme } from "../common.slint";
+import { SG } from "glyphs.slint";
+import { SApp, SHero, AS } from "model.slint";
+
+export component Hairline inherits Rectangle {
+    height: 1px;
+    background: Theme.separator;
+}
+
+export component AppIcon inherits Rectangle {
+    in property <SApp> app;
+    in property <length> size: 56px;
+    width: size;
+    height: size;
+    if app.has-icon: Image {
+        width: root.size;
+        height: root.size;
+        source: app.icon;
+        image-fit: contain;
+    }
+    if !app.has-icon: Rectangle {
+        x: root.size * 0.1;
+        y: root.size * 0.1;
+        width: root.size * 0.8;
+        height: root.size * 0.8;
+        border-radius: self.width * 0.225;
+        background: @linear-gradient(180deg, app.tint.brighter(30%) 0%, app.tint 100%);
+        drop-shadow-blur: root.size * 0.04;
+        drop-shadow-offset-y: root.size * 0.02;
+        drop-shadow-color: #00000030;
+        Text {
+            text: app.letter;
+            color: white;
+            font-size: root.size * 0.36;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component Ring inherits Rectangle {
+    in property <float> progress;
+    in property <color> tint: Theme.accent;
+    in property <length> size: 26px;
+    in property <bool> stop: true;
+    width: size;
+    height: size;
+    property <float> t: progress < 0 ? mod(animation-tick() / 1ms, 1100) / 1100 : 0;
+    property <float> a0: progress < 0 ? t * 360 - 90 : -90;
+    property <float> sweep: progress < 0 ? 110 : max(2, min(359.5, progress * 360));
+    property <float> x0: 50 + 42 * cos(a0 * 1deg);
+    property <float> y0: 50 + 42 * sin(a0 * 1deg);
+    property <float> x1: 50 + 42 * cos((a0 + sweep) * 1deg);
+    property <float> y1: 50 + 42 * sin((a0 + sweep) * 1deg);
+    Rectangle {
+        border-radius: root.size / 2;
+        border-width: max(2px, root.size * 0.09);
+        border-color: Theme.dark ? #ffffff26 : #00000017;
+    }
+    Path {
+        width: root.size;
+        height: root.size;
+        viewbox-width: 100;
+        viewbox-height: 100;
+        fill: transparent;
+        stroke: root.tint;
+        stroke-width: max(2px, root.size * 0.09);
+        stroke-line-cap: round;
+        commands: "M " + x0 + " " + y0 + " A 42 42 0 " + (sweep > 180 ? 1 : 0) + " 1 " + x1 + " " + y1;
+    }
+    if stop: Rectangle {
+        width: root.size * 0.3;
+        height: root.size * 0.3;
+        border-radius: 2px;
+        background: root.tint;
+    }
+}
+
+export component GetButton inherits Rectangle {
+    in property <int> state;
+    in property <float> progress;
+    in property <bool> filled: false;
+    in property <bool> large: false;
+    callback clicked();
+    callback cancel();
+    property <bool> busy: state == 3 || state == 4 || state == 6;
+    property <string> label: state == 1 ? @tr("Open") : state == 2 ? @tr("Update") : state == 5 ? @tr("Installed") : @tr("Get");
+    height: large ? 30px : 26px;
+    width: busy ? self.height : max(large ? 76px : 64px, lbl.preferred-width + (large ? 34px : 26px));
+    border-radius: self.height / 2;
+    property <color> base: filled ? Theme.accent : (Theme.dark ? #ffffff1f : #eceef3);
+    background: busy ? transparent : (ta.pressed ? (filled ? base.darker(18%) : (Theme.dark ? #ffffff30 : #dfe2e9)) : base);
+    animate width { duration: 180ms; easing: ease-out; }
+    lbl := Text {
+        visible: !root.busy;
+        text: root.label;
+        font-size: large ? 14px : 13px;
+        font-weight: 700;
+        color: root.filled ? white : (root.state == 5 ? Theme.text-secondary : Theme.accent);
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if busy: Ring {
+        size: root.height - 2px;
+        progress: root.state == 4 ? root.progress : -1;
+        stop: root.state != 6;
+    }
+    ta := TouchArea {
+        enabled: root.state != 5 && root.state != 6;
+        mouse-cursor: pointer;
+        clicked => {
+            if root.busy { root.cancel(); } else { root.clicked(); }
+        }
+    }
+}
+
+export component Link inherits Text {
+    in property <bool> enabled: true;
+    callback clicked();
+    font-size: 13px;
+    color: enabled ? (lt.pressed ? Theme.accent.darker(20%) : Theme.accent) : Theme.text-tertiary;
+    vertical-alignment: center;
+    lt := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component Badge inherits Rectangle {
+    in property <string> text;
+    in property <color> tint: Theme.text-secondary;
+    height: 16px;
+    width: bt.preferred-width + 10px;
+    border-radius: 8px;
+    background: tint.with-alpha(0.13);
+    bt := Text {
+        text: root.text;
+        font-size: 10px;
+        font-weight: 600;
+        color: root.tint;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+    }
+}
+
+export component Stars inherits Rectangle {
+    in property <float> value;
+    in property <length> size: 10px;
+    in property <color> tint: Theme.text-secondary;
+    width: size * 5 + 2px * 4;
+    height: size;
+    for i in 5: Rectangle {
+        x: i * (root.size + 2px);
+        width: root.size;
+        height: root.size;
+        Image { source: SG.star-empty; width: 100%; height: 100%; colorize: root.tint; }
+        Rectangle {
+            x: 0;
+            width: root.size * max(0, min(1, root.value - i));
+            clip: true;
+            Image { x: 0; source: SG.star-fill; width: root.size; height: root.size; colorize: root.tint; }
+        }
+    }
+}
+
+export component RoundButton inherits Rectangle {
+    in property <image> glyph;
+    in property <length> size: 34px;
+    in property <bool> plain: false;
+    callback clicked();
+    width: size;
+    height: size;
+    border-radius: size / 2;
+    background: plain ? (ta.pressed ? Theme.control-pressed : ta.has-hover ? Theme.hover : transparent)
+        : (ta.pressed ? (Theme.dark ? #ffffff2a : #f0f0f2) : (Theme.dark ? #ffffff17 : #ffffffeb));
+    border-width: plain ? 0px : 0.5px;
+    border-color: Theme.dark ? #ffffff1f : #00000012;
+    drop-shadow-blur: plain ? 0px : 8px;
+    drop-shadow-color: #0000001f;
+    drop-shadow-offset-y: 1px;
+    animate background { duration: 120ms; easing: ease-out; }
+    transform-scale: ta.pressed && Theme.motion ? 0.92 : 1.0;
+    animate transform-scale { duration: 160ms; easing: cubic-bezier(0.3, 1.4, 0.5, 1); }
+    Image {
+        width: root.size * 0.46;
+        height: root.size * 0.46;
+        source: root.glyph;
+        colorize: Theme.text;
+    }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+export component ShelfHeader inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle;
+    in property <bool> see-all: true;
+    in property <string> link: @tr("See All");
+    callback clicked();
+    height: subtitle == "" ? 34px : 50px;
+    Text {
+        x: 0;
+        y: 4px;
+        width: parent.width - (root.see-all ? sa.preferred-width + 16px : 0px);
+        text: root.title;
+        font-size: 19px;
+        font-weight: 700;
+        color: Theme.text;
+        overflow: elide;
+    }
+    if subtitle != "": Text {
+        x: 0;
+        y: 30px;
+        text: root.subtitle;
+        font-size: 13px;
+        color: Theme.text-secondary;
+        overflow: elide;
+        width: parent.width;
+    }
+    sa := Link {
+        visible: root.see-all;
+        x: parent.width - self.preferred-width;
+        y: 6px;
+        height: 22px;
+        text: root.link;
+        font-size: 14px;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component AppRow inherits Rectangle {
+    in property <SApp> app;
+    in property <bool> separator: true;
+    in property <length> icon-size: 56px;
+    in property <bool> show-source: true;
+    height: icon-size + 22px;
+    background: transparent;
+    AppIcon {
+        x: 0;
+        y: (parent.height - self.height) / 2;
+        app: root.app;
+        size: root.icon-size;
+    }
+    property <length> tx: icon-size + 12px;
+    property <bool> busy: app.state == 3 || app.state == 4 || app.state == 6;
+    property <length> bw: btn.width + 12px;
+    VerticalLayout {
+        x: tx;
+        width: parent.width - tx - bw;
+        alignment: center;
+        spacing: 2px;
+        HorizontalLayout {
+            spacing: 4px;
+            Text { text: app.name; font-size: 14px; color: Theme.text; overflow: elide; vertical-alignment: center; }
+            if app.verified: VerticalLayout {
+                alignment: center;
+                Image { width: 12px; height: 12px; source: SG.seal; colorize: Theme.accent; }
+            }
+        }
+        Text { text: app.summary; font-size: 12px; color: Theme.text-secondary; overflow: elide; }
+        if app.detail != "": Text { text: app.detail; font-size: 11px; color: Theme.text-tertiary; overflow: elide; }
+    }
+    rta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { AS.open-app(app.key); }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                AS.app-menu(app.key, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+            }
+        }
+    }
+    btn := GetButton {
+        x: parent.width - self.width;
+        y: (parent.height - self.height) / 2 - (root.show-source && app.source != "" && !root.busy ? 5px : 0px);
+        state: app.state;
+        progress: app.progress;
+        clicked => { AS.primary(app.key); }
+        cancel => { AS.cancel(app.key); }
+    }
+    if root.show-source && app.source != "" && !root.busy: Text {
+        x: btn.x - 20px;
+        width: btn.width + 40px;
+        y: btn.y + btn.height + 2px;
+        text: app.source;
+        font-size: 9px;
+        color: Theme.text-tertiary;
+        horizontal-alignment: center;
+        overflow: elide;
+    }
+    if separator: Hairline {
+        x: tx;
+        y: parent.height - 1px;
+        width: parent.width - tx;
+    }
+}
+
+export component AppGrid inherits Rectangle {
+    in property <[SApp]> apps;
+    in property <int> cols: 3;
+    in property <length> gap: 24px;
+    in property <length> icon-size: 56px;
+    property <length> row-h: icon-size + 22px;
+    property <int> rows: ceil(apps.length / cols);
+    property <length> col-w: (self.width - (cols - 1) * gap) / cols;
+    height: rows * row-h;
+    for a[i] in apps: AppRow {
+        x: mod(i, root.cols) * (root.col-w + root.gap);
+        y: floor(i / root.cols) * root.row-h;
+        width: root.col-w;
+        icon-size: root.icon-size;
+        app: a;
+        separator: floor(i / root.cols) < root.rows - 1;
+    }
+}
+
+export component HeroCard inherits Rectangle {
+    in property <SHero> hero;
+    border-radius: 16px;
+    clip: true;
+    property <bool> light-brand: hero.brand.red * 0.299 + hero.brand.green * 0.587 + hero.brand.blue * 0.114 > 175;
+    property <color> fg: light-brand ? #000000e0 : white;
+    background: @linear-gradient(140deg, hero.brand.brighter(18%) 0%, hero.brand 55%, hero.brand.darker(22%) 100%);
+    if hero.has-art: Rectangle {
+        x: root.width * 0.34;
+        y: 104px;
+        width: root.width * 0.74;
+        height: root.height - 104px;
+        Image {
+            property <float> ratio: self.source.width / max(1, self.source.height);
+            x: 0;
+            y: 0;
+            width: min(parent.width, parent.height * 1.25 * ratio);
+            height: self.width / max(0.01, ratio);
+            source: hero.art;
+            image-fit: fill;
+            image-rendering: smooth;
+        }
+    }
+    if !hero.has-art: AppIcon {
+        x: root.width - self.width - 36px;
+        y: (root.height - 76px - self.height) / 2 + 20px;
+        size: min(root.height * 0.42, 150px);
+        app: hero.app;
+    }
+    VerticalLayout {
+        x: 22px;
+        y: 18px;
+        width: root.width - 44px;
+        alignment: start;
+        spacing: 2px;
+        Text { text: hero.label; font-size: 11px; font-weight: 700; letter-spacing: 0.4px; color: fg.with-alpha(0.78); }
+        Text { text: hero.title; font-size: 24px; font-weight: 800; color: fg; overflow: elide; }
+        Text { text: hero.subtitle; font-size: 13px; color: fg.with-alpha(0.85); overflow: elide; }
+    }
+    // Scrim under the info bar so busy artwork never shows through the text.
+    Rectangle {
+        y: root.height - 118px;
+        height: 118px;
+        background: @linear-gradient(180deg, hero.brand.darker(20%).with-alpha(0) 0%, hero.brand.darker(20%).with-alpha(0.85) 55%, hero.brand.darker(25%) 100%);
+    }
+    Rectangle {
+        x: 16px;
+        y: root.height - 72px;
+        width: root.width - 32px;
+        height: 60px;
+        border-radius: 14px;
+        background: Theme.dark ? hero.brand.mix(#141416, 0.22).with-alpha(0.93) : hero.brand.mix(#ffffff, 0.12).with-alpha(0.94);
+        border-width: 0.5px;
+        border-color: Theme.dark ? #ffffff24 : #00000014;
+        drop-shadow-blur: 12px;
+        drop-shadow-offset-y: 2px;
+        drop-shadow-color: #00000026;
+        AppIcon { x: 8px; y: 6px; size: 48px; app: hero.app; }
+        VerticalLayout {
+            x: 64px;
+            width: parent.width - 64px - hb.width - 22px;
+            alignment: center;
+            spacing: 1px;
+            Text { text: hero.app.name; font-size: 13px; font-weight: 600; color: Theme.text; overflow: elide; }
+            Text { text: hero.app.summary; font-size: 11px; color: Theme.text-secondary; overflow: elide; }
+        }
+        hb := GetButton {
+            x: parent.width - self.width - 12px;
+            y: (parent.height - self.height) / 2;
+            state: hero.app.state;
+            progress: hero.app.progress;
+            clicked => { AS.primary(hero.app.key); }
+            cancel => { AS.cancel(hero.app.key); }
+        }
+    }
+    TouchArea {
+        y: 0;
+        height: root.height - 76px;
+        mouse-cursor: pointer;
+        clicked => { AS.open-app(hero.app.key); }
+    }
+}
+
+export component Spinner inherits Rectangle {
+    in property <length> size: 22px;
+    width: size;
+    height: size;
+    property <int> phase: mod(animation-tick() / 80ms, 8);
+    for i in 8: Rectangle {
+        x: root.size / 2 - 1.25px + root.size * 0.34 * cos((i * 45 - 90) * 1deg);
+        y: root.size / 2 - 1.25px + root.size * 0.34 * sin((i * 45 - 90) * 1deg);
+        width: 2.5px;
+        height: 2.5px;
+        border-radius: 1.25px;
+        background: Theme.text-secondary.with-alpha(0.25 + 0.75 * mod(i - root.phase + 8, 8) / 7);
+    }
+}
+
+export component Pill inherits Rectangle {
+    in property <string> text;
+    in property <bool> primary: false;
+    in property <bool> destructive: false;
+    in property <bool> enabled: true;
+    in property <length> min-w: 70px;
+    callback clicked();
+    height: 28px;
+    width: max(min-w, pl.preferred-width + 28px);
+    border-radius: 14px;
+    opacity: enabled ? 1 : 0.45;
+    background: primary ? (destructive ? (pa.pressed ? #d70015 : #ff3b30) : (pa.pressed ? Theme.accent.darker(18%) : Theme.accent))
+        : (pa.pressed ? Theme.control-pressed : Theme.control-bg);
+    animate background { duration: 100ms; }
+    transform-scale: pa.pressed && Theme.motion ? 0.96 : 1.0;
+    animate transform-scale { duration: 160ms; easing: cubic-bezier(0.3, 1.4, 0.5, 1); }
+    pl := Text {
+        text: root.text;
+        font-size: 13px;
+        font-weight: 600;
+        color: root.primary ? white : (root.destructive ? #ff3b30 : Theme.text);
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    pa := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}

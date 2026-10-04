@@ -265,6 +265,8 @@ pub const TABLE: &[Counterpart] = &[
         apple: "App Store",
         icon: Builtin("appstore"),
         ids: &[
+            "org.aqua.store",
+            "aqua-store",
             "gnome-software",
             "org.gnome.software",
             "plasma-discover",

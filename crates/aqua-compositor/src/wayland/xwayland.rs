@@ -33,7 +33,36 @@ use std::os::unix::io::OwnedFd;
 /// windows and managed windows typed as menus/tooltips (Steam, Electron, Java). They get no
 /// title bar, keep the position the client asks for and never take keyboard focus.
 pub fn is_popup(x: &X11Surface) -> bool {
-    x.is_override_redirect() || x.window_type().is_some_and(popup_type)
+    x.is_override_redirect() || x.window_type().is_some_and(popup_type) || looks_like_menu(x)
+}
+
+/// A managed window that behaves like a menu without saying so: transient for another
+/// window, untitled, without WM decorations and not a dialog. Steam (CEF) maps its menus
+/// like this; giving them a title bar or the keyboard focus deactivates the Steam window
+/// and the menu closes right after opening.
+fn looks_like_menu(x: &X11Surface) -> bool {
+    !x.is_override_redirect()
+        && x.is_transient_for().is_some()
+        && x.title().trim().is_empty()
+        && x.is_decorated()
+        && !x.is_modal()
+        && !matches!(x.window_type(), Some(WmWindowType::Dialog | WmWindowType::Splash | WmWindowType::Utility))
+}
+
+/// One line per X11 window shown, for diagnosing misbehaving clients
+/// (`RUST_LOG=aqua::wayland::xwayland=debug`).
+fn log_map(kind: &str, x: &X11Surface) {
+    tracing::debug!(
+        "x11 {kind}: id={:#x} class={:?} title={:?} type={:?} or={} transient={:?} client_decorated={} at={:?}",
+        x.window_id(),
+        x.class(),
+        x.title(),
+        x.window_type(),
+        x.is_override_redirect(),
+        x.is_transient_for(),
+        x.is_decorated(),
+        x.last_configure(),
+    );
 }
 
 fn popup_type(t: WmWindowType) -> bool {
@@ -156,8 +185,9 @@ impl Aqua {
             m.display = display;
         }
         self.next_window_id += 1;
-        let geo = window.geometry();
-        let _ = window.configure(geo);
+        // `geometry()` is relative to the window (only frame extents); where the client put
+        // the window on the root is the last configure.
+        let geo = window.last_configure();
         self.space.map_element(w, geo.loc, true);
         self.repick_pointer = true;
         self.needs_redraw = true;
@@ -180,9 +210,15 @@ impl Aqua {
                 }
             }
             let Some(home) = self.home_loc(w) else { continue };
-            let g = x.geometry();
-            if g.loc != home {
-                let _ = x.configure(Rectangle::new(home, g.size));
+            // Compare with what the X server was last told, not `geometry()` (whose location
+            // is window-relative): otherwise every X11 window gets a ConfigureNotify on every
+            // frame, and Chromium/CEF clients (Steam) close their menus and flicker overlays
+            // whenever their window "moves".
+            let g = x.last_configure();
+            let fe = x.frame_extents();
+            let home_x = smithay::utils::Point::<i32, Logical>::from((home.x - fe.left, home.y - fe.top));
+            if g.loc != home_x {
+                let _ = x.configure(Rectangle::new(home_x, g.size));
             }
         }
     }
@@ -206,6 +242,7 @@ impl Aqua {
     }
 
     fn x11_place(&mut self, window: &X11Surface) {
+        log_map("map", window);
         if is_popup(window) {
             return self.x11_place_popup(window);
         }
@@ -219,7 +256,7 @@ impl Aqua {
             m.display = display;
         }
         self.next_window_id += 1;
-        let geo = window.geometry();
+        let geo = Rectangle::new(window.last_configure().loc, window.geometry().size);
         let area = self.placement_output_rect();
         let (ow, oh) = (area.size.w, area.size.h);
         let mb = self.cfg.menubar_height as i32;
@@ -233,7 +270,7 @@ impl Aqua {
             && geo.loc.y > area.loc.y + mb;
         let loc = if wants_pos { (geo.loc.x, geo.loc.y.max(area.loc.y + mb + tb)) } else { centered };
         let rect = Rectangle::<i32, Logical>::new(loc.into(), size);
-        let _ = window.configure(rect);
+        crate::wm::x11_configure(&window, rect);
         let from = self.take_launch_origin(&w);
         {
             let mut m = meta(&w).borrow_mut();
@@ -284,7 +321,8 @@ impl XwmHandler for Aqua {
             // Off-screen holder of a bridged XEmbed tray icon: never shown.
             return;
         }
-        let loc = window.geometry().loc;
+        log_map("map override-redirect", &window);
+        let loc = window.last_configure().loc;
         let w = Window::new_x11_window(window);
         let (display, desk) = self.placement_desk();
         {
@@ -302,12 +340,14 @@ impl XwmHandler for Aqua {
     }
 
     fn unmapped_window(&mut self, _xwm: XwmId, window: X11Surface) {
+        log_map("unmap", &window);
         if let Some(w) = self.window_for_x11(&window) {
             if !meta(&w).borrow().override_redirect {
                 self.capture_ghost(&w);
             }
             self.space.unmap_elem(&w);
             self.minimized.retain(|m| m != &w);
+            self.forget_staged(&w);
             if self.focused_window().is_none() || self.focused_window().as_ref() == Some(&w) {
                 let next = self
                     .space
@@ -331,6 +371,7 @@ impl XwmHandler for Aqua {
         if let Some(w) = self.window_for_x11(&window) {
             self.space.unmap_elem(&w);
             self.minimized.retain(|m| m != &w);
+            self.forget_staged(&w);
         }
         self.repick_pointer = true;
     }
@@ -345,7 +386,7 @@ impl XwmHandler for Aqua {
         h: Option<u32>,
         _reorder: Option<Reorder>,
     ) {
-        let mut geo = window.geometry();
+        let mut geo = window.last_configure();
         let managed = self.window_for_x11(&window);
         if let Some(w) = w {
             geo.size.w = w as i32;
@@ -362,7 +403,8 @@ impl XwmHandler for Aqua {
                 geo.loc.y = y;
             }
         } else if let Some(loc) = managed.as_ref().and_then(|win| self.home_loc(win)) {
-            geo.loc = loc;
+            let fe = window.frame_extents();
+            geo.loc = (loc.x - fe.left, loc.y - fe.top).into();
         }
         let _ = window.configure(geo);
         if let Some(win) = managed.filter(|_| self_placed) {

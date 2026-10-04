@@ -19,8 +19,8 @@ smithay.workspace = true
 smithay-drm-extras.workspace = true
 tracing.workspace = true
 bitflags = "2"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 aqua-config.workspace = true
+aqua-log.workspace = true
 aqua-i18n.workspace = true
 aqua-wm.workspace = true
 aqua-gfx.workspace = true

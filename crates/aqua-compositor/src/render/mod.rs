@@ -92,6 +92,7 @@ enum GlassKey {
     Window(u64),
     Client(u64, u8),
     Mission,
+    TilePreview,
 }
 
 struct GlassSlot {
@@ -154,6 +155,10 @@ pub struct RenderCache {
     pub composites: HashMap<u64, (Instant, Snap)>,
     /// Offscreen capture targets by output name (dropped a few seconds after the last use).
     offscreen: HashMap<String, OffscreenTarget>,
+    /// Where a dragged window will tile when released (drawn behind it).
+    pub tile_preview: Option<crate::wm::tile::Preview>,
+    /// Green title-bar button hovered since (window id, time): opens the tiling menu.
+    pub zoom_hover: Option<(u64, Instant)>,
 }
 
 pub struct FileDragImage {
@@ -206,6 +211,59 @@ impl Default for RenderCache {
             ctx: None,
             composites: HashMap::new(),
             offscreen: HashMap::new(),
+            tile_preview: None,
+            zoom_hover: None,
+        }
+    }
+}
+
+impl Aqua {
+    /// Stage Manager strip: the apps put aside, as small window stacks at the left edge
+    /// (behind the windows on stage).
+    fn push_stage_strip(&mut self, renderer: &mut GlesRenderer, out: &mut Vec<AquaElement>, scale: f64) {
+        if !self.stage.on {
+            return;
+        }
+        let thumbs = self.stage_thumbs();
+        // `out` is front to back: the front window of each stage goes first
+        for (w, r, alpha) in thumbs.into_iter().rev() {
+            let k = (r.size.w / w.geometry().size.w.max(1) as f64) as f32;
+            let radius = (self.cfg.window_radius * k).max(4.0);
+            self.push_snapshot(renderer, out, &w, r, radius, alpha, Some((8.0, 3.0, 0.35)), scale);
+            // server-side decorated (mostly X11) clients draw no background of their own:
+            // give the thumbnail the same frame material the window has on stage
+            if is_ssd(&w) {
+                let id = meta(&w).borrow().id;
+                let p = glass_params(&window_glass(radius, false, self.shell.style.dark), scale as f32);
+                if let Some(e) = self.render_cache.glass_el(GlassKey::Window(id), to_phys(r, scale), p, alpha) {
+                    out.push(AquaElement::Glass(e));
+                }
+            }
+        }
+    }
+
+    /// The translucent glass area a dragged window will tile into.
+    fn push_tile_preview(&mut self, out: &mut Vec<AquaElement>, scale: f64) {
+        let Some(p) = self.render_cache.tile_preview.clone() else { return };
+        let (r, alpha) = p.current();
+        if p.animating() {
+            self.needs_redraw = true;
+        }
+        let dark = self.cfg.dark;
+        let g = GlassStyle {
+            blur: 18.0,
+            tint: if dark { Rgba(0.55, 0.58, 0.66, 0.22) } else { Rgba(1.0, 1.0, 1.0, 0.30) },
+            saturation: 1.25,
+            refraction: 0.0,
+            bevel: 0.0,
+            rim: 0.9,
+            radius: 16.0,
+            shadow: 0.0,
+            max_luma: 1.0,
+        };
+        let params = glass_params(&g, scale as f32);
+        if let Some(e) = self.render_cache.glass_el(GlassKey::TilePreview, to_phys(r, scale), params, alpha) {
+            out.push(AquaElement::Glass(e));
         }
     }
 }
@@ -407,8 +465,15 @@ impl Aqua {
             let at = cursor_n.min(out.len());
             out.splice(at..at, front);
         }
-        for w in windows.iter().filter(|w| Some(meta(w).borrow().id) != dragged) {
+        for (i, w) in windows.iter().filter(|w| Some(meta(w).borrow().id) != dragged).enumerate() {
             self.push_window(renderer, &mut out, w, Some(w) == focused.as_ref(), scale);
+            if i == 0 {
+                // Edge-tiling highlight right behind the window being dragged (it is in front).
+                self.push_tile_preview(&mut out, scale);
+            }
+        }
+        if !self.mission_visible() && !fs_front {
+            self.push_stage_strip(renderer, &mut out, scale);
         }
 
         let mc = self.mission.progress();
@@ -520,7 +585,7 @@ impl Aqua {
     /// Drop caches belonging to windows that no longer exist.
     pub fn prune_render_cache(&mut self) {
         let ids: std::collections::HashSet<u64> =
-            self.space.elements().chain(self.minimized.iter()).map(|w| meta(w).borrow().id).collect();
+            self.space.elements().chain(self.minimized.iter()).chain(self.stage.staged.iter()).map(|w| meta(w).borrow().id).collect();
         let rc = &mut self.render_cache;
         rc.titlebars.retain(|k, _| ids.contains(k));
         rc.shadows.retain(|k, _| ids.contains(k));

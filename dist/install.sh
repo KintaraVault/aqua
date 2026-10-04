@@ -96,7 +96,7 @@ if [ "$AS_ROOT" -eq 0 ]; then
 fi
 root() { $SUDO "$@"; }
 
-BINS="aqua aqua-settings aqua-finder aqua-filechooser aqua-polkit-agent aqua-greeter"
+BINS="aqua aqua-settings aqua-finder aqua-store aqua-filechooser aqua-polkit-agent aqua-greeter"
 SCRIPTS="aqua-session aqua-screenshot"
 ALL_PREFIXES="/usr /usr/local"
 
@@ -137,7 +137,9 @@ if [ "$UNINSTALL" -eq 1 ]; then
         remove_stale "$p/share/aqua"
         remove_stale "$p/share/applications/aqua-screenshot.desktop"
         remove_stale "$p/share/applications/aqua-settings.desktop"
+        remove_stale "$p/share/applications/org.aqua.store.desktop"
     done
+    remove_stale /etc/xdg/autostart/org.aqua.store-updates.desktop
     remove_stale /usr/share/wayland-sessions/aqua.desktop
     remove_stale /usr/share/xdg-desktop-portal/portals/aqua.portal
     remove_stale /usr/share/xdg-desktop-portal/aqua-portals.conf
@@ -199,6 +201,8 @@ put 644 dist/aqua.portal /usr/share/xdg-desktop-portal/portals/aqua.portal
 put 644 dist/aqua-portals.conf /usr/share/xdg-desktop-portal/aqua-portals.conf
 put 644 dist/aqua-screenshot.desktop "$PREFIX/share/applications/aqua-screenshot.desktop"
 put 644 dist/org.aqua.finder.desktop "$PREFIX/share/applications/org.aqua.finder.desktop"
+put 644 dist/org.aqua.store.desktop "$PREFIX/share/applications/org.aqua.store.desktop"
+put 644 dist/org.aqua.store-updates.desktop /etc/xdg/autostart/org.aqua.store-updates.desktop
 ok "session, portal and desktop entries"
 
 if [ ! -f /etc/pam.d/aqua ]; then
@@ -215,6 +219,10 @@ mkdir -p "$tmpd/fonts"
 cp -R assets/fonts/. "$tmpd/fonts/"
 cp dist/greetd/config.toml "$tmpd/greetd-config.toml"
 [ -f dist/arch/nvidia.conf ] && cp dist/arch/nvidia.conf "$tmpd/nvidia-modprobe.conf"
+# zenity / kdialog file dialogs → Aqua's open/save panel (the session puts shims/ first in PATH;
+# every other zenity/kdialog dialog runs the real program)
+mkdir -p "$tmpd/shims"
+for s in zenity kdialog; do ln -s "$BIN/aqua-filechooser" "$tmpd/shims/$s"; done
 # JSON Schema referenced by the `#:schema` line System Settings writes into config.toml
 "$REL/aqua" config-schema > "$tmpd/config.schema.json" 2>/dev/null || rm -f "$tmpd/config.schema.json"
 chmod -R a+rX "$tmpd"
@@ -274,7 +282,7 @@ if [ "$RELOAD" -eq 1 ] && [ -n "$USER_NAME" ]; then
     step "Updating the running session"
     rt=/run/user/$USER_UID
     # helpers are restarted on demand by the compositor / portal
-    for h in aqua-settings aqua-finder aqua-filechooser; do
+    for h in aqua-settings aqua-finder aqua-store aqua-filechooser; do
         if pkill -u "$USER_NAME" -x "$h" 2>/dev/null; then ok "closed old $h (reopen it to get the new version)"; fi
     done
     if pkill -u "$USER_NAME" -x aqua-polkit-agent 2>/dev/null; then ok "restarted polkit agent"; fi

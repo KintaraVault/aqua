@@ -1,4 +1,5 @@
 //! Session services: idle and lock handling, logind, PAM, environment, theming.
+pub mod apptheme;
 pub mod env;
 pub mod idle;
 pub mod lock;

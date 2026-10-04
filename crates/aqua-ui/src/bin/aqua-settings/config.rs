@@ -52,6 +52,9 @@ pub fn load_into(ui: &SettingsWindow, cfg: &Config) {
     s.set_clock_seconds(cfg.clock_seconds);
     s.set_clock_date(cfg.clock_date);
     s.set_menubar_bg(cfg.menubar_background);
+    s.set_global_menu(cfg.global_menu);
+    s.set_style_apps(cfg.style_apps);
+    s.set_stage_manager(cfg.stage_manager);
     let hid = |n: &str| cfg.menubar_hidden.iter().any(|h| h == n);
     s.set_mb_wifi(!hid("wifi"));
     s.set_mb_battery(!hid("battery"));
@@ -59,6 +62,9 @@ pub fn load_into(ui: &SettingsWindow, cfg: &Config) {
     s.set_mb_search(!hid("search"));
     s.set_alert_sound(cfg.alert_sound);
     s.set_window_radius(lerp_inv(cfg.window_radius as f64, 0.0, 30.0));
+    s.set_sidebar_style(if cfg.solid_sidebar() { 1 } else { 0 });
+    s.set_glass_controls(cfg.glass_controls);
+    s.set_glass_lights(cfg.glass_traffic_lights);
     s.set_dock_size(lerp_inv(cfg.dock_icon_size as f64, 32.0, 96.0));
     s.set_dock_magnify(cfg.dock_magnify);
     s.set_dock_mag(lerp_inv(cfg.dock_magnification as f64, 1.0, 2.5));
@@ -106,6 +112,8 @@ pub fn load_into(ui: &SettingsWindow, cfg: &Config) {
     s.set_dock_keep_order(cfg.dock_keep_order);
     s.set_title_dbl_idx(TITLE_DBL.iter().position(|x| *x == cfg.titlebar_double_click).unwrap_or(0) as i32);
     s.set_animate_windows(cfg.animate_windows);
+    s.set_tile_by_drag(cfg.tile_by_drag);
+    s.set_tile_margins(cfg.tile_margins);
     s.set_reduce_motion(cfg.reduce_motion);
     s.set_cursor_size(lerp_inv(cfg.cursor_size as f64, 1.0, 4.0));
     s.set_dnd(cfg.do_not_disturb);
@@ -127,6 +135,9 @@ pub fn store_from(ui: &SettingsWindow, cfg: &mut Config) {
     cfg.clock_seconds = s.get_clock_seconds();
     cfg.clock_date = s.get_clock_date();
     cfg.menubar_background = s.get_menubar_bg();
+    cfg.global_menu = s.get_global_menu();
+    cfg.style_apps = s.get_style_apps();
+    cfg.stage_manager = s.get_stage_manager();
     cfg.menubar_hidden = [
         ("wifi", s.get_mb_wifi()),
         ("battery", s.get_mb_battery()),
@@ -139,6 +150,9 @@ pub fn store_from(ui: &SettingsWindow, cfg: &mut Config) {
     .collect();
     cfg.alert_sound = s.get_alert_sound();
     cfg.window_radius = lerp(s.get_window_radius(), 0.0, 30.0).round() as f32;
+    cfg.sidebar_style = if s.get_sidebar_style() == 1 { "solid" } else { "floating" }.into();
+    cfg.glass_controls = s.get_glass_controls();
+    cfg.glass_traffic_lights = s.get_glass_lights();
     cfg.dock_icon_size = lerp(s.get_dock_size(), 32.0, 96.0).round() as f32;
     cfg.dock_magnify = s.get_dock_magnify();
     if s.get_dock_magnify() {
@@ -179,6 +193,8 @@ pub fn store_from(ui: &SettingsWindow, cfg: &mut Config) {
     cfg.dock_keep_order = s.get_dock_keep_order();
     cfg.titlebar_double_click = TITLE_DBL[s.get_title_dbl_idx().clamp(0, 2) as usize].into();
     cfg.animate_windows = s.get_animate_windows();
+    cfg.tile_by_drag = s.get_tile_by_drag();
+    cfg.tile_margins = s.get_tile_margins();
     cfg.reduce_motion = s.get_reduce_motion();
     cfg.cursor_size = ((lerp(s.get_cursor_size(), 1.0, 4.0) * 2.0).round() / 2.0) as f32;
     cfg.do_not_disturb = s.get_dnd();

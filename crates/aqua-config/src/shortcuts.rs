@@ -40,6 +40,22 @@ pub const SYSTEM: &[SystemShortcut] = &[
     sc("quit-app", "Windows", "Quit application", &["super+q"]),
     sc("hide-others", "Windows", "Hide others", &["super+alt+h"]),
     sc("force-quit", "Windows", "Force Quit Applications…", &["super+alt+Escape"]),
+    // Window tiling (macOS 15: Fn ⌃ + arrows; Linux keyboards have no Fn layer, so ⌃⌥).
+    sc("tile-fill", "Window Tiling", "Fill", &["ctrl+alt+f"]),
+    sc("tile-center", "Window Tiling", "Center", &["ctrl+alt+c"]),
+    sc("tile-left", "Window Tiling", "Tile left half", &["ctrl+alt+left"]),
+    sc("tile-right", "Window Tiling", "Tile right half", &["ctrl+alt+right"]),
+    sc("tile-top", "Window Tiling", "Tile top half", &["ctrl+alt+up"]),
+    sc("tile-bottom", "Window Tiling", "Tile bottom half", &["ctrl+alt+down"]),
+    sc("tile-top-left", "Window Tiling", "Tile top left quarter", &["ctrl+alt+u"]),
+    sc("tile-top-right", "Window Tiling", "Tile top right quarter", &["ctrl+alt+i"]),
+    sc("tile-bottom-left", "Window Tiling", "Tile bottom left quarter", &["ctrl+alt+j"]),
+    sc("tile-bottom-right", "Window Tiling", "Tile bottom right quarter", &["ctrl+alt+k"]),
+    sc("arrange-left-right", "Window Tiling", "Arrange left & right", &["ctrl+alt+shift+left"]),
+    sc("arrange-right-left", "Window Tiling", "Arrange right & left", &["ctrl+alt+shift+right"]),
+    sc("arrange-top-bottom", "Window Tiling", "Arrange top & bottom", &["ctrl+alt+shift+up"]),
+    sc("arrange-quarters", "Window Tiling", "Arrange in quarters", &["ctrl+alt+shift+down"]),
+    sc("tile-restore", "Window Tiling", "Return to previous size", &["ctrl+alt+r"]),
     sc("screenshot", "Screenshots", "Save picture of screen as a file", &["super+shift+3", "Print"]),
     sc("screenshot-area", "Screenshots", "Save picture of selected area as a file", &["super+shift+4", "shift+Print"]),
     sc("screenshot-window", "Screenshots", "Save picture of a window as a file", &["alt+Print"]),
@@ -221,6 +237,23 @@ pub fn pretty(chord: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// Every default chord belongs to exactly one system shortcut (the tiling chords were
+    /// added later and must not steal existing ones).
+    #[test]
+    fn default_chords_are_unique() {
+        let mut seen = std::collections::HashMap::new();
+        for sc in SYSTEM {
+            for c in sc.defaults {
+                if let Some(prev) = seen.insert(normalize(c), sc.id) {
+                    panic!("{c} is the default of both {prev} and {}", sc.id);
+                }
+            }
+        }
+        for id in ["tile-left", "tile-fill", "tile-restore", "arrange-quarters"] {
+            assert!(SYSTEM.iter().any(|s| s.id == id), "{id}");
+        }
+    }
+
     #[test]
     fn normalize_and_pretty() {
         assert_eq!(normalize("Shift+Super+3"), "shift+super+3");

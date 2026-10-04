@@ -2471,3 +2471,1428 @@ msgid_plural "{n} updates available"
 msgstr[0] "Доступно {n} обновление"
 msgstr[1] "Доступно {n} обновления"
 msgstr[2] "Доступно {n} обновлений"
+
+msgid "+ {n} More"
+msgstr "+ еще {n}"
+
+msgid "AGES"
+msgstr "ВОЗРАСТ"
+
+msgid "AUR packages are maintained by the community and built on this computer. Only install packages you trust."
+msgstr "Пакеты AUR поддерживаются сообществом и собираются на этом компьютере. Устанавливайте только те пакеты, которым доверяете."
+
+msgid "Account"
+msgstr "Учетная запись"
+
+msgid "Additional Software Is Needed"
+msgstr "Нужны дополнительные программы"
+
+msgid "Administrator Access Needed"
+msgstr "Нужны права администратора"
+
+msgid "Age Rating"
+msgstr "Возрастной рейтинг"
+
+msgid "All users"
+msgstr "Все пользователи"
+
+msgid "Also delete the app’s data and settings"
+msgstr "Также удалить данные и настройки программы"
+
+msgid "Also remove its configuration files"
+msgstr "Также удалить файлы конфигурации"
+
+msgid "An AUR Helper Is Needed"
+msgstr "Нужен помощник AUR"
+
+msgid "Anonymous"
+msgstr "Аноним"
+
+msgid "Any Linux distribution"
+msgstr "Любой дистрибутив Linux"
+
+msgid "App Store"
+msgstr "App Store"
+
+msgid "Apps Updated"
+msgstr "Программы обновлены"
+
+msgid "CATEGORY"
+msgstr "КАТЕГОРИЯ"
+
+msgid "Can access the internet and local network"
+msgstr "Доступ к интернету и локальной сети"
+
+msgid "Can play and record sound"
+msgstr "Воспроизведение и запись звука"
+
+msgid "Can read and change all files on this computer"
+msgstr "Чтение и изменение всех файлов на компьютере"
+
+msgid "Can read and change files in your home folder"
+msgstr "Чтение и изменение файлов в домашней папке"
+
+msgid "Can use cameras, game controllers and other devices"
+msgstr "Доступ к камерам, игровым контроллерам и другим устройствам"
+
+msgid "Categories"
+msgstr "Категории"
+
+msgid "Category"
+msgstr "Категория"
+
+msgid "Compatibility"
+msgstr "Совместимость"
+
+msgid "Copied"
+msgstr "Скопировано"
+
+msgid "Copy App ID"
+msgstr "Скопировать ID программы"
+
+msgid "Copy Link"
+msgstr "Скопировать ссылку"
+
+msgid "Current user"
+msgstr "Текущий пользователь"
+
+msgid "DEVELOPER"
+msgstr "РАЗРАБОТЧИК"
+
+msgid "DOWNLOADS"
+msgstr "ЗАГРУЗКИ"
+
+msgid "Developer"
+msgstr "Разработчик"
+
+msgid "Discover"
+msgstr "Обзор"
+
+msgid "Done."
+msgstr "Готово."
+
+msgid "Download Size"
+msgstr "Размер загрузки"
+
+msgid "Download {s}"
+msgstr "Загрузка {s}"
+
+msgid "Flagged out of date"
+msgstr "Помечен как устаревший"
+
+msgid "Flatpak Is Needed"
+msgstr "Нужен Flatpak"
+
+msgid "Free software"
+msgstr "Свободное ПО"
+
+msgid "Get"
+msgstr "Загрузить"
+
+msgid "Ignore This Update"
+msgstr "Игнорировать это обновление"
+
+msgid "Install “{n}” from the AUR?"
+msgstr "Установить «{n}» из AUR?"
+
+msgid "Installed"
+msgstr "Установлено"
+
+msgid "Installed: {v}"
+msgstr "Установлена: {v}"
+
+msgid "Installs"
+msgstr "установок"
+
+msgid "LANGUAGE"
+msgstr "ЯЗЫК"
+
+msgid "Languages"
+msgstr "Языки"
+
+msgid "Last checked just now"
+msgstr "Проверено только что"
+
+msgid "Last checked {d}"
+msgstr "Последняя проверка: {d}"
+
+msgid "Last checked {n} min ago"
+msgstr "Проверено {n} мин назад"
+
+msgid "License"
+msgstr "Лицензия"
+
+msgid "More by {d}"
+msgstr "Еще от {d}"
+
+msgid "No apps are available. Check your sources in Settings."
+msgstr "Нет доступных программ. Проверьте источники в настройках."
+
+msgid "Not enough ratings"
+msgstr "Недостаточно оценок"
+
+msgid "Open in Browser"
+msgstr "Открыть в браузере"
+
+msgid "Packager"
+msgstr "Сборщик пакета"
+
+msgid "Permissions…"
+msgstr "Разрешения…"
+
+msgid "Preparing…"
+msgstr "Подготовка…"
+
+msgid "Press Enter to close this window"
+msgstr "Нажмите Enter, чтобы закрыть окно"
+
+msgid "Proprietary"
+msgstr "Проприетарная"
+
+msgid "Reinstall"
+msgstr "Переустановить"
+
+msgid "Reinstall “{n}”?"
+msgstr "Переустановить «{n}»?"
+
+msgid "Removed"
+msgstr "Удалено"
+
+msgid "Removing…"
+msgstr "Удаление…"
+
+msgid "Report a Problem"
+msgstr "Сообщить о проблеме"
+
+msgid "Requires {d}"
+msgstr "Требуется {d}"
+
+msgid "Results for “{q}”"
+msgstr "Результаты для «{q}»"
+
+msgid "Runs in a sandbox"
+msgstr "Работает в песочнице"
+
+msgid "SIZE"
+msgstr "РАЗМЕР"
+
+msgid "Set Up"
+msgstr "Настроено"
+
+msgid "Setup didn’t finish"
+msgstr "Настройка не завершена"
+
+msgid "Show Data Folder"
+msgstr "Показать папку данных"
+
+msgid "Show Details"
+msgstr "Показать подробности"
+
+msgid "Show This Update"
+msgstr "Показывать это обновление"
+
+msgid "Show Updates"
+msgstr "Показать обновления"
+
+msgid "Source"
+msgstr "Источник"
+
+msgid "Status"
+msgstr "Состояние"
+
+msgid "Thanks! Your review was sent."
+msgstr "Спасибо! Отзыв отправлен."
+
+msgid "Thanks. The review was reported."
+msgstr "Спасибо. Жалоба отправлена."
+
+msgid "The app couldn’t be opened."
+msgstr "Не удалось открыть программу."
+
+msgid "The app will be removed and installed again. Your data is kept."
+msgstr "Программа будет удалена и установлена заново. Ваши данные сохранятся."
+
+msgid "The operation failed"
+msgstr "Операция не выполнена"
+
+msgid "The source it comes from isn’t available on this computer."
+msgstr "Ее источник недоступен на этом компьютере."
+
+msgid "This app can’t be installed"
+msgstr "Эту программу нельзя установить"
+
+msgid "This app hasn’t stored any data yet."
+msgstr "Программа еще не сохраняла данных."
+
+msgid "A file with the same name already exists in this folder. Replacing it will overwrite its current contents."
+msgstr "Файл с таким именем уже существует в этой папке. При замене его текущее содержимое будет перезаписано."
+
+msgid "A name can't be empty."
+msgstr "Имя не может быть пустым."
+
+msgid "Add to Sidebar"
+msgstr "Добавить в боковое меню"
+
+msgid "All documents of this kind will now open with “{app}”."
+msgstr "Все документы этого типа теперь будут открываться в «{app}»."
+
+msgid "An item named “{name}” already exists in this location. Do you want to replace it with the one you're copying?"
+msgstr "Объект с именем «{name}» уже существует в этом месте. Заменить его копируемым объектом?"
+
+msgid "An item named “{name}” already exists in this location. Do you want to replace it with the one you're moving?"
+msgstr "Объект с именем «{name}» уже существует в этом месте. Заменить его перемещаемым объектом?"
+
+msgid "Another copy or move is in progress."
+msgstr "Уже выполняется другое копирование или перемещение."
+
+msgid "Apply to All"
+msgstr "Применить ко всем"
+
+msgid "April"
+msgstr "Апрель"
+
+msgid "Archives"
+msgstr "Архивы"
+
+msgid "Are you sure you want to change the extension from “{old}” to “{new}”?"
+msgstr "Вы действительно хотите изменить расширение «{old}» на «{new}»?"
+
+msgid "Are you sure you want to remove the extension “{old}”?"
+msgstr "Вы действительно хотите удалить расширение «{old}»?"
+
+msgid "August"
+msgstr "Август"
+
+msgid "Back"
+msgstr "Назад"
+
+msgid "Calculating…"
+msgstr "Вычисление…"
+
+msgid "Close Tab"
+msgstr "Закрыть вкладку"
+
+msgid "Connect to Server…"
+msgstr "Подключение к серверу…"
+
+msgid "Content type:"
+msgstr "Тип содержимого:"
+
+msgid "Copying {what} to “{dest}”"
+msgstr "Копирование: {what} в «{dest}»"
+
+msgid "Created:"
+msgstr "Создан:"
+
+msgid "Date Created"
+msgstr "Дата создания"
+
+msgid "Date Last Opened"
+msgstr "Дата последнего открытия"
+
+msgid "December"
+msgstr "Декабрь"
+
+msgid "Deselect All"
+msgstr "Снять выделение"
+
+msgid "Dimensions:"
+msgstr "Размеры:"
+
+msgid "Eject"
+msgstr "Извлечь"
+
+msgid "Enclosing Folder"
+msgstr "Папка уровнем выше"
+
+msgid "External disks"
+msgstr "Внешние диски"
+
+msgid "February"
+msgstr "Февраль"
+
+msgid "Find"
+msgstr "Найти"
+
+msgid "Finder"
+msgstr "Finder"
+
+msgid "Folders"
+msgstr "Папки"
+
+msgid "Forward"
+msgstr "Вперед"
+
+msgid "Group By"
+msgstr "Группировать"
+
+msgid "Hidden"
+msgstr "Скрытые"
+
+msgid "If you make this change, your document may open in a different application."
+msgstr "После этого изменения документ может открываться в другой программе."
+
+msgid "Images"
+msgstr "Изображения"
+
+msgid "January"
+msgstr "Январь"
+
+msgid "July"
+msgstr "Июль"
+
+msgid "June"
+msgstr "Июнь"
+
+msgid "Keep Both"
+msgstr "Оставить оба"
+
+msgid "Keep folders on top when sorting by name"
+msgstr "Папки над файлами при сортировке по имени"
+
+msgid "Keep {ext}"
+msgstr "Оставить {ext}"
+
+msgid "Kind:"
+msgstr "Тип:"
+
+msgid "Last opened:"
+msgstr "Последнее открытие:"
+
+msgid "Less than 100 KB"
+msgstr "Менее 100 КБ"
+
+msgid "March"
+msgstr "Март"
+
+msgid "Modified:"
+msgstr "Изменен:"
+
+msgid "Modified: {date}"
+msgstr "Изменен: {date}"
+
+msgid "Move"
+msgstr "Переместить"
+
+msgid "Move Item Here"
+msgstr "Переместить объект сюда"
+
+msgid "Moving {what} to “{dest}”"
+msgstr "Перемещение: {what} в «{dest}»"
+
+msgid "New Folder With Items"
+msgstr "Новая папка с объектами"
+
+msgid "New Folder with Selection"
+msgstr "Новая папка с выбранным"
+
+msgid "New Folder with Selection ({n} Items)"
+msgstr "Новая папка с выбранным (объектов: {n})"
+
+msgid "New Tab"
+msgstr "Новая вкладка"
+
+msgid "No Tags"
+msgstr "Без тегов"
+
+msgid "November"
+msgstr "Ноябрь"
+
+msgid "October"
+msgstr "Октябрь"
+
+msgid "One or more programs may be using it."
+msgstr "Возможно, он используется одной или несколькими программами."
+
+msgid "Open With"
+msgstr "Открыть в программе"
+
+msgid "Open folders in tabs instead of new windows"
+msgstr "Открывать папки во вкладках, а не в новых окнах"
+
+msgid "Open in New Tab"
+msgstr "Открыть в новой вкладке"
+
+msgid "Original:"
+msgstr "Оригинал:"
+
+msgid "Other"
+msgstr "Другое"
+
+msgid "PDF Documents"
+msgstr "Документы PDF"
+
+msgid "Please choose a different name."
+msgstr "Выберите другое имя."
+
+msgid "Presentations"
+msgstr "Презентации"
+
+msgid "Previous 30 Days"
+msgstr "Последние 30 дней"
+
+msgid "Previous 7 Days"
+msgstr "Последние 7 дней"
+
+msgid "Quick Look"
+msgstr "Быстрый просмотр"
+
+msgid "Remove from Sidebar"
+msgstr "Удалить из бокового меню"
+
+msgid "Remove items from the Trash after 30 days"
+msgstr "Удалять объекты из Корзины через 30 дней"
+
+msgid "Rename {n} Items…"
+msgstr "Переименовать объекты ({n})…"
+
+msgid "September"
+msgstr "Сентябрь"
+
+msgid "Share"
+msgstr "Поделиться"
+
+msgid "Show Original"
+msgstr "Показать оригинал"
+
+msgid "Show Path Bar"
+msgstr "Показать строку пути"
+
+msgid "Show Sidebar"
+msgstr "Показать боковое меню"
+
+msgid "Show Status Bar"
+msgstr "Показать строку состояния"
+
+msgid "Show Tab Bar"
+msgstr "Показать панель вкладок"
+
+msgid "Show View Options"
+msgstr "Показать параметры вида"
+
+msgid "Show all filename extensions"
+msgstr "Показывать все расширения имен файлов"
+
+msgid "Show warning before changing an extension"
+msgstr "Показывать предупреждение перед изменением расширения"
+
+msgid "Show warning before emptying the Trash"
+msgstr "Показывать предупреждение перед очисткой Корзины"
+
+msgid "Size:"
+msgstr "Размер:"
+
+msgid "Sort By"
+msgstr "Сортировать"
+
+msgid "Spreadsheets"
+msgstr "Таблицы"
+
+msgid "Terminal"
+msgstr "Терминал"
+
+msgid "The default application couldn't be changed."
+msgstr "Не удалось изменить программу по умолчанию."
+
+msgid "The folder couldn't be created."
+msgstr "Не удалось создать папку."
+
+msgid "The items couldn't be renamed."
+msgstr "Не удалось переименовать объекты."
+
+msgid "The operation can't be completed."
+msgstr "Не удается завершить операцию."
+
+msgid "The original location of this item is unknown."
+msgstr "Исходное расположение этого объекта неизвестно."
+
+msgid "The permissions couldn't be changed."
+msgstr "Не удалось изменить права доступа."
+
+msgid "Today"
+msgstr "Сегодня"
+
+msgid "Uninstall"
+msgstr "Удалить"
+
+msgid "Uninstall “{n}”?"
+msgstr "Удалить «{n}»?"
+
+msgid "Uninstall…"
+msgstr "Удалить…"
+
+msgid "Update"
+msgstr "Обновить"
+
+msgid "Update System Packages?"
+msgstr "Обновить системные пакеты?"
+
+msgid "Updated"
+msgstr "Обновлено"
+
+msgid "Updates"
+msgstr "Обновления"
+
+msgid "Updates couldn’t be installed"
+msgstr "Не удалось установить обновления"
+
+msgid "Updates installed."
+msgstr "Обновления установлены."
+
+msgid "Uses the legacy display server, which is less isolated"
+msgstr "Использует устаревший сервер X11, он хуже изолирован"
+
+msgid "Version"
+msgstr "Версия"
+
+msgid "Version {v}"
+msgstr "Версия {v}"
+
+msgid "Votes"
+msgstr "Голоса"
+
+msgid "Waiting…"
+msgstr "Ожидание…"
+
+msgid "Working…"
+msgstr "Выполняется…"
+
+msgid "Years"
+msgstr "лет"
+
+msgid "Undo {action}"
+msgstr "Отменить: {action}"
+
+msgid "Unknown"
+msgstr "Неизвестно"
+
+msgid "Use Groups"
+msgstr "Использовать группы"
+
+msgid "Use {ext}"
+msgstr "Использовать {ext}"
+
+msgid "Videos"
+msgstr "Видео"
+
+msgid "Wait for it to finish, or stop it."
+msgstr "Дождитесь завершения или остановите операцию."
+
+msgid "Where:"
+msgstr "Где:"
+
+msgid "Yesterday"
+msgstr "Вчера"
+
+msgid "You Might Also Like"
+msgstr "Вам может понравиться"
+
+msgid "Your review couldn’t be sent: {e}"
+msgstr "Не удалось отправить отзыв: {e}"
+
+msgid "“{n}” and the packages only it needs will be removed from this computer."
+msgstr "«{n}» и пакеты, нужные только ей, будут удалены с компьютера."
+
+msgid "“{n}” couldn’t be installed"
+msgstr "Не удалось установить «{n}»"
+
+msgid "“{n}” couldn’t be removed"
+msgstr "Не удалось удалить «{n}»"
+
+msgid "“{n}” is installed."
+msgstr "«{n}» установлена."
+
+msgid "“{n}” is up to date."
+msgstr "«{n}» обновлена."
+
+msgid "“{n}” was removed."
+msgstr "«{n}» удалена."
+
+msgid "“{n}” will be removed from this computer."
+msgstr "«{n}» будет удалена с компьютера."
+
+msgid "Arcade"
+msgstr "Аркады"
+
+msgid "Create"
+msgstr "Творчество"
+
+msgid "Work"
+msgstr "Работа"
+
+msgid "Play"
+msgstr "Игры"
+
+msgid "Develop"
+msgstr "Разработка"
+
+msgid "Featured"
+msgstr "Рекомендуем"
+
+msgid "App of the Day"
+msgstr "Программа дня"
+
+msgid "App of the Week"
+msgstr "Программа недели"
+
+msgid "Editors’ Choice: Verified Apps"
+msgstr "Выбор редакции: проверенные программы"
+
+msgid "New Apps We Love"
+msgstr "Новинки, которые нам нравятся"
+
+msgid "Top Apps"
+msgstr "Топ программ"
+
+msgid "Trending Now"
+msgstr "Сейчас в тренде"
+
+msgid "New & Updated"
+msgstr "Новое и обновленное"
+
+msgid "Fresh Arrivals"
+msgstr "Только что добавленные"
+
+msgid "Verified Developers"
+msgstr "Проверенные разработчики"
+
+msgid "Arcade Classics"
+msgstr "Классика аркад"
+
+msgid "Action Games"
+msgstr "Экшен"
+
+msgid "Puzzle & Logic"
+msgstr "Головоломки и логика"
+
+msgid "Board & Card Games"
+msgstr "Настольные и карточные"
+
+msgid "Emulators"
+msgstr "Эмуляторы"
+
+msgid "Graphics & Design"
+msgstr "Графика и дизайн"
+
+msgid "Photography"
+msgstr "Фотография"
+
+msgid "Music & Audio"
+msgstr "Музыка и аудио"
+
+msgid "Video Editing"
+msgstr "Видеомонтаж"
+
+msgid "3D & Modeling"
+msgstr "3D и моделирование"
+
+msgid "Productivity"
+msgstr "Продуктивность"
+
+msgid "Communication"
+msgstr "Общение"
+
+msgid "Email"
+msgstr "Почта"
+
+msgid "Finance"
+msgstr "Финансы"
+
+msgid "Web Browsers"
+msgstr "Браузеры"
+
+msgid "Top Games"
+msgstr "Лучшие игры"
+
+msgid "Strategy"
+msgstr "Стратегии"
+
+msgid "Adventure"
+msgstr "Приключения"
+
+msgid "Media Players"
+msgstr "Медиаплееры"
+
+msgid "Kids"
+msgstr "Для детей"
+
+msgid "Developer Tools"
+msgstr "Инструменты разработчика"
+
+msgid "Code Editors & IDEs"
+msgstr "Редакторы кода и IDE"
+
+msgid "Version Control"
+msgstr "Контроль версий"
+
+msgid "Debugging"
+msgstr "Отладка"
+
+msgid "Science & Engineering"
+msgstr "Наука и инженерия"
+
+msgid "Education"
+msgstr "Образование"
+
+msgid "Entertainment"
+msgstr "Развлечения"
+
+msgid "Games"
+msgstr "Игры"
+
+msgid "Medical"
+msgstr "Медицина"
+
+msgid "News"
+msgstr "Новости"
+
+msgid "Photo & Video"
+msgstr "Фото и видео"
+
+msgid "Science"
+msgstr "Наука"
+
+msgid "Social Networking"
+msgstr "Социальные сети"
+
+msgid "Security"
+msgstr "Безопасность"
+
+msgid "Video"
+msgstr "Видео"
+
+msgid "Audio & Video"
+msgstr "Аудио и видео"
+
+msgid "Networking"
+msgstr "Сеть"
+
+msgid "bytes"
+msgstr "байт"
+
+msgid "Adding Flathub"
+msgstr "Добавление Flathub"
+
+msgid "Installing Flatpak"
+msgstr "Установка Flatpak"
+
+msgid "Installing app catalog"
+msgstr "Установка каталога программ"
+
+msgid "Installing build tools"
+msgstr "Установка инструментов сборки"
+
+msgid "Installing pacman-contrib"
+msgstr "Установка pacman-contrib"
+
+msgid "Refreshing Flathub catalog"
+msgstr "Обновление каталога Flathub"
+
+msgid "Refreshing package databases"
+msgstr "Обновление баз пакетов"
+
+msgid "Refreshing package lists"
+msgstr "Обновление списков пакетов"
+
+msgid "Refreshing package metadata"
+msgstr "Обновление метаданных пакетов"
+
+msgid "Removing unused runtimes"
+msgstr "Удаление неиспользуемых сред"
+
+msgid "Repairing Flatpak installation"
+msgstr "Восстановление Flatpak"
+
+msgid "Updating AUR packages"
+msgstr "Обновление пакетов AUR"
+
+msgid "Updating Flatpak apps"
+msgstr "Обновление программ Flatpak"
+
+msgid "Updating packages"
+msgstr "Обновление пакетов"
+
+msgid "Updating system packages"
+msgstr "Обновление системных пакетов"
+
+msgid "Updating"
+msgstr "Обновление"
+
+msgid "Installing {n}"
+msgstr "Установка {n}"
+
+msgid "Removing {n}"
+msgstr "Удаление {n}"
+
+msgid "Building {n}"
+msgstr "Сборка {n}"
+
+msgid "Downloading {n}"
+msgstr "Загрузка {n}"
+
+msgid "Updating {n}"
+msgstr "Обновление {n}"
+
+msgid "Cancelled."
+msgstr "Отменено."
+
+msgid "Authentication was cancelled."
+msgstr "Аутентификация отменена."
+
+msgid "You are not authorized to make this change."
+msgstr "У вас нет прав на это изменение."
+
+msgid "Check your internet connection and try again."
+msgstr "Проверьте подключение к интернету и повторите попытку."
+
+msgid "Another package operation is running. Try again when it finishes."
+msgstr "Выполняется другая операция с пакетами. Повторите, когда она завершится."
+
+msgid "There is not enough disk space."
+msgstr "Недостаточно места на диске."
+
+msgid "Network Access"
+msgstr "Доступ к сети"
+
+msgid "Can access the internet"
+msgstr "Может выходить в интернет"
+
+msgid "System Libraries"
+msgstr "Системные библиотеки"
+
+msgid "Can read system libraries and executables"
+msgstr "Может читать системные библиотеки и программы"
+
+msgid "System Configuration"
+msgstr "Системная конфигурация"
+
+msgid "Can read system configuration"
+msgstr "Может читать системную конфигурацию"
+
+msgid "Full File System Access"
+msgstr "Полный доступ к файлам"
+
+msgid "Can read all your files"
+msgstr "Может читать все ваши файлы"
+
+msgid "Can read and write all your files"
+msgstr "Может читать и изменять все ваши файлы"
+
+msgid "Home Folder Access"
+msgstr "Доступ к домашней папке"
+
+msgid "Can read files in your home folder"
+msgstr "Может читать файлы в домашней папке"
+
+msgid "Can read and write files in your home folder"
+msgstr "Может читать и изменять файлы в домашней папке"
+
+msgid "Folder Access"
+msgstr "Доступ к папкам"
+
+msgid "Device Access"
+msgstr "Доступ к устройствам"
+
+msgid "Can access cameras, controllers and other devices"
+msgstr "Может использовать камеры, контроллеры и другие устройства"
+
+msgid "Legacy Display System"
+msgstr "Устаревшая графическая система"
+
+msgid "Uses X11, which lets it see other windows"
+msgstr "Использует X11 и может видеть другие окна"
+
+msgid "Can play sounds and use the microphone"
+msgstr "Может воспроизводить звук и использовать микрофон"
+
+msgid "Unrestricted System Access"
+msgstr "Неограниченный доступ к системе"
+
+msgid "Can run commands outside its sandbox"
+msgstr "Может запускать команды вне песочницы"
+
+msgid "System Services"
+msgstr "Системные службы"
+
+msgid "Can talk to system services"
+msgstr "Может обращаться к системным службам"
+
+msgid "No Permissions"
+msgstr "Без разрешений"
+
+msgid "Runs fully sandboxed"
+msgstr "Полностью изолирована"
+
+msgid "Home Folder"
+msgstr "Домашняя папка"
+
+msgid "All Files"
+msgstr "Все файлы"
+
+msgid "Devices"
+msgstr "Устройства"
+
+msgid "X11 Display"
+msgstr "Дисплей X11"
+
+msgid "Administrator Access"
+msgstr "Права администратора"
+
+msgid "Flatpak"
+msgstr "Flatpak"
+
+msgid "Flathub"
+msgstr "Flathub"
+
+msgid "AUR Support"
+msgstr "Поддержка AUR"
+
+msgid "Safe Update Checks"
+msgstr "Безопасная проверка обновлений"
+
+msgid "Add"
+msgstr "Добавить"
+
+msgid "Get thousands of sandboxed apps from Flathub that work on every system."
+msgstr "Тысячи изолированных программ из Flathub, работающих в любой системе."
+
+msgid "Add the Flathub catalog so apps from it can be installed and updated."
+msgstr "Добавьте каталог Flathub, чтобы устанавливать и обновлять программы из него."
+
+msgid "Shows icons, screenshots and descriptions for apps from your system repositories."
+msgstr "Показывает значки, снимки экрана и описания программ из системных репозиториев."
+
+msgid "Install paru to get community packages from the Arch User Repository."
+msgstr "Установите paru, чтобы получать пакеты сообщества из AUR."
+
+msgid "Install pacman-contrib to check for system updates without touching the package database."
+msgstr "Установите pacman-contrib, чтобы проверять обновления, не затрагивая базу пакетов."
+
+msgid "No supported package manager was found. Install Flatpak with your system tools to get apps."
+msgstr "Поддерживаемый менеджер пакетов не найден. Установите Flatpak системными средствами."
+
+msgid "App Store needs a way to ask for your password (polkit). Install it with your system tools."
+msgstr "App Store нужен способ запросить пароль (polkit). Установите его системными средствами."
+
+msgid "Your system updates all its packages together, so {n} package will be updated."
+msgid_plural "Your system updates all its packages together, so {n} packages will be updated."
+msgstr[0] "Система обновляет все пакеты вместе, поэтому будет обновлен {n} пакет."
+msgstr[1] "Система обновляет все пакеты вместе, поэтому будут обновлены {n} пакета."
+msgstr[2] "Система обновляет все пакеты вместе, поэтому будут обновлены {n} пакетов."
+
+msgid "{n} RATING"
+msgid_plural "{n} RATINGS"
+msgstr[0] "{n} ОЦЕНКА"
+msgstr[1] "{n} ОЦЕНКИ"
+msgstr[2] "{n} ОЦЕНОК"
+
+msgid "{n} Rating"
+msgid_plural "{n} Ratings"
+msgstr[0] "{n} оценка"
+msgstr[1] "{n} оценки"
+msgstr[2] "{n} оценок"
+
+msgid "{n} app can be updated."
+msgid_plural "{n} apps can be updated."
+msgstr[0] "Можно обновить {n} программу."
+msgstr[1] "Можно обновить {n} программы."
+msgstr[2] "Можно обновить {n} программ."
+
+msgid "{n} app was updated automatically."
+msgid_plural "{n} apps were updated automatically."
+msgstr[0] "{n} программа обновлена автоматически."
+msgstr[1] "{n} программы обновлены автоматически."
+msgstr[2] "{n} программ обновлено автоматически."
+
+msgid "{n} day ago"
+msgid_plural "{n} days ago"
+msgstr[0] "{n} день назад"
+msgstr[1] "{n} дня назад"
+msgstr[2] "{n} дней назад"
+
+msgid "{n} language"
+msgid_plural "{n} languages"
+msgstr[0] "{n} язык"
+msgstr[1] "{n} языка"
+msgstr[2] "{n} языков"
+
+msgid "{n} month ago"
+msgid_plural "{n} months ago"
+msgstr[0] "{n} месяц назад"
+msgstr[1] "{n} месяца назад"
+msgstr[2] "{n} месяцев назад"
+
+msgid "{n} system package can be updated."
+msgid_plural "{n} system packages can be updated."
+msgstr[0] "Можно обновить {n} системный пакет."
+msgstr[1] "Можно обновить {n} системных пакета."
+msgstr[2] "Можно обновить {n} системных пакетов."
+
+msgid "{n} week ago"
+msgid_plural "{n} weeks ago"
+msgstr[0] "{n} неделю назад"
+msgstr[1] "{n} недели назад"
+msgstr[2] "{n} недель назад"
+
+msgid "{n} year ago"
+msgid_plural "{n} years ago"
+msgstr[0] "{n} год назад"
+msgstr[1] "{n} года назад"
+msgstr[2] "{n} лет назад"
+
+msgid "Zero bytes"
+msgstr "Ноль байт"
+
+msgid "{action} of {what}"
+msgstr "{action}: {what}"
+
+msgid "{app} (default)"
+msgstr "{app} (по умолчанию)"
+
+msgid "{app} Help"
+msgstr "Справка {app}"
+
+msgid "{done} of {total}"
+msgstr "{done} из {total}"
+
+msgid "{i} of {n}"
+msgstr "{i} из {n}"
+
+msgid "{name} (Me)"
+msgstr "{name} (я)"
+
+msgid "{name} Info"
+msgstr "Свойства: {name}"
+
+msgid "{n} Items"
+msgstr "Объектов: {n}"
+
+msgid "{size} ({bytes}) for {items}"
+msgstr "{size} ({bytes}) для {items}"
+
+msgid "“xdg-mime” is not available."
+msgstr "«xdg-mime» недоступен."
+
+msgid "“{name}” already exists."
+msgstr "«{name}» уже существует."
+
+msgid "about {n} second"
+msgid_plural "about {n} seconds"
+msgstr[0] "около {n} секунды"
+msgstr[1] "около {n} секунд"
+msgstr[2] "около {n} секунд"
+
+msgid "Add To Sidebar"
+msgstr "Добавить в боковое меню"
+
+msgid "Choose the items shown in the toolbar."
+msgstr "Выберите объекты для панели инструментов."
+
+msgid "Connect to Server"
+msgstr "Подключение к серверу"
+
+msgid "Connecting…"
+msgstr "Подключение…"
+
+msgid "Create PDF"
+msgstr "Создать PDF"
+
+msgid "Favorite Servers:"
+msgstr "Избранные серверы:"
+
+msgid "No favorite servers"
+msgstr "Нет избранных серверов"
+
+msgid "Page {} of {}"
+msgstr "Страница {} из {}"
+
+msgid "Restore Default"
+msgstr "Восстановить стандартные"
+
+msgid "Rotate Left"
+msgstr "Повернуть влево"
+
+msgid "Rotate Right"
+msgstr "Повернуть вправо"
+
+msgid "Snap to Grid"
+msgstr "Выравнивать по сетке"
+
+msgid "smb://server/share, sftp://host, ftp://…"
+msgstr "smb://сервер/ресурс, sftp://хост, ftp://…"
+
+msgid "Back/Forward"
+msgstr "Назад/Вперед"
+
+msgid "Clean Up"
+msgstr "Разложить"
+
+msgid "Clean Up By"
+msgstr "Упорядочить по"
+
+msgid "Close Other Tabs"
+msgstr "Закрыть другие вкладки"
+
+msgid "Convert to JPEG"
+msgstr "Конвертировать в JPEG"
+
+msgid "Convert to PNG"
+msgstr "Конвертировать в PNG"
+
+msgid "Created date"
+msgstr "Дата создания"
+
+msgid "Customize Toolbar…"
+msgstr "Настроить панель инструментов…"
+
+msgid "Edit Tags"
+msgstr "Изменить теги"
+
+msgid "Get Summary Info"
+msgstr "Свойства (сводка)"
+
+msgid "Group"
+msgstr "Группа"
+
+msgid "Image"
+msgstr "Изображение"
+
+msgid "KDE Connect"
+msgstr "KDE Connect"
+
+msgid "Last modified date"
+msgstr "Дата последнего изменения"
+
+msgid "Last opened date"
+msgstr "Дата последнего открытия"
+
+msgid "Merge All Windows"
+msgstr "Объединить все окна"
+
+msgid "Mixed"
+msgstr "Разные"
+
+msgid "Move Tab to New Window"
+msgstr "Переместить вкладку в новое окно"
+
+msgid "Movie"
+msgstr "Фильм"
+
+msgid "Owner"
+msgstr "Владелец"
+
+msgid "Quick Actions"
+msgstr "Быстрые действия"
+
+msgid "Show Next Tab"
+msgstr "Показать следующую вкладку"
+
+msgid "Show Previous Tab"
+msgstr "Показать предыдущую вкладку"
+
+msgid "Space"
+msgstr "Пробел"
+
+msgid "The operation couldn't be completed for “{name}”."
+msgstr "Не удалось выполнить операцию для «{name}»."
+
+msgid "The search “{name}” couldn't be saved."
+msgstr "Не удалось сохранить поиск «{name}»."
+
+msgid "The server was mounted but its folder couldn't be found."
+msgstr "Сервер подключен, но его папка не найдена."
+
+msgid "There was a problem connecting to the server."
+msgstr "Не удалось подключиться к серверу."
+
+msgid "Any"
+msgstr "Любой"
+
+msgid "PDF"
+msgstr "PDF"
+
+msgid "Contents"
+msgstr "Содержимое"
+
+msgid "is within last"
+msgstr "за последние"
+
+msgid "is today"
+msgstr "сегодня"
+
+msgid "is yesterday"
+msgstr "вчера"
+
+msgid "is this week"
+msgstr "на этой неделе"
+
+msgid "is this month"
+msgstr "в этом месяце"
+
+msgid "is this year"
+msgstr "в этом году"
+
+msgid "is before"
+msgstr "раньше"
+
+msgid "days"
+msgstr "дн."
+
+msgid "weeks"
+msgstr "нед."
+
+msgid "months"
+msgstr "мес."
+
+msgid "years"
+msgstr "г."
+
+msgid "contains"
+msgstr "содержит"
+
+msgid "begins with"
+msgstr "начинается с"
+
+msgid "ends with"
+msgstr "заканчивается на"
+
+msgid "is"
+msgstr "совпадает с"
+
+msgid "is greater than"
+msgstr "больше"
+
+msgid "is less than"
+msgstr "меньше"
+
+msgid "Searching “{place}”"
+msgstr "Поиск: «{place}»"
+
+msgid "everyone"
+msgstr "все"
+
+msgid "New Smart Folder"
+msgstr "Новая смарт-папка"
+
+msgid "Extract Here"
+msgstr "Извлечь сюда"
+
+msgid "Extract “{name}”"
+msgstr "Извлечь «{name}»"
+
+msgid "Extract {n} Items"
+msgstr "Извлечь объекты ({n})"
+
+msgid "Extract All of “{name}”"
+msgstr "Извлечь всё из «{name}»"
+
+msgid "“{name}” couldn't be extracted."
+msgstr "Не удалось извлечь «{name}»."
+
+msgid "Install 7-Zip (7z) or libarchive (bsdtar) to open archives."
+msgstr "Установите 7-Zip (7z) или libarchive (bsdtar), чтобы открывать архивы."
+
+msgid "The folder can't be written to."
+msgstr "В папку нельзя записывать."
+
+msgid "The item couldn't be extracted."
+msgstr "Не удалось извлечь объект."
+
+msgid "Move & Resize"
+msgstr "Переместить и изменить размер"
+
+msgid "Fill & Arrange"
+msgstr "Заполнить и упорядочить"
+
+msgid "Left"
+msgstr "Слева"
+
+msgid "Right"
+msgstr "Справа"
+
+msgid "Top"
+msgstr "Сверху"
+
+msgid "Bottom"
+msgstr "Снизу"
+
+msgid "Top Left"
+msgstr "Сверху слева"
+
+msgid "Top Right"
+msgstr "Сверху справа"
+
+msgid "Bottom Left"
+msgstr "Снизу слева"
+
+msgid "Bottom Right"
+msgstr "Снизу справа"
+
+msgid "Fill"
+msgstr "Заполнить"
+
+msgid "Center"
+msgstr "По центру"
+
+msgid "Left & Right"
+msgstr "Слева и справа"
+
+msgid "Right & Left"
+msgstr "Справа и слева"
+
+msgid "Top & Bottom"
+msgstr "Сверху и снизу"
+
+msgid "Bottom & Top"
+msgstr "Снизу и сверху"
+
+msgid "Quarters"
+msgstr "Четвертями"
+
+msgid "Return to Previous Size"
+msgstr "Вернуть прежний размер"
+
+msgid "Window Tiling"
+msgstr "Расположение окон"
+
+msgid "Tile left half"
+msgstr "Левая половина"
+
+msgid "Tile right half"
+msgstr "Правая половина"
+
+msgid "Tile top half"
+msgstr "Верхняя половина"
+
+msgid "Tile bottom half"
+msgstr "Нижняя половина"
+
+msgid "Tile top left quarter"
+msgstr "Верхняя левая четверть"
+
+msgid "Tile top right quarter"
+msgstr "Верхняя правая четверть"
+
+msgid "Tile bottom left quarter"
+msgstr "Нижняя левая четверть"
+
+msgid "Tile bottom right quarter"
+msgstr "Нижняя правая четверть"
+
+msgid "Arrange left & right"
+msgstr "Упорядочить слева и справа"
+
+msgid "Arrange right & left"
+msgstr "Упорядочить справа и слева"
+
+msgid "Arrange top & bottom"
+msgstr "Упорядочить сверху и снизу"
+
+msgid "Arrange in quarters"
+msgstr "Упорядочить четвертями"
+
+msgid "Return to previous size"
+msgstr "Вернуть прежний размер"
+
+msgid "No Items"
+msgstr "Нет элементов"

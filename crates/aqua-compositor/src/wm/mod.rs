@@ -4,7 +4,10 @@
 pub mod grabs;
 pub mod mission;
 pub mod outputs;
+pub mod popups;
 pub mod spaces;
+pub mod stage;
+pub mod tile;
 
 use crate::input::focus::KeyboardFocusTarget;
 use crate::state::{meta, title_of, Aqua};
@@ -17,6 +20,13 @@ use smithay::{
 };
 
 /// Smithay rectangle → model rectangle.
+/// Configure an X11 window from its *visible* rectangle (space coordinates). Toolkits that draw
+/// client-side shadows (GTK: `_GTK_FRAME_EXTENTS`) have an X window larger than what is shown;
+/// the X server must get the full frame or the window shrinks by its shadow on every configure.
+pub(crate) fn x11_configure(x: &smithay::xwayland::X11Surface, r: Rectangle<i32, Logical>) {
+    let _ = x.configure(r + x.frame_extents());
+}
+
 pub fn to_rect(r: Rectangle<i32, Logical>) -> aqua_wm::Rect {
     aqua_wm::Rect::new(r.loc.x, r.loc.y, r.size.w, r.size.h)
 }
@@ -28,6 +38,17 @@ pub fn from_rect(r: aqua_wm::Rect) -> Rectangle<i32, Logical> {
 
 impl Aqua {
     pub fn focus_window(&mut self, w: &Window) {
+        if meta(w).borrow().override_redirect {
+            // X11 menus / tooltips never take the focus: clicking a Steam (CEF) or Electron
+            // menu item must not deactivate the window that owns the menu, or the client
+            // closes the menu before the click lands.
+            return;
+        }
+        self.dismiss_menu_popups(None);
+        if self.stage.staged.contains(w) {
+            let app = title_of(w).0;
+            self.stage_bring(&app);
+        }
         let desk = meta(w).borrow().desk;
         let display = self.win_display(w);
         let cur = self.spaces.cur(&display);
@@ -179,7 +200,7 @@ impl Aqua {
             t.with_pending_state(|s| s.size = Some(size));
             t.send_pending_configure();
         } else if let Some(x) = w.x11_surface() {
-            let _ = x.configure(Rectangle::new(loc, size));
+            x11_configure(x, Rectangle::new(loc, size));
         }
     }
 
@@ -303,7 +324,7 @@ impl Aqua {
             t.send_pending_configure();
         } else if let Some(x) = w.x11_surface() {
             let _ = x.set_maximized(true);
-            let _ = x.configure(z);
+            x11_configure(x, z);
         }
         self.space.map_element(w.clone(), z.loc, true);
         self.needs_redraw = true;
@@ -324,7 +345,7 @@ impl Aqua {
             t.send_pending_configure();
         } else if let Some(x) = w.x11_surface() {
             let _ = x.set_maximized(false);
-            let _ = x.configure(r);
+            x11_configure(x, r);
         }
         self.start_geo_anim(w, Rectangle::new((r.loc.x, r.loc.y - tb).into(), (r.size.w, r.size.h + tb).into()));
         self.space.map_element(w.clone(), r.loc, true);
@@ -377,7 +398,7 @@ impl Aqua {
                 t.send_pending_configure();
             } else if let Some(x) = w.x11_surface() {
                 let _ = x.set_fullscreen(true);
-                let _ = x.configure(geo);
+                x11_configure(x, geo);
             }
             self.space.map_element(w.clone(), geo.loc, true);
             self.focus_window(w);
@@ -400,7 +421,7 @@ impl Aqua {
                 t.send_pending_configure();
             } else if let Some(x) = w.x11_surface() {
                 let _ = x.set_fullscreen(false);
-                let _ = x.configure(r);
+                x11_configure(x, r);
             }
             let tb = Aqua::titlebar_h(w);
             self.start_geo_anim(w, Rectangle::new((r.loc.x, r.loc.y - tb).into(), (r.size.w, r.size.h + tb).into()));
@@ -459,7 +480,12 @@ impl Aqua {
 
     /// Any managed window (mapped or minimised) by its Aqua id.
     pub fn window_by_id(&self, id: u64) -> Option<Window> {
-        self.space.elements().chain(self.minimized.iter()).find(|w| meta(w).borrow().id == id).cloned()
+        self.space
+            .elements()
+            .chain(self.minimized.iter())
+            .chain(self.stage.staged.iter())
+            .find(|w| meta(w).borrow().id == id)
+            .cloned()
     }
 
     pub fn windows_of_app(&self, app_id: &str) -> Vec<Window> {
@@ -467,6 +493,7 @@ impl Aqua {
         self.space
             .elements()
             .chain(self.minimized.iter())
+            .chain(self.stage.staged.iter())
             .filter(|w| !meta(w).borrow().override_redirect)
             .filter(|w| {
                 let (id, _) = title_of(w);
@@ -754,6 +781,16 @@ impl Aqua {
                         self.set_fullscreen(&w, on)
                     }
                 }
+                TileWindow(id, what) => {
+                    if let Some(w) = self.window_by_id(id) {
+                        self.focus_window(&w);
+                        if what == "fullscreen" {
+                            self.set_fullscreen(&w, true);
+                        } else {
+                            self.run_tile_action(&what);
+                        }
+                    }
+                }
                 QuitApp(id) => self.quit_app(&id),
                 HideOthers => self.hide_others(),
                 BringAllToFront => self.bring_all_to_front(),
@@ -828,6 +865,14 @@ impl Aqua {
                 }
                 AppSettings => self.send_keys("ctrl+comma"),
                 Beep => crate::system::sound::play_alert(),
+                SetStageManager(on) => {
+                    self.set_stage_manager(on);
+                    let mut c = aqua_config::Config::load();
+                    c.stage_manager = on;
+                    if c.save().is_ok() {
+                        self.cfg.stage_manager = on;
+                    }
+                }
                 SetFocusMode(on) => {
                     self.shell.notes.dnd = on;
                     let mut c = aqua_config::Config::load();

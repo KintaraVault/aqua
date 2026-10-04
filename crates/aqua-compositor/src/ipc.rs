@@ -33,6 +33,7 @@ const ALLOWED: &[&str] = &[
     "clipfiles",
     "dragfiles",
     "stats",
+    "tilemenu",
 ];
 
 /// Whether the first word of a control line is an accepted command.

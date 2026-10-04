@@ -1,0 +1,517 @@
+import { Theme, Glyphs, Field, PillButton, Checkbox, Segmented, PopupSelect, SliderBar, GlassMenu } from "common.slint";
+import { F, FMenuItem, FOpt, FileIcon, FolderIcon } from "finder-model.slint";
+
+component MenuList inherits VerticalLayout {
+    in property <[FMenuItem]> items;
+    in property <bool> nested;
+    padding: 5px;
+    for m in items: VerticalLayout {
+        if m.separator: Rectangle { height: 11px; Rectangle { height: 1px; x: 12px; width: parent.width - 24px; background: Theme.dark ? #ffffff1f : #0000001a; } }
+        if m.id == "tags": HorizontalLayout {
+            padding-left: 12px; padding-top: 5px; padding-bottom: 5px; spacing: 7px; alignment: start;
+            for t in F.tag-defs: Rectangle {
+                width: 16px; height: 16px; border-radius: 8px; background: t.color;
+                border-width: tta.has-hover || t.on ? 2px : 0px; border-color: Theme.dark ? #2a2a2e : #f4f4f6;
+                Rectangle { width: 18px; height: 18px; border-radius: 9px; border-width: tta.has-hover ? 1px : 0px; border-color: Theme.text-secondary; }
+                if t.on: Image { width: 9px; height: 9px; source: Glyphs.checkmark; colorize: white; }
+                tta := TouchArea { clicked => { F.tag-toggle(t.name); } }
+            }
+        }
+        if !m.separator && m.id != "tags": Rectangle {
+            height: 24px; border-radius: 7px;
+            property <bool> hot: (mta.has-hover && m.enabled) || (m.sub && F.sub-open && F.sub-id == m.id && !root.nested);
+            background: hot ? Theme.accent : transparent;
+            property <color> fg: !m.enabled ? Theme.text-tertiary : hot ? white : Theme.text;
+            if m.checked: Image { x: 10px; y: 6px; width: 12px; height: 12px; source: Glyphs.checkmark; colorize: fg; }
+            if !m.checked && F.menu-has-icon(m.id): Image { x: 9px; y: 4.5px; width: 15px; height: 15px; source: F.menu-icon(m.id); colorize: fg; }
+            Text {
+                x: 32px; text: m.label; font-size: 13px; letter-spacing: 0.35px; vertical-alignment: center; height: parent.height;
+                width: parent.width - 32px - (m.shortcut != "" ? 64px : 18px); color: fg; overflow: elide;
+            }
+            if m.shortcut != "": Text {
+                x: parent.width - 64px; width: 54px; text: m.shortcut; font-size: 13px; horizontal-alignment: right; vertical-alignment: center;
+                height: parent.height; color: hot ? #ffffffc0 : Theme.text-tertiary;
+            }
+            if m.sub: Image { x: parent.width - 18px; y: 7px; width: 10px; height: 10px; source: F.i-chev-right; colorize: fg; }
+            mta := TouchArea {
+                enabled: m.enabled;
+                changed has-hover => {
+                    if self.has-hover && !root.nested {
+                        if m.sub { F.menu-sub(m.id, self.absolute-position.y); } else { F.sub-open = false; }
+                    }
+                }
+                clicked => {
+                    if m.sub { F.menu-sub(m.id, self.absolute-position.y); } else {
+                        F.menu-open = false; F.sub-open = false; F.menu-action(m.id);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// A Finder menu in its own borderless window, so it can extend past the Finder window
+/// (Aqua places windows titled `aqua-popup:…` next to their owner, see the compositor's
+/// `wm::popups`).
+export component FinderMenuWindow inherits Window {
+    in property <[FMenuItem]> items;
+    in property <bool> nested;
+    in property <string> popup-title;
+    in property <bool> glass;
+    out property <length> want-w: nested ? 240px : 260px;
+    out property <length> want-h: mv.preferred-height;
+    property <bool> sub-shown: F.sub-open;
+    callback sub-closed();
+    changed sub-shown => { if !self.sub-shown { root.sub-closed(); } }
+    title: popup-title;
+    no-frame: true;
+    background: transparent;
+    width: want-w;
+    height: want-h;
+    GlassMenu {
+        width: root.width; height: root.height; native: true; glass: root.glass;
+        TouchArea {}
+        mv := MenuList { items: root.items; nested: root.nested; }
+    }
+}
+
+export component MenuOverlay inherits Rectangle {
+    TouchArea { pointer-event(e) => { if e.kind == PointerEventKind.down { F.menu-open = false; F.sub-open = false; } } }
+    menu := GlassMenu {
+        property <length> h: mv.preferred-height;
+        x: max(6px, min(F.menu-x, root.width - self.width - 6px)); y: max(6px, min(F.menu-y, root.height - h - 6px));
+        ox: self.x; oy: self.y;
+        width: 260px; height: h;
+        TouchArea {}
+        mv := MenuList { items: F.menu; }
+    }
+    if F.sub-open: sub := GlassMenu {
+        property <length> h: sv.preferred-height;
+        property <bool> left: menu.x + menu.width + self.width > root.width - 6px;
+        x: left ? menu.x - self.width + 4px : menu.x + menu.width - 4px;
+        y: max(6px, min(F.sub-y - 5px, root.height - h - 6px));
+        ox: self.x; oy: self.y;
+        width: 240px; height: h;
+        TouchArea {}
+        sv := MenuList { items: F.sub-menu; nested: true; }
+    }
+}
+
+export component Dialog inherits Rectangle {
+    in property <length> w: 300px;
+    in property <length> top: 70px;
+    property <length> ch: lay.preferred-height;
+    background: #00000030;
+    TouchArea {}
+    card := Rectangle {
+        x: (parent.width - root.w) / 2; y: root.top; width: root.w; height: ch;
+        border-radius: 22px; background: Theme.menu-bg;
+        border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+        drop-shadow-blur: 30px; drop-shadow-color: #00000055; drop-shadow-offset-y: 10px;
+        lay := VerticalLayout { padding: 18px; spacing: 10px; @children }
+    }
+}
+
+export component AlertSheet inherits Dialog {
+    w: 300px;
+    HorizontalLayout {
+        alignment: center;
+        if F.alert-icon == "": FolderIcon { s: 56px; }
+        if F.alert-icon == "warn": Rectangle {
+            width: 56px; height: 56px;
+            Path {
+                width: 52px; height: 46px; fill: #ffcc00; stroke: #e0a800; stroke-width: 1px;
+                commands: "M 26 2 L 50 44 L 2 44 Z";
+            }
+            Text { y: 14px; text: "!"; font-size: 26px; font-weight: 800; color: #3a2a00; horizontal-alignment: center; }
+        }
+        if F.alert-icon == "trash": Image { width: 56px; height: 56px; source: F.glyph("trash"); colorize: Theme.text-secondary; }
+    }
+    Text { text: F.alert; font-size: 13px; font-weight: 700; color: Theme.text; wrap: word-wrap; horizontal-alignment: center; }
+    if F.alert-detail != "": Text { text: F.alert-detail; font-size: 11px; color: Theme.text-secondary; wrap: word-wrap; horizontal-alignment: center; }
+    if F.alert-check != "": HorizontalLayout {
+        alignment: start; spacing: 8px;
+        Checkbox { checked <=> F.alert-checked; }
+        Text { text: F.alert-check; font-size: 12px; color: Theme.text; vertical-alignment: center; }
+    }
+    if F.alert-other != "": PillButton { text: F.alert-other; clicked => { F.alert-choose(2); } }
+    HorizontalLayout {
+        spacing: 8px;
+        if F.alert-cancel: PillButton { horizontal-stretch: 1; text: @tr("Cancel"); clicked => { F.alert-choose(0); } }
+        PillButton { horizontal-stretch: 1; text: F.alert-ok; primary: true; clicked => { F.alert-choose(1); } }
+    }
+}
+
+export component GotoPanel inherits Rectangle {
+    background: #00000026;
+    TouchArea { clicked => { F.goto-open = false; } }
+    Rectangle {
+        x: (parent.width - self.width) / 2; y: 60px; width: 460px; height: 52px + min(F.goto-sugg.length, 8) * 26px + (F.goto-sugg.length > 0 ? 8px : 0px);
+        border-radius: 16px;
+        background: Theme.menu-bg; drop-shadow-blur: 24px; drop-shadow-color: #00000050; drop-shadow-offset-y: 8px;
+        border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+        TouchArea {}
+        Image { x: 16px; y: 18px; width: 16px; height: 16px; source: F.i-search; colorize: Theme.text-secondary; }
+        Field {
+            x: 40px; y: 11px; width: parent.width - 54px; height: 30px; text <=> F.goto-text;
+            placeholder: F.goto-kind == 1 ? @tr("Server Address") : @tr("Go to Folder (~/Documents, /etc …)");
+            edited(t) => { F.goto-edited(t); }
+            accepted(t) => { F.goto(t); }
+            init => { self.focus(); }
+        }
+        for s[i] in F.goto-sugg: Rectangle {
+            visible: i < 8;
+            x: 8px; y: 52px + i * 26px; width: parent.width - 16px; height: 26px; border-radius: 7px;
+            background: sta.has-hover ? Theme.accent : transparent;
+            Image { x: 10px; y: 5px; width: 16px; height: 16px; source: F.glyph("folder"); colorize: sta.has-hover ? white : Theme.accent; }
+            Text { x: 34px; width: parent.width - 44px; text: s; font-size: 13px; color: sta.has-hover ? white : Theme.text; vertical-alignment: center; overflow: elide; }
+            sta := TouchArea { clicked => { F.goto(s); } }
+        }
+    }
+}
+
+export component ProgressCard inherits Rectangle {
+    width: 340px; height: 78px;
+    border-radius: 16px;
+    background: Theme.menu-bg;
+    border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+    drop-shadow-blur: 24px; drop-shadow-color: #00000045; drop-shadow-offset-y: 6px;
+    TouchArea {}
+    FolderIcon { x: 14px; y: 20px; s: 38px; }
+    Text { x: 62px; y: 12px; width: parent.width - 104px; text: F.prog-title; font-size: 12px; font-weight: 600; color: Theme.text; overflow: elide; }
+    Rectangle {
+        x: 62px; y: 36px; width: parent.width - 104px; height: 6px; border-radius: 3px; background: Theme.track;
+        Rectangle { x: 0; width: parent.width * max(0.02, min(1, F.prog-frac)); border-radius: 3px; background: Theme.accent; }
+    }
+    Text { x: 62px; y: 50px; width: parent.width - 104px; text: F.prog-detail; font-size: 11px; color: Theme.text-secondary; overflow: elide; }
+    Rectangle {
+        x: parent.width - 34px; y: 27px; width: 20px; height: 20px; border-radius: 10px;
+        background: xta.has-hover ? Theme.text-secondary : Theme.text-tertiary;
+        Image { width: 9px; height: 9px; source: F.i-xmark; colorize: Theme.window-bg; }
+        xta := TouchArea { clicked => { F.prog-cancel(); } }
+    }
+}
+
+export component QuickLook inherits Rectangle {
+    property <length> cw: min(root.width - 80px, 760px);
+    property <length> chh: min(root.height - 60px, 560px);
+    Rectangle {
+        x: (root.width - cw) / 2; y: (root.height - chh) / 2; width: cw; height: chh;
+        border-radius: 18px; clip: true;
+        background: Theme.dark ? #262628f5 : #f4f4f6f5;
+        border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+        drop-shadow-blur: 40px; drop-shadow-color: #00000066; drop-shadow-offset-y: 14px;
+        TouchArea {}
+        Rectangle {
+            height: 44px; y: 0;
+            Rectangle {
+                x: 14px; y: 12px; width: 20px; height: 20px; border-radius: 10px;
+                background: cta.has-hover ? Theme.control-pressed : Theme.control-bg;
+                Image { width: 9px; height: 9px; source: F.i-xmark; colorize: Theme.text; }
+                cta := TouchArea { clicked => { F.ql-close(); } }
+            }
+            Text { x: 60px; width: parent.width - 120px; text: F.ql.name; font-size: 13px; font-weight: 700; color: Theme.text; horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
+            if F.ql-pos != "": Text { x: parent.width - 120px; width: 70px; text: F.ql-pos; font-size: 11px; color: Theme.text-secondary; horizontal-alignment: right; vertical-alignment: center; }
+            Rectangle {
+                x: parent.width - 42px; y: 9px; width: 28px; height: 26px; border-radius: 8px;
+                background: ota.has-hover ? Theme.control-pressed : Theme.control-bg;
+                Image { width: 15px; height: 15px; source: @image-url("icons/m-open.svg"); colorize: Theme.text; }
+                ota := TouchArea { clicked => { F.ql-close(); F.menu-action("open"); } }
+            }
+            Rectangle { y: parent.height - 1px; height: 1px; background: Theme.separator; }
+        }
+        Rectangle {
+            y: 44px; height: parent.height - 44px - 30px;
+            if F.ql-has-img: Image { x: 12px; y: 12px; width: parent.width - 24px; height: parent.height - 24px; source: F.ql-img; image-fit: contain; }
+            if !F.ql-has-img && F.ql-text != "": Rectangle {
+                x: 16px; y: 12px; width: parent.width - 32px; height: parent.height - 20px;
+                border-radius: 8px; background: Theme.dark ? #1c1c1e : white; border-width: 0.5px; border-color: Theme.separator;
+                Flickable {
+                    x: 14px; y: 10px; width: parent.width - 28px; height: parent.height - 20px;
+                    content-height: qt.preferred-height + 10px;
+                    qt := Text { width: parent.width; text: F.ql-text; font-size: 12px; font-family: "DejaVu Sans Mono"; color: Theme.text; wrap: word-wrap; }
+                }
+            }
+            if !F.ql-has-img && F.ql-text == "": VerticalLayout {
+                alignment: center; spacing: 14px;
+                HorizontalLayout { alignment: center; FileIcon { item: F.ql; s: min(256px, root.chh - 160px); } }
+                Text { text: F.ql.name; font-size: 17px; font-weight: 700; color: Theme.text; horizontal-alignment: center; }
+                Text { text: F.ql.kind-label + (F.ql.size != "" && F.ql.size != "--" ? " – " + F.ql.size : ""); font-size: 12px; color: Theme.text-secondary; horizontal-alignment: center; }
+            }
+        }
+        if !F.ql-media || F.ql-has-img: Text {
+            y: parent.height - 28px; height: 24px; width: parent.width;
+            text: F.ql-pages > 0 ? @tr("Page {} of {}", F.ql-page, F.ql-pages) : F.ql-info;
+            font-size: 11px; color: Theme.text-secondary; horizontal-alignment: center; vertical-alignment: center;
+        }
+        if F.ql-pages > 1: Rectangle {
+            y: parent.height - 30px; height: 28px;
+            for d[k] in [-1, 1]: Rectangle {
+                x: k == 0 ? parent.width / 2 - 110px : parent.width / 2 + 82px; width: 28px; height: 24px; border-radius: 7px;
+                property <bool> ok: k == 0 ? F.ql-page > 1 : F.ql-page < F.ql-pages;
+                background: pta.has-hover && ok ? Theme.control-pressed : transparent;
+                Image { width: 7px; height: 12px; source: k == 0 ? F.i-back : F.i-forward; colorize: ok ? Theme.text : Theme.text-tertiary; }
+                pta := TouchArea { enabled: ok; clicked => { F.ql-page-step(d); } }
+            }
+        }
+        if F.ql-media: Rectangle {
+            x: (parent.width - self.width) / 2; y: F.ql-has-img ? parent.height - 30px - 56px : parent.height - 62px;
+            width: min(parent.width - 48px, 440px); height: 44px; border-radius: 22px;
+            background: Theme.dark ? #1c1c1ee6 : #ffffffe6;
+            border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+            drop-shadow-blur: 12px; drop-shadow-color: #00000033;
+            Rectangle {
+                x: 8px; y: 6px; width: 32px; height: 32px; border-radius: 16px;
+                background: plta.has-hover ? Theme.control-pressed : transparent;
+                Image { width: 14px; height: 14px; source: F.ql-playing ? @image-url("icons/f-pause.svg") : @image-url("icons/f-play.svg"); colorize: Theme.text; }
+                plta := TouchArea { clicked => { F.ql-play(); } }
+            }
+            SliderBar {
+                x: 46px; y: 11px; width: parent.width - 46px - 104px; value: F.ql-frac;
+                released(v) => { F.ql-seek(v); }
+            }
+            Text { x: parent.width - 100px; width: 90px; height: parent.height; text: F.ql-time; font-size: 11px; color: Theme.text-secondary; horizontal-alignment: right; vertical-alignment: center; }
+        }
+    }
+}
+
+component OptRow inherits HorizontalLayout {
+    in property <FOpt> o;
+    in property <string> group;
+    spacing: 8px; height: 22px;
+    VerticalLayout { alignment: center; Checkbox { checked: o.on; toggled(v) => { F.opt(group + o.id, v ? 1 : 0); } } }
+    Text { text: o.label; font-size: 12px; color: Theme.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+}
+
+component Caption inherits Text {
+    font-size: 11px; font-weight: 600; color: Theme.text-secondary;
+}
+
+export component ViewOptions inherits Rectangle {
+    width: 270px; height: vl.preferred-height;
+    border-radius: 18px;
+    background: Theme.menu-bg;
+    border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+    drop-shadow-blur: 30px; drop-shadow-color: #00000050; drop-shadow-offset-y: 10px;
+    TouchArea {}
+    property <[string]> sorts: [@tr("Name"), @tr("Kind"), @tr("Date Modified"), @tr("Size"), @tr("Date Created"), @tr("Date Last Opened")];
+    property <[string]> groups: [@tr("None"), @tr("Name"), @tr("Kind"), @tr("Date Modified"), @tr("Date Created"), @tr("Date Last Opened"), @tr("Size"), @tr("Tags")];
+    property <[string]> icon-sorts: [@tr("None"), @tr("Snap to Grid"), @tr("Name"), @tr("Kind"), @tr("Date Modified"), @tr("Size"), @tr("Date Created"), @tr("Date Last Opened")];
+    property <[string]> texts: ["10", "11", "12", "13", "14", "15", "16"];
+    vl := VerticalLayout {
+        padding: 16px; spacing: 8px;
+        HorizontalLayout {
+            Text { text: F.title; font-size: 13px; font-weight: 700; color: Theme.text; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+            Rectangle {
+                width: 20px; height: 20px; border-radius: 10px; background: vxa.has-hover ? Theme.control-pressed : Theme.control-bg;
+                Image { width: 9px; height: 9px; source: F.i-xmark; colorize: Theme.text; }
+                vxa := TouchArea { clicked => { F.vo-open = false; } }
+            }
+        }
+        Rectangle { height: 1px; background: Theme.separator; }
+        if F.view <= 1: Caption { text: @tr("Group By:"); }
+        if F.view <= 1: PopupSelect { bezel: true; items: groups; current: F.group-by; changed(i) => { F.opt("group", i); } }
+        if F.view != 2: Caption { text: @tr("Sort By:"); }
+        if F.view == 0 && F.group-by == 0 && F.can-arrange: PopupSelect {
+            bezel: true; items: icon-sorts; current: F.arrange == 0 ? F.sort-key + 2 : F.arrange - 1;
+            changed(i) => { F.opt("icon-sort", i); }
+        }
+        if (F.view == 0 && (F.group-by != 0 || !F.can-arrange)) || F.view == 1 || F.view == 3: PopupSelect { bezel: true; items: sorts; current: F.sort-key; changed(i) => { F.opt("sort", i); } }
+        if F.view == 0: Caption { text: @tr("Icon size:") + " " + round(F.icon-s / 1px) + "×" + round(F.icon-s / 1px); }
+        if F.view == 0: SliderBar { value: F.zoom; moved(v) => { F.set-zoom(v); } released(v) => { F.set-zoom(v); } }
+        if F.view == 0: Caption { text: @tr("Grid spacing:"); }
+        if F.view == 0: SliderBar { value: F.grid-gap / 100px; moved(v) => { F.opt("gap", round(v * 100)); } released(v) => { F.opt("gap", round(v * 100)); } }
+        Caption { text: @tr("Text size:"); }
+        PopupSelect {
+            bezel: true; items: texts;
+            current: F.view == 0 ? round(F.text-s / 1px) - 10 : round(F.list-text / 1px) - 10;
+            changed(i) => { F.opt("text", i + 10); }
+        }
+        if F.view == 0: OptRow { o: { id: "info", label: @tr("Show item info"), on: F.item-info }; }
+        if F.view != 2: OptRow { o: { id: "icon-preview", label: @tr("Show icon preview"), on: F.icon-preview }; }
+        if F.view == 2: OptRow { o: { id: "col-icons", label: @tr("Show icons"), on: F.col-icons }; }
+        if F.view == 2: OptRow { o: { id: "col-preview", label: @tr("Show preview column"), on: F.col-preview }; }
+        if F.view == 1: Caption { text: @tr("Show Columns:"); }
+        if F.view == 1: VerticalLayout {
+            spacing: 2px;
+            for o in F.vo-cols: OptRow { o: o; group: "col:"; }
+        }
+        if F.view == 1: OptRow { o: { id: "rel-dates", label: @tr("Use relative dates"), on: F.rel-dates }; }
+        if F.view == 1: OptRow { o: { id: "calc-sizes", label: @tr("Calculate all sizes"), on: F.calc-sizes }; }
+        Rectangle { height: 4px; }
+        PillButton { text: @tr("Use as Defaults"); clicked => { F.opt("defaults", 1); } }
+    }
+}
+
+export component PrefsPanel inherits Rectangle {
+    background: #00000030;
+    TouchArea { clicked => { F.prefs-open = false; } }
+    property <[string]> starts: [@tr("Recents"), @tr("Home"), @tr("Desktop"), @tr("Documents"), @tr("Downloads")];
+    property <[string]> scopes: [@tr("Search This Computer"), @tr("Search the Current Folder"), @tr("Use the Previous Search Scope")];
+    Rectangle {
+        x: (parent.width - self.width) / 2; y: 50px; width: 440px; height: min(root.height - 70px, pl.preferred-height);
+        border-radius: 22px; clip: true;
+        background: Theme.menu-bg;
+        border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+        drop-shadow-blur: 30px; drop-shadow-color: #00000055; drop-shadow-offset-y: 10px;
+        TouchArea {}
+        pl := VerticalLayout {
+            padding: 18px; spacing: 10px;
+            HorizontalLayout {
+                Text { text: @tr("Finder Settings"); font-size: 14px; font-weight: 700; color: Theme.text; horizontal-stretch: 1; vertical-alignment: center; }
+                Rectangle {
+                    width: 20px; height: 20px; border-radius: 10px; background: pxa.has-hover ? Theme.control-pressed : Theme.control-bg;
+                    Image { width: 9px; height: 9px; source: F.i-xmark; colorize: Theme.text; }
+                    pxa := TouchArea { clicked => { F.prefs-open = false; } }
+                }
+            }
+            Segmented { items: [@tr("General"), @tr("Tags"), @tr("Sidebar"), @tr("Advanced")]; current <=> F.prefs-tab; }
+            if F.prefs-tab == 0: VerticalLayout {
+                spacing: 8px;
+                Caption { text: @tr("New Finder windows show:"); }
+                PopupSelect { bezel: true; items: starts; current: F.pref-new-window; changed(i) => { F.opt("new-window", i); } }
+                for o in F.pref-general: OptRow { o: o; group: "general:"; }
+            }
+            if F.prefs-tab == 1: VerticalLayout {
+                spacing: 4px;
+                Caption { text: @tr("Show these tags in the sidebar:"); }
+                for o[i] in F.pref-tags: HorizontalLayout {
+                    spacing: 8px; height: 24px;
+                    VerticalLayout { alignment: center; Checkbox { checked: o.on; toggled(v) => { F.opt("tags:" + o.id, v ? 1 : 0); } } }
+                    VerticalLayout { alignment: center; Rectangle { width: 11px; height: 11px; border-radius: 5.5px; background: i < F.tag-defs.length ? F.tag-defs[i].color : gray; } }
+                    Text { text: o.label; font-size: 12px; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
+                }
+            }
+            if F.prefs-tab == 2: VerticalLayout {
+                spacing: 4px;
+                Caption { text: @tr("Sidebar style:"); }
+                HorizontalLayout {
+                    alignment: start;
+                    Segmented { items: [@tr("Floating"), @tr("Solid")]; current: Theme.solid-sidebar ? 1 : 0; changed(i) => { Theme.solid-sidebar = i == 1; F.opt("side-style", i); } }
+                }
+                Rectangle { height: 6px; }
+                Caption { text: @tr("Show these items in the sidebar:"); }
+                for o in F.pref-side: OptRow { o: o; group: "side:"; }
+            }
+            if F.prefs-tab == 3: VerticalLayout {
+                spacing: 6px;
+                for o in F.pref-adv: OptRow { o: o; group: "adv:"; }
+                Rectangle { height: 4px; }
+                Caption { text: @tr("When performing a search:"); }
+                PopupSelect { bezel: true; items: scopes; current: F.pref-scope; changed(i) => { F.opt("scope", i); } }
+            }
+        }
+    }
+}
+
+export component RenamePanel inherits Dialog {
+    w: 470px;
+    property <[string]> modes: [@tr("Replace Text"), @tr("Add Text"), @tr("Format")];
+    property <[string]> wheres: [@tr("after name"), @tr("before name")];
+    property <[string]> styles: [@tr("Name and Index"), @tr("Name and Counter"), @tr("Name and Date")];
+    Text { text: @tr("Rename Finder Items:") + " " + F.rn-count; font-size: 13px; font-weight: 700; color: Theme.text; }
+    PopupSelect { bezel: true; items: modes; current <=> F.rn-mode; changed(i) => { F.rn-changed(); } }
+    if F.rn-mode == 0: GridLayout {
+        spacing: 8px;
+        Row {
+            Text { text: @tr("Find:"); font-size: 12px; color: Theme.text; vertical-alignment: center; horizontal-alignment: right; }
+            Field { text <=> F.rn-a; edited => { F.rn-changed(); } init => { self.focus(); } }
+        }
+        Row {
+            Text { text: @tr("Replace with:"); font-size: 12px; color: Theme.text; vertical-alignment: center; horizontal-alignment: right; }
+            Field { text <=> F.rn-b; edited => { F.rn-changed(); } }
+        }
+    }
+    if F.rn-mode == 1: HorizontalLayout {
+        spacing: 8px;
+        Field { text <=> F.rn-a; horizontal-stretch: 1; edited => { F.rn-changed(); } init => { self.focus(); } }
+        PopupSelect { width: 150px; bezel: true; items: wheres; current <=> F.rn-where; changed(i) => { F.rn-changed(); } }
+    }
+    if F.rn-mode == 2: GridLayout {
+        spacing: 8px;
+        Row {
+            Text { text: @tr("Name Format:"); font-size: 12px; color: Theme.text; vertical-alignment: center; horizontal-alignment: right; }
+            PopupSelect { bezel: true; items: styles; current <=> F.rn-style; changed(i) => { F.rn-changed(); } }
+        }
+        Row {
+            Text { text: @tr("Where:"); font-size: 12px; color: Theme.text; vertical-alignment: center; horizontal-alignment: right; }
+            PopupSelect { bezel: true; items: wheres; current <=> F.rn-where; changed(i) => { F.rn-changed(); } }
+        }
+        Row {
+            Text { text: @tr("Custom Format:"); font-size: 12px; color: Theme.text; vertical-alignment: center; horizontal-alignment: right; }
+            Field { text <=> F.rn-a; edited => { F.rn-changed(); } init => { self.focus(); } }
+        }
+        Row {
+            Text { text: @tr("Start numbers at:"); font-size: 12px; color: Theme.text; vertical-alignment: center; horizontal-alignment: right; }
+            Field { text <=> F.rn-start; edited => { F.rn-changed(); } }
+        }
+    }
+    Text { text: @tr("Example:") + " " + F.rn-example; font-size: 11px; color: Theme.text-secondary; overflow: elide; }
+    HorizontalLayout {
+        spacing: 8px; alignment: end;
+        PillButton { text: @tr("Cancel"); min-w: 80px; clicked => { F.rn-open = false; } }
+        PillButton { text: @tr("Rename"); primary: true; min-w: 80px; clicked => { F.rn-apply(); } }
+    }
+}
+
+export component CustomizePanel inherits Rectangle {
+    TouchArea { pointer-event(e) => { if e.kind == PointerEventKind.down { F.custom-open = false; } } }
+    Rectangle {
+        x: min(max(8px, F.menu-x - self.width / 2), root.width - self.width - 8px);
+        y: min(max(8px, F.menu-y - 60px), root.height - self.height - 8px);
+        width: 340px; height: 470px;
+        border-radius: 22px;
+        background: Theme.dark ? #2c2c2ef7 : #f6f7fbf7;
+        border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+        drop-shadow-blur: 30px; drop-shadow-color: #00000050; drop-shadow-offset-y: 10px;
+        TouchArea {}
+        Rectangle { y: 0; height: 150px; border-radius: 22px; background: @linear-gradient(180deg, Theme.accent.with-alpha(0.12) 0%, transparent 100%); }
+        FileIcon { y: 18px; x: (parent.width - 96px) / 2; item: F.custom; s: 96px; }
+        Text { y: 118px; width: parent.width; text: F.custom.name; font-size: 13px; color: Theme.text; horizontal-alignment: center; }
+        HorizontalLayout {
+            y: 146px; height: 32px; padding-left: 14px; padding-right: 14px; spacing: 7px; alignment: center;
+            for c[i] in [#00000000, #f19a37, #ff453a, #ffcc00, #34c759, #0a84ff, #bf5af2, #8e8e93, #5ebcf7]: VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 24px; height: 24px; border-radius: 12px;
+                    background: i == 0 ? transparent : c;
+                    border-width: i == 0 ? 0px : 0.5px; border-color: #00000030;
+                    if i == 0: Image { width: 20px; height: 20px; source: F.i-tag-off; colorize: Theme.text-secondary; }
+                    property <bool> cur: (i == 0 && !F.custom.has-tint) || (i > 0 && F.custom.has-tint && F.custom.tint == c);
+                    if cur && i > 0: Image { width: 12px; height: 12px; source: Glyphs.checkmark; colorize: white; }
+                    Rectangle { width: 28px; height: 28px; border-radius: 14px; border-width: cur || cta.has-hover ? 2px : 0px; border-color: Theme.accent.with-alpha(cur ? 0.9 : 0.4); }
+                    cta := TouchArea { clicked => { F.custom-color(i); } }
+                }
+            }
+        }
+        Rectangle { y: 186px; height: 1px; x: 12px; width: parent.width - 24px; background: Theme.separator; }
+        Text { x: 14px; y: 192px; text: F.custom-emoji ? @tr("Emoji") : @tr("Symbols"); font-size: 12px; font-weight: 600; color: Theme.text-secondary; }
+        Flickable {
+            x: 10px; y: 212px; width: parent.width - 20px; height: 208px;
+            property <[string]> syms: ["★", "♥", "♪", "♫", "☀", "☁", "☂", "❄", "⚡", "✈", "⚓", "⚙", "✎", "✂", "☎", "✉", "⌂", "⚑", "☕", "♞", "⚽", "♻", "✿", "☺", "✔", "✖", "⌘", "⌥", "⚠", "☯", "☮", "♠", "♣", "♦", "✚", "∞", "Ω", "π", "$", "€", "@", "#", "§", "¶", "☰", "◉", "▲", "●"];
+            property <[string]> emoji: ["😀", "😎", "🥳", "😍", "🤓", "👻", "🐶", "🐱", "🦊", "🐼", "🌸", "🌵", "🍕", "🍔", "☕", "🍎", "⚽", "🎮", "🎧", "🎸", "🎨", "📷", "🎬", "📚", "💼", "💰", "💡", "🔧", "🚀", "✈️", "🏠", "🌍", "❤️", "⭐", "🔥", "🌈", "📁", "📦", "🔒", "🧪", "💻", "📱", "🗂️", "📝", "🎓", "🏖️", "🎁", "🐞"];
+            property <[string]> cur: F.custom-emoji ? emoji : syms;
+            content-height: ceil(cur.length / 6) * 46px;
+            for s[i] in cur: Rectangle {
+                x: mod(i, 6) * 53px; y: floor(i / 6) * 46px; width: 46px; height: 42px; border-radius: 21px;
+                background: F.custom.symbol == s ? Theme.accent.with-alpha(0.22) : sta.has-hover ? Theme.hover : transparent;
+                border-width: F.custom.symbol == s ? 2px : 0px; border-color: Theme.accent;
+                Text { text: s; font-size: 21px; color: Theme.text-secondary; horizontal-alignment: center; vertical-alignment: center; }
+                sta := TouchArea { clicked => { F.custom-symbol(s); } }
+            }
+        }
+        HorizontalLayout {
+            y: parent.height - 44px; height: 36px; padding-left: 10px; padding-right: 10px; spacing: 8px;
+            Rectangle {
+                border-radius: 10px; background: c1a.pressed ? Theme.control-pressed : Theme.control-bg;
+                Text { text: @tr("Clear"); font-size: 13px; color: Theme.text; }
+                c1a := TouchArea { clicked => { F.custom-symbol(""); } }
+            }
+            Rectangle {
+                border-radius: 10px; background: c2a.pressed ? Theme.control-pressed : Theme.control-bg;
+                Text { text: F.custom-emoji ? @tr("Symbols") : "☺  " + @tr("Emoji"); font-size: 13px; color: Theme.text; }
+                c2a := TouchArea { clicked => { F.custom-emoji = !F.custom-emoji; } }
+            }
+        }
+    }
+}

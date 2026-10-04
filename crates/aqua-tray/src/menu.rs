@@ -18,7 +18,84 @@ pub struct MenuNode {
     pub separator: bool,
     pub toggle: MenuToggle,
     pub icon_name: String,
+    /// Key equivalent in Aqua's notation (`⇧⌘S`), empty when none.
+    pub shortcut: String,
     pub children: Vec<MenuNode>,
+}
+
+/// dbusmenu `shortcut` (`aas`, e.g. `[["Control", "Shift", "s"]]`) → `⇧⌘S`. Only the first
+/// chord of a sequence is shown. Ctrl is Aqua's ⌘ and Super its ⌃, as everywhere else.
+pub fn shortcut_label(chords: &[Vec<String>]) -> String {
+    let Some(keys) = chords.first() else { return String::new() };
+    let (mut ctrl, mut alt, mut shift, mut sup) = (false, false, false, false);
+    let mut key = String::new();
+    for k in keys {
+        match k.as_str() {
+            "Control" | "Ctrl" | "Primary" => ctrl = true,
+            "Alt" | "Option" => alt = true,
+            "Shift" => shift = true,
+            "Super" | "Meta" | "Hyper" => sup = true,
+            other => key = key_glyph(other),
+        }
+    }
+    if key.is_empty() {
+        return String::new();
+    }
+    let mut s = String::new();
+    for (on, g) in [(sup, '⌃'), (alt, '⌥'), (shift, '⇧'), (ctrl, '⌘')] {
+        if on {
+            s.push(g);
+        }
+    }
+    s + &key
+}
+
+fn key_glyph(k: &str) -> String {
+    let g = match k {
+        "Return" | "Enter" | "KP_Enter" => "↩",
+        "BackSpace" | "Backspace" => "⌫",
+        "Delete" | "KP_Delete" => "⌦",
+        "Escape" | "Esc" => "⎋",
+        "Tab" | "ISO_Left_Tab" => "⇥",
+        "Up" => "↑",
+        "Down" => "↓",
+        "Left" => "←",
+        "Right" => "→",
+        "Page_Up" | "Prior" => "⇞",
+        "Page_Down" | "Next" => "⇟",
+        "Home" => "↖",
+        "End" => "↘",
+        "space" | "Space" => "Space",
+        "plus" | "KP_Add" => "+",
+        "minus" | "KP_Subtract" => "−",
+        "equal" => "=",
+        "comma" => ",",
+        "period" => ".",
+        "slash" => "/",
+        "backslash" => "\\",
+        "semicolon" => ";",
+        "apostrophe" => "'",
+        "grave" => "`",
+        "bracketleft" => "[",
+        "bracketright" => "]",
+        "question" => "?",
+        _ => "",
+    };
+    if !g.is_empty() {
+        return g.to_string();
+    }
+    let mut c = k.chars();
+    match (c.next(), c.next()) {
+        (Some(ch), None) => ch.to_uppercase().collect(),
+        _ => k.to_string(),
+    }
+}
+
+fn shortcut_prop(v: &Value) -> String {
+    let chords: Vec<Vec<String>> = elements(v)
+        .map(|cs| cs.iter().map(|c| elements(c).map(|ks| ks.iter().filter_map(as_str).collect()).unwrap_or_default()).collect())
+        .unwrap_or_default();
+    shortcut_label(&chords)
 }
 
 /// Remove the `_` access-key markers (`__` is a literal underscore).
@@ -61,6 +138,7 @@ pub fn parse(v: &Value) -> Option<MenuNode> {
         separator: kind == "separator",
         toggle,
         icon_name: props.get("icon-name").and_then(|v| as_str(v)).unwrap_or_default(),
+        shortcut: props.get("shortcut").map(|v| shortcut_prop(v)).unwrap_or_default(),
         children,
     })
 }
@@ -130,6 +208,33 @@ mod tests {
     fn rejects_malformed_nodes() {
         assert!(parse(&Value::from(1u32)).is_none());
         assert!(parse(&Value::from(StructureBuilder::new().add_field("x").build().unwrap())).is_none());
+    }
+
+    #[test]
+    fn shortcuts() {
+        let c = |v: &[&[&str]]| shortcut_label(&v.iter().map(|k| k.iter().map(|s| s.to_string()).collect()).collect::<Vec<_>>());
+        assert_eq!(c(&[&["Control", "s"]]), "⌘S");
+        assert_eq!(c(&[&["Control", "Shift", "z"]]), "⇧⌘Z");
+        assert_eq!(c(&[&["Shift", "Alt", "Control", "Super", "Return"]]), "⌃⌥⇧⌘↩");
+        assert_eq!(c(&[&["Control", "plus"]]), "⌘+");
+        assert_eq!(c(&[&["F11"]]), "F11");
+        assert_eq!(c(&[&["Control", "k"], &["Control", "c"]]), "⌘K", "only the first chord");
+        assert_eq!(c(&[&["Control"]]), "", "modifier alone is no shortcut");
+        assert_eq!(c(&[]), "");
+
+        let tree = node(
+            0,
+            &[],
+            vec![node(
+                1,
+                &[
+                    ("label", Value::from("Save")),
+                    ("shortcut", Value::from(Array::from(vec![Value::from(vec!["Control".to_string(), "s".to_string()])]))),
+                ],
+                vec![],
+            )],
+        );
+        assert_eq!(parse(&tree).unwrap().children[0].shortcut, "⌘S");
     }
 
     #[test]

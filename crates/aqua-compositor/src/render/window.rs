@@ -123,7 +123,14 @@ impl Aqua {
             && self.mission.progress() <= 0.0
             && crate::state::geo_anim(w).is_none()
             && self.covers_output(w);
-        let radius = if override_redirect || fullscreen { 0.0 } else { self.cfg.window_radius };
+        let menu_popup = meta(w).borrow().menu_popup;
+        let radius = if menu_popup {
+            crate::wm::popups::MENU_RADIUS
+        } else if override_redirect || fullscreen {
+            0.0
+        } else {
+            self.cfg.window_radius
+        };
         let id = meta(w).borrow().id;
         let frame = Rectangle::<i32, Logical>::new((loc.x, loc.y - tb).into(), (geo.size.w, geo.size.h + tb).into());
         let frame_phys = to_phys(frame.to_f64(), scale);
@@ -149,6 +156,7 @@ impl Aqua {
                 focused,
                 hover,
                 self.shell.style.dark,
+                self.cfg.glass_traffic_lights,
                 geo.size.w,
                 (scale * 100.0) as i32,
             ));
@@ -162,6 +170,7 @@ impl Aqua {
                     focused,
                     hover,
                     self.shell.style.dark,
+                    self.cfg.glass_traffic_lights,
                 );
                 rc.titlebars.insert(id, (key, buffer_from_pixmap(&pm, false)));
             }
@@ -213,7 +222,7 @@ impl Aqua {
             }
         }
 
-        if override_redirect || fullscreen {
+        if (override_redirect && !menu_popup) || fullscreen {
             return Some(Point::from((
                 frame_phys.loc.x + frame_phys.size.w / 2,
                 frame_phys.loc.y + frame_phys.size.h / 2,
@@ -224,7 +233,13 @@ impl Aqua {
             aqua_shell_hash(&(shadow_rect.loc.x, shadow_rect.loc.y, shadow_rect.size.w, shadow_rect.size.h, focused));
         let rc = &mut self.render_cache;
         if rc.shadows.get(&id).map(|(k, _)| *k != key).unwrap_or(true) {
-            let (sigma, dy, strength) = if focused { (26.0, 14.0, 0.42) } else { (16.0, 8.0, 0.24) };
+            let (sigma, dy, strength) = if menu_popup {
+                (12.0, 6.0, 0.30)
+            } else if focused {
+                (26.0, 14.0, 0.42)
+            } else {
+                (16.0, 8.0, 0.24)
+            };
             let el = shaders.shadow(shadow_rect, radius, sigma, dy, strength, scale);
             rc.shadows.insert(id, (key, el));
         }
@@ -297,7 +312,7 @@ impl Aqua {
     pub fn capture_ghost(&mut self, w: &Window) {
         let Some(ctx) = self.render_cache.ctx.clone() else { return };
         let Some(loc) = self.space.element_location(w) else { return };
-        if !meta(w).borrow().placed || crate::state::minimize_progress(w).0 > 0.0 {
+        if !meta(w).borrow().placed || meta(w).borrow().menu_popup || crate::state::minimize_progress(w).0 > 0.0 {
             return;
         }
         let Some(t) = SurfRef::of(w) else { return };

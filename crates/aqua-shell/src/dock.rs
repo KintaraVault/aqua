@@ -861,7 +861,11 @@ fn drag_motion(sh: &mut Shell, x: f32, y: f32) {
     let off = y < geo.rect.y - s * 1.1 || x < geo.rect.x - s * 1.5 || x > geo.rect.right() + s * 1.5;
     let outside = removable && off;
     let key = sh.dock.press.as_ref().map(|p| p.key.clone()).unwrap_or_default();
+    let pinned_drag = sh.dock.press.as_ref().is_some_and(|p| p.item.pinned);
     let mut to = 0;
+    // A kept (pinned) icon can only move among the kept icons: the running-only apps
+    // after them are not stored in the config, so dropping past them used to snap back.
+    let mut limit = 0;
     for (i, k) in geo.keys.iter().enumerate() {
         if items[i].kind == Kind::Separator {
             break;
@@ -869,15 +873,29 @@ fn drag_motion(sh: &mut Shell, x: f32, y: f32) {
         if geo.ghost[i] || *k == key {
             continue;
         }
+        if !pinned_drag || items[i].pinned {
+            limit += 1;
+        }
         if geo.slots[i].cx() < x {
             to += 1;
         }
     }
+    if pinned_drag {
+        to = to.min(limit);
+    }
+    let mut moved = false;
     if let Some(p) = sh.dock.press.as_mut() {
+        moved = p.outside != outside || (!outside && p.to != to);
         p.outside = outside;
         if !outside {
             p.to = to;
         }
+    }
+    if moved {
+        // Turn the new order into FLIP offsets before anything is drawn: rendering the
+        // reordered slots first made the icon being passed jump to its new place for one
+        // frame and back (it blinked).
+        sync(sh, 0.0);
     }
 }
 
@@ -944,6 +962,28 @@ pub fn release(sh: &mut Shell, x: f32, y: f32) -> Option<Vec<Action>> {
     }
     let order = ordered(sh);
     sh.dock.press = None;
+    if !p.item.pinned && sh.cfg.dock_keep_order {
+        // A running-only app dropped among the other running-only apps: just reorder
+        // them (macOS keeps it unpinned); dropped among the kept icons, it gets kept.
+        let at = order.iter().position(|(k, _)| *k == p.key).unwrap_or(0);
+        let kept_after = order[at + 1..]
+            .iter()
+            .take_while(|(_, it)| it.kind != Kind::Separator)
+            .any(|(_, it)| it.pinned);
+        if !kept_after {
+            let seq: Vec<String> = order
+                .iter()
+                .take_while(|(_, it)| it.kind != Kind::Separator)
+                .filter(|(_, it)| !it.pinned && it.kind == Kind::App)
+                .map(|(_, it)| it.app.clone())
+                .collect();
+            let ro = &mut sh.dock.running_order;
+            let rest: Vec<String> = ro.iter().filter(|a| !seq.contains(a)).cloned().collect();
+            *ro = seq.into_iter().chain(rest).collect();
+            sh.dock.fly = Some(Fly { item: p.item.clone(), key: p.key.clone(), from, t: 0.0, remove: false });
+            return Some(vec![Action::Redraw]);
+        }
+    }
     let mut new_cfg = vec![];
     for (k, it) in &order {
         if it.kind == Kind::Separator {

@@ -1,0 +1,14 @@
+[package]
+name = "aqua-log"
+description = "Shared logging and crash reports for every Aqua program"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "fmt", "env-filter", "ansi", "registry"] }
+libc = "0.2"
+
+[lints]
+workspace = true

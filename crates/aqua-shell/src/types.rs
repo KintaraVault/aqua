@@ -170,6 +170,13 @@ pub enum Action {
     NewFolder(String),
     /// A row of an application's tray menu was chosen: (tray key, dbusmenu id).
     TrayMenu(String, i32),
+    /// A row of the focused app's global menu (dbusmenu id).
+    AppMenu(i32),
+    /// Turn Stage Manager on/off.
+    SetStageManager(bool),
+    /// Tiling menu of the green button: (window id, `tile-left` / `arrange-quarters` /
+    /// `tile-restore` / `fullscreen`).
+    TileWindow(u64, String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

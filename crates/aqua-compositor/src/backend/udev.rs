@@ -211,6 +211,9 @@ fn prepare_nvidia() -> Result<(), Box<dyn std::error::Error>> {
         ("LIBVA_DRIVER_NAME", "nvidia"),
         ("NVD_BACKEND", "direct"),
         ("ELECTRON_OZONE_PLATFORM_HINT", "auto"),
+        // WebKitGTK's DMA-BUF renderer flickers / shows stale frames on NVIDIA (Telegram
+        // mini apps, Tauri apps, GNOME Web …); the shared-memory path is stable.
+        ("WEBKIT_DISABLE_DMABUF_RENDERER", "1"),
     ] {
         if std::env::var_os(k).is_none() {
             unsafe { std::env::set_var(k, v) };

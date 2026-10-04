@@ -67,12 +67,33 @@ impl Aqua {
             let x11 = w.x11_surface().is_some();
             let _ = writeln!(
                 o,
-                "window app={id:?} title={title:?} x11={x11} geo={:?} focused={} ssd={}",
+                "window app={id:?} title={title:?} x11={x11} geo={:?} focused={} ssd={} tiled={:?} menu={:?}",
                 self.space.element_geometry(w),
                 Some(w) == focused.as_ref(),
-                crate::state::is_ssd(w)
+                crate::state::is_ssd(w),
+                crate::state::meta(w).borrow().tiled.map(|t| t.name()),
+                crate::wayland::appmenu::window_address(w)
             );
         }
+        let addr = focused.as_ref().and_then(|w| self.app_menu_address(w));
+        let menus = aqua_tray::appmenu::current()
+            .map(|m| m.titles().iter().map(|n| n.label.clone()).collect::<Vec<_>>())
+            .unwrap_or_default();
+        let _ = writeln!(o, "appmenu={addr:?} menus={menus:?}");
+        let rows: Vec<String> = aqua_shell::tray::app_menu_entries(0)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|e| e.map(|e| format!("{}{}", e.label, if e.shortcut.is_empty() { String::new() } else { format!(" [{}]", e.shortcut) })).unwrap_or("-".into()))
+            .collect();
+        let _ = writeln!(o, "appmenu_first={rows:?}");
+        let _ = writeln!(
+            o,
+            "stage on={} active={:?} strip={:?} staged={}",
+            self.stage.on,
+            self.stage.active,
+            self.stage_slots().iter().map(|(a, _)| a.clone()).collect::<Vec<_>>(),
+            self.stage.staged.len()
+        );
         let _ = writeln!(o, "clipboard_entries={}", self.clip.entries.len());
         for e in self.clip.entries.iter().take(5) {
             let _ = writeln!(
@@ -249,6 +270,7 @@ impl Aqua {
             }
             "wake" => self.notify_activity(),
             "dump" => self.dump_state(rest),
+            "tilemenu" => self.tile_menu_at_pointer(),
             "reload" => self.reload_config(),
             "run" => {
                 aqua_apps::launch(rest);

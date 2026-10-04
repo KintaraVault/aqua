@@ -204,6 +204,7 @@ pub fn validate(c: &mut Config, issues: &mut Vec<Issue>) {
         &d.menubar_autohide,
     );
     one_of(issues, "dock_click", &mut c.dock_click, &["focus", "minimize", "cycle", "expose", "new"], &d.dock_click);
+    one_of(issues, "sidebar_style", &mut c.sidebar_style, &["floating", "solid"], &d.sidebar_style);
     one_of(
         issues,
         "screenshot_save",

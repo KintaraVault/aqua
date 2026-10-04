@@ -130,6 +130,12 @@ pub struct Appearance {
 }
 
 impl Appearance {
+    /// Not exported on the bus (a nested test session must not take over the host
+    /// session's portals).
+    pub fn offline(dark: bool) -> Appearance {
+        Appearance { dark: Arc::new(AtomicBool::new(dark)), conn: None, backend: None }
+    }
+
     /// The compositor ended screen cast `session`: tell xdg-desktop-portal (Session.Closed).
     pub fn cast_closed(&self, session: &str) {
         if let Some(b) = &self.backend {
@@ -278,6 +284,7 @@ pub fn spawn(dark: bool) -> Appearance {
         .and_then(|b| b.build());
     let backend = match backend {
         Ok(c) => {
+            crate::keep_name(&c, "org.freedesktop.impl.portal.desktop.aqua");
             tracing::info!("portal backend org.freedesktop.impl.portal.desktop.aqua ready");
             Some(c)
         }

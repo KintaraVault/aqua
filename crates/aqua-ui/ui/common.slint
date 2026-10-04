@@ -3,6 +3,14 @@ import { Palette } from "std-widgets.slint";
 export global Theme {
     in-out property <bool> dark: false;
     in-out property <color> accent: #007aff;
+    /// Sidebars: full-height "solid" instead of a floating island (config `sidebar_style`).
+    in-out property <bool> solid-sidebar: false;
+    /// Toolbar capsules / navigation arrows as raised liquid glass (config `glass_controls`).
+    in-out property <bool> glass-controls: true;
+    /// Glossy glass traffic lights (config `glass_traffic_lights`).
+    in-out property <bool> glass-lights: true;
+    /// Interface animations (press squish, sheet / pane fades); false with "Reduce motion".
+    in-out property <bool> motion: true;
     out property <color> window-bg: dark ? #1f1f21 : #ffffff;
     out property <color> sidebar-bg: dark ? #2b2b2e : #eef0f3;
     out property <color> sidebar-bg2: dark ? #28282b : #e9ebef;
@@ -269,7 +277,13 @@ export component Checkbox inherits Rectangle {
     border-color: #00000040;
     drop-shadow-blur: 1px;
     drop-shadow-color: #0000001f;
-    if checked: Image { width: 11px; height: 11px; source: Glyphs.checkmark; colorize: white; }
+    animate background { duration: 120ms; easing: ease-out; }
+    Image {
+        width: 11px; height: 11px; source: Glyphs.checkmark; colorize: white;
+        opacity: checked ? 1 : 0;
+        transform-scale: checked || !Theme.motion ? 1.0 : 0.5;
+        animate opacity, transform-scale { duration: 140ms; easing: cubic-bezier(0.3, 1.4, 0.5, 1); }
+    }
     TouchArea { clicked => { root.checked = !root.checked; root.toggled(root.checked); } }
 }
 
@@ -315,7 +329,8 @@ export component NavRow inherits Rectangle {
     in property <bool> last: false;
     callback clicked();
     height: 38px;
-    background: ta.pressed ? Theme.hover : transparent;
+    background: ta.pressed ? Theme.control-bg : (ta.has-hover ? Theme.hover : transparent);
+    animate background { duration: 120ms; easing: ease-out; }
     HorizontalLayout {
         padding-left: 10px;
         padding-right: 12px;
@@ -346,6 +361,9 @@ export component PillButton inherits Rectangle {
     border-width: primary ? 0px : 0.5px;
     border-color: Theme.control-border;
     animate background { duration: 100ms; }
+    // Liquid-glass controls squish slightly while pressed and spring back.
+    transform-scale: ta.pressed && Theme.motion ? 0.96 : 1.0;
+    animate transform-scale { duration: 160ms; easing: cubic-bezier(0.3, 1.4, 0.5, 1); }
     label := Text {
         text: root.text;
         font-size: 13px;
@@ -370,6 +388,9 @@ export component IconButton inherits Rectangle {
     border-radius: size / 2;
     opacity: enabled ? 1 : 0.35;
     background: ta.pressed ? Theme.control-pressed : (ta.has-hover ? Theme.control-bg : transparent);
+    animate background { duration: 120ms; easing: ease-out; }
+    transform-scale: ta.pressed && Theme.motion ? 0.92 : 1.0;
+    animate transform-scale { duration: 160ms; easing: cubic-bezier(0.3, 1.4, 0.5, 1); }
     Image { width: size * 0.5; height: size * 0.5; source: glyph; colorize: Theme.text; }
     ta := TouchArea { enabled: root.enabled; clicked => { root.clicked(); } }
 }
@@ -392,7 +413,7 @@ export component Segmented inherits Rectangle {
             drop-shadow-blur: i == current ? 3px : 0px;
             drop-shadow-color: #00000026;
             drop-shadow-offset-y: 1px;
-            animate background { duration: 150ms; }
+            animate background, drop-shadow-blur { duration: 180ms; easing: ease-out; }
             min-width: t.preferred-width + 22px;
             t := Text { text: it; font-size: 12px; font-weight: i == current ? 500 : 400; color: Theme.text; horizontal-alignment: center; vertical-alignment: center; }
             TouchArea { clicked => { root.current = i; root.changed(i); } }
@@ -414,6 +435,7 @@ export component Field inherits Rectangle {
     background: Theme.field-bg;
     border-width: input.has-focus ? 3px : 0.5px;
     border-color: input.has-focus ? Theme.accent.with-alpha(0.45) : Theme.control-border;
+    animate border-width, border-color { duration: 150ms; easing: ease-out; }
     HorizontalLayout {
         padding-left: search ? 10px : 8px;
         padding-right: 8px;
@@ -516,6 +538,12 @@ export component UpDown inherits Path {
     fill: transparent;
 }
 
+/// Window-management requests from Aqua's own title bars.
+export global WinCtl {
+    /// The green button was hovered for a moment: ask Aqua for its tiling menu.
+    callback tile-menu();
+}
+
 export global Backdrop {
     in property <image> image;
     in property <length> win-w;
@@ -528,19 +556,24 @@ export component GlassMenu inherits Rectangle {
     in property <length> ox;
     in property <length> oy;
     in property <length> radius: 12px;
+    /// Shown as its own surface (a menu popup window): the compositor adds the shadow and,
+    /// with `glass`, a real blurred backdrop.
+    in property <bool> native;
+    in property <bool> glass;
     border-radius: radius;
-    drop-shadow-blur: 22px;
+    drop-shadow-blur: native ? 0px : 22px;
     drop-shadow-color: Theme.dark ? #00000070 : #0000002e;
     drop-shadow-offset-y: 8px;
-    background: Backdrop.valid ? transparent : Theme.menu-bg;
+    background: native ? (glass ? (Theme.dark ? #26262ab0 : #f6f6f8bd) : Theme.menu-bg)
+        : (Backdrop.valid ? transparent : Theme.menu-bg);
     Rectangle {
         border-radius: root.radius;
         clip: true;
-        if Backdrop.valid: Image {
+        if Backdrop.valid && !native: Image {
             x: -root.ox; y: -root.oy; width: Backdrop.win-w; height: Backdrop.win-h;
             source: Backdrop.image; image-fit: fill;
         }
-        if Backdrop.valid: Rectangle { background: Theme.dark ? #1e1e22a6 : #fbfbfdb0; }
+        if Backdrop.valid && !native: Rectangle { background: Theme.dark ? #1e1e22a6 : #fbfbfdb0; }
         Rectangle {
             border-radius: root.radius; border-width: 1px;
             border-color: Theme.dark ? #ffffff24 : #ffffffd9;
@@ -561,23 +594,25 @@ export component PopupSelect inherits Rectangle {
     min-width: lbl.preferred-width + 30px;
     height: 24px;
     border-radius: 7px;
-    background: bezel ? Theme.control-bg : (ta.pressed ? Theme.control-bg : (ta.has-hover ? Theme.hover : transparent));
+    background: bezel ? (ta.pressed ? Theme.control-pressed : Theme.control-bg) : (ta.pressed ? Theme.control-bg : (ta.has-hover ? Theme.hover : transparent));
+    border-width: bezel ? 0.5px : 0px;
+    border-color: Theme.control-border;
     lbl := Text {
-        x: 8px;
+        x: bezel ? 10px : 8px;
         text: current >= 0 && current < items.length ? items[current] : placeholder;
         font-size: 13px;
         color: current >= 0 && current < items.length ? Theme.text : Theme.text-secondary;
         vertical-alignment: center;
-        horizontal-alignment: right;
+        horizontal-alignment: bezel ? left : right;
         height: parent.height;
-        width: parent.width - 28px;
+        width: parent.width - (bezel ? 30px : 28px);
         overflow: elide;
     }
     UpDown { x: parent.width - 16px; y: (parent.height - self.height) / 2; }
     ta := TouchArea { clicked => { Backdrop.capture(); menu.show(); } }
     menu := PopupWindow {
         width: max(root.width + 30px, 180px);
-        x: root.width - self.width + 6px;
+        x: bezel ? -19px : root.width - self.width + 6px;
         y: current >= 0 && list-h <= 360px ? (root.height - row-h) / 2 - 5px - current * row-h : root.height + 4px;
         height: min(list-h, 360px);
         GlassMenu {
@@ -610,15 +645,34 @@ component Light inherits Rectangle {
     in property <bool> glyphs;
     out property <bool> hover: ta.has-hover;
     callback clicked();
+    property <color> base: !lit ? (Theme.dark ? #5a5a5e : #cfcfd3) : (kind == 0 ? #ff5f57 : kind == 1 ? #febc2e : #28c840);
+    property <bool> glass: Theme.glass-lights;
     width: 14px;
     height: 14px;
     border-radius: 7px;
-    background: !lit ? (Theme.dark ? #ffffff2e : #0000001f) : (kind == 0 ? #ff5f57 : kind == 1 ? #febc2e : #28c840);
-    border-width: 0.5px;
-    border-color: !lit ? transparent : (kind == 0 ? #e0443e : kind == 1 ? #dea123 : #1aab29);
-    if glyphs && kind == 0: Path { width: 8px; height: 8px; viewbox-width: 10; viewbox-height: 10; fill-rule: evenodd; commands: "M2 2 8 8M8 2 2 8"; stroke: #4d0000; stroke-width: 1.3px; fill: transparent; }
-    if glyphs && kind == 1: Path { width: 8px; height: 8px; viewbox-width: 10; viewbox-height: 10; fill-rule: evenodd; commands: "M1.5 5h7"; stroke: #995700; stroke-width: 1.4px; fill: transparent; }
-    if glyphs && kind == 2: Image { width: 8px; height: 8px; source: Glyphs.tl-zoom; colorize: #006500; }
+    // Glass (macOS 26): a softly domed bead, not a glossy marble — the colour stays flat,
+    // a faint glow pools at the bottom and a thin lighter rim catches the light.
+    background: !glass ? (!lit ? (Theme.dark ? #ffffff2e : #0000001f) : base)
+        : !lit ? (Theme.dark ? #ffffff2e : #0000001f)
+        : @radial-gradient(circle, base 0%, base 70%, base.darker(7%) 100%);
+    border-width: glass ? 0.75px : 0.5px;
+    border-color: !lit ? (glass ? (Theme.dark ? #ffffff1f : #0000001f) : transparent)
+        : glass ? base.brighter(22%).with-alpha(0.85)
+        : (kind == 0 ? #e0443e : kind == 1 ? #dea123 : #1aab29);
+    animate background { duration: 140ms; }
+    if glass: Rectangle {
+        x: 2px; y: 5px; width: 10px; height: 8.5px; border-radius: 4.25px;
+        background: @radial-gradient(circle, #ffffff 0%, #ffffff00 100%);
+        opacity: lit ? 0.26 : 0.08;
+    }
+    if glass: Rectangle {
+        x: 3.5px; y: 1.2px; width: 7px; height: 3px; border-radius: 1.5px;
+        background: @linear-gradient(180deg, #ffffff 0%, #ffffff00 100%);
+        opacity: lit ? 0.14 : 0.06;
+    }
+    if kind == 0: Path { width: 8px; height: 8px; viewbox-width: 10; viewbox-height: 10; fill-rule: evenodd; commands: "M2 2 8 8M8 2 2 8"; opacity: glyphs ? 1 : 0; animate opacity { duration: 120ms; } stroke: #4d0000; stroke-width: 1.3px; fill: transparent; }
+    if kind == 1: Path { width: 8px; height: 8px; viewbox-width: 10; viewbox-height: 10; fill-rule: evenodd; commands: "M1.5 5h7"; opacity: glyphs ? 1 : 0; animate opacity { duration: 120ms; } stroke: #995700; stroke-width: 1.4px; fill: transparent; }
+    if kind == 2: Image { width: 8px; height: 8px; source: Glyphs.tl-zoom; colorize: #006500; opacity: glyphs ? 1 : 0; animate opacity { duration: 120ms; } }
     ta := TouchArea { clicked => { root.clicked(); } }
 }
 
@@ -630,6 +684,12 @@ export component TrafficLights inherits Rectangle {
     width: 58px;
     height: 14px;
     property <bool> hot: a.hover || b.hover || c.hover;
+    // Resting on the green button opens the tiling menu (macOS 15/26).
+    Timer {
+        interval: 550ms;
+        running: c.hover;
+        triggered => { self.running = false; WinCtl.tile-menu(); }
+    }
     a := Light { x: 0; kind: 0; lit: root.active || root.hot; glyphs: root.hot; clicked => { root.close(); } }
     b := Light { x: 22px; kind: 1; lit: root.active || root.hot; glyphs: root.hot; clicked => { root.minimize(); } }
     c := Light { x: 44px; kind: 2; lit: root.active || root.hot; glyphs: root.hot; clicked => { root.zoom(); } }
@@ -667,3 +727,67 @@ export component GlassSurround inherits Path {
         + " A" + r + " " + r + " 0 0 1 " + (hx + r) + " " + hy + " Z";
 }
 
+/// A raised toolbar capsule (Finder toolbar groups, navigation arrows). With
+/// `Theme.glass-controls` it is liquid glass — translucent body, bright rim, specular
+/// highlight along the top and a soft caustic at the bottom; otherwise a flat bezel.
+export component GlassCapsule inherits Rectangle {
+    in property <bool> hot: false;
+    property <bool> glass: Theme.glass-controls;
+    height: 36px;
+    border-radius: self.height / 2;
+    // Glass (macOS 26 toolbar): a quiet translucent body with a thin rim that is bright
+    // along the top and fades towards the bottom — depth from the edge, no gloss band.
+    background: !glass ? (Theme.dark ? #ffffff17 : #ffffffd9)
+        : Theme.dark ? @linear-gradient(180deg, #ffffff1c 0%, #ffffff12 100%)
+        : @linear-gradient(180deg, #ffffffeb 0%, #ffffffc7 100%);
+    border-width: glass ? 1px : 0.5px;
+    border-color: !glass ? (Theme.dark ? #ffffff1f : #0000000f)
+        : Theme.dark ? @linear-gradient(180deg, #ffffff47 0%, #ffffff14 55%, #ffffff0a 100%)
+        : @linear-gradient(180deg, #ffffff 0%, #0000000f 100%);
+    drop-shadow-blur: glass ? 10px : 8px;
+    drop-shadow-offset-y: glass ? 2px : 1px;
+    drop-shadow-color: glass ? (Theme.dark ? #00000059 : #00000024) : #0000001c;
+    if glass: Rectangle {
+        x: 1px; y: 1px; width: parent.width - 2px; height: parent.height - 2px;
+        border-radius: self.height / 2;
+        background: hot ? (Theme.dark ? #ffffff0d : #ffffff40) : transparent;
+        animate background { duration: 120ms; }
+    }
+    @children
+}
+
+/// Back / forward arrows in one capsule — the same control in Finder, System Settings and
+/// the App Store. Right click (or press-and-hold) asks for the history menu.
+export component NavArrows inherits GlassCapsule {
+    in property <bool> can-back;
+    in property <bool> can-forward;
+    callback back();
+    callback forward();
+    callback history-menu(bool, length, length);
+    width: 72px;
+    for d in 2: Rectangle {
+        x: d * 36px; width: 36px; height: 36px; border-radius: 18px;
+        property <bool> on: d == 0 ? root.can-back : root.can-forward;
+        background: ta.pressed && on ? Theme.control-pressed : (ta.has-hover && on ? Theme.hover : transparent);
+        animate background { duration: 100ms; }
+        Image {
+            x: d == 0 ? 14px : 13px; width: 9px; height: 15px;
+            source: d == 0 ? Glyphs.nav-back : Glyphs.nav-forward;
+            colorize: on ? Theme.text : Theme.text-tertiary;
+            animate colorize { duration: 150ms; }
+            transform-scale: ta.pressed && on && Theme.motion ? 0.82 : 1.0;
+            animate transform-scale { duration: 160ms; easing: cubic-bezier(0.3, 1.4, 0.5, 1); }
+        }
+        ta := TouchArea {
+            enabled: on;
+            mouse-cursor: on ? pointer : default;
+            clicked => { if (d == 0) { root.back(); } else { root.forward(); } }
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                    root.history-menu(d == 0, self.absolute-position.x + 120px, self.absolute-position.y + 42px);
+                }
+            }
+        }
+    }
+    Rectangle { x: 36px; y: 9px; width: 1px; height: 18px; background: Theme.dark ? #ffffff14 : #0000000d; }
+}

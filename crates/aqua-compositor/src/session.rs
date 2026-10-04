@@ -47,8 +47,15 @@ impl Aqua {
         self.report_config_issues(aqua_config::Config::load_checked().1);
         self.start_xwayland();
         self.export_session_env();
+        aqua_apps::preload_shell_env();
         aqua_tray::start();
+        if aqua_config::Config::load().global_menu {
+            aqua_tray::appmenu::start();
+        }
         self.after_layout_change();
+        if self.cfg.stage_manager {
+            self.set_stage_manager(true);
+        }
         if self.lock.is_locked() {
             self.on_locked();
         }
@@ -192,6 +199,9 @@ impl Aqua {
         crate::state::set_reduce_motion(new.reduce_motion);
         self.set_spaces_per_output(new.spaces_per_output);
         aqua_render::set_blur_max_fps(new.blur_max_fps);
+        if old.stage_manager != new.stage_manager {
+            self.set_stage_manager(new.stage_manager);
+        }
         if old.do_not_disturb != new.do_not_disturb {
             self.shell.notes.dnd = new.do_not_disturb;
             self.shell.control.focus = new.do_not_disturb;
@@ -254,6 +264,12 @@ impl Aqua {
         static LAST: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
         let mut last = LAST.lock().unwrap();
         let path = aqua_config::paths::runtime_dir().join("aqua-outputs");
+        // A nested (winit) session must not overwrite the real session's display list:
+        // System Settings would then save a phantom "winit" display as primary.
+        let nested = !self.outputs.list.is_empty() && self.outputs.list.iter().all(|o| o.name() == "winit");
+        if nested && path.exists() && !last.starts_with("winit\t") {
+            return;
+        }
         if *last != o || !path.exists() {
             if let Err(e) = std::fs::write(&path, &o) {
                 tracing::warn!("cannot publish outputs to {}: {e}", path.display());

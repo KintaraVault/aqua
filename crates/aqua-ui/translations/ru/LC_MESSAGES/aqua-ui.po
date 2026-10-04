@@ -872,3 +872,668 @@ msgstr "Для входа необходим пароль"
 msgid "Zoom"
 msgstr "Изменить масштаб"
 
+msgid "1 package can be updated"
+msgstr "Можно обновить 1 пакет"
+
+msgid "A few components are needed to find, install and update software on this computer. App Store will ask for your password when it needs administrator rights."
+msgstr "Для поиска, установки и обновления программ на этом компьютере нужны некоторые компоненты. App Store запросит пароль, когда потребуются права администратора."
+
+msgid "About This App"
+msgstr "Об этой программе"
+
+msgid "App Store"
+msgstr "App Store"
+
+msgid "App Store Settings"
+msgstr "Настройки App Store"
+
+msgid "Apps"
+msgstr "Приложения"
+
+msgid "Apps you install appear here."
+msgstr "Здесь появятся установленные вами программы."
+
+msgid "Arcade"
+msgstr "Аркады"
+
+msgid "Arch User Repository (AUR)"
+msgstr "Пользовательский репозиторий Arch (AUR)"
+
+msgid "Automatic Updates"
+msgstr "Автоматические обновления"
+
+msgid "Available"
+msgstr "Доступные"
+
+msgid "Bug fixes and improvements."
+msgstr "Исправления ошибок и улучшения."
+
+msgid "Can’t Connect"
+msgstr "Не удается подключиться"
+
+msgid "Categories"
+msgstr "Категории"
+
+msgid "Changes take effect the next time the app is opened."
+msgstr "Изменения вступят в силу при следующем запуске программы."
+
+msgid "Check for updates automatically"
+msgstr "Автоматически проверять обновления"
+
+msgid "Check the spelling or try a new search."
+msgstr "Проверьте написание или повторите поиск."
+
+msgid "Check…"
+msgstr "Проверить…"
+
+msgid "Command-line tools, libraries and other software from your system’s repositories"
+msgstr "Утилиты командной строки, библиотеки и другие программы из репозиториев системы"
+
+msgid "Community packages built on this computer. Review them before installing."
+msgstr "Пакеты сообщества, собираемые на этом компьютере. Проверяйте их перед установкой."
+
+msgid "Components"
+msgstr "Компоненты"
+
+msgid "Create"
+msgstr "Творчество"
+
+msgid "Description"
+msgstr "Описание"
+
+msgid "Develop"
+msgstr "Разработка"
+
+msgid "Discover"
+msgstr "Обзор"
+
+msgid "Everything is set up."
+msgstr "Все настроено."
+
+msgid "Filter"
+msgstr "Фильтр"
+
+msgid "Flatpak is not installed. App Store can install it for you."
+msgstr "Flatpak не установлен. App Store может установить его."
+
+msgid "For All Users"
+msgstr "Для всех"
+
+msgid "For Me"
+msgstr "Для меня"
+
+msgid "Frees disk space taken by components no app needs anymore."
+msgstr "Освобождает место, занятое компонентами, которые больше не нужны программам."
+
+msgid "Get"
+msgstr "Загрузить"
+
+msgid "Hide"
+msgstr "Скрыть"
+
+msgid "Hide Details"
+msgstr "Скрыть подробности"
+
+msgid "History"
+msgstr "История"
+
+msgid "Include system packages"
+msgstr "Включать системные пакеты"
+
+msgid "Install All"
+msgstr "Установить все"
+
+msgid "Install Flatpak apps"
+msgstr "Устанавливать программы Flatpak"
+
+msgid "Installed"
+msgstr "Установлено"
+
+msgid "Installs app updates as they become available."
+msgstr "Устанавливает обновления программ по мере их появления."
+
+msgid "Looks for new versions in the background, also when App Store is closed."
+msgstr "Ищет новые версии в фоне, даже когда App Store закрыт."
+
+msgid "Maintenance"
+msgstr "Обслуживание"
+
+msgid "Manage…"
+msgstr "Управлять…"
+
+msgid "Name shown with your reviews"
+msgstr "Имя в ваших отзывах"
+
+msgid "No Apps"
+msgstr "Нет программ"
+
+msgid "No Results"
+msgstr "Нет результатов"
+
+msgid "No apps were found in this collection."
+msgstr "В этой подборке нет программ."
+
+msgid "No installed apps match your filter."
+msgstr "Нет установленных программ, подходящих под фильтр."
+
+msgid "No release notes."
+msgstr "Нет описания изменений."
+
+msgid "No system package manager was found."
+msgstr "Системный менеджер пакетов не найден."
+
+msgid "No written reviews yet."
+msgstr "Отзывов пока нет."
+
+msgid "Not Now"
+msgstr "Не сейчас"
+
+msgid "Nothing Here Yet"
+msgstr "Здесь пока пусто"
+
+msgid "Nothing has been installed, updated or removed yet."
+msgstr "Пока ничего не устанавливалось, не обновлялось и не удалялось."
+
+msgid "Package managers, Flathub and helpers App Store relies on."
+msgstr "Менеджеры пакетов, Flathub и вспомогательные программы, на которые опирается App Store."
+
+msgid "Packages"
+msgstr "Пакеты"
+
+msgid "Packages from your distribution’s repositories."
+msgstr "Пакеты из репозиториев вашего дистрибутива."
+
+msgid "Permissions"
+msgstr "Права доступа"
+
+msgid "Play"
+msgstr "Игры"
+
+msgid "Preferred source"
+msgstr "Предпочтительный источник"
+
+msgid "Preview"
+msgstr "Предпросмотр"
+
+msgid "Ratings & Reviews"
+msgstr "Оценки и отзывы"
+
+msgid "Ready"
+msgstr "Готово"
+
+msgid "Refresh"
+msgstr "Обновить"
+
+msgid "Refresh software catalogs"
+msgstr "Обновить каталоги программ"
+
+msgid "Remove"
+msgstr "Удалить"
+
+msgid "Remove unused runtimes"
+msgstr "Удалить неиспользуемые среды"
+
+msgid "Repair"
+msgstr "Восстановить"
+
+msgid "Repair Flatpak installation"
+msgstr "Восстановить установку Flatpak"
+
+msgid "Report"
+msgstr "Пожаловаться"
+
+msgid "Required"
+msgstr "Обязательно"
+
+msgid "Reset to Defaults"
+msgstr "Сбросить"
+
+msgid "Review (optional)"
+msgstr "Отзыв (необязательно)"
+
+msgid "Search for “{}”"
+msgstr "Искать «{}»"
+
+msgid "See All"
+msgstr "См. все"
+
+msgid "Set Up App Store"
+msgstr "Настройка App Store"
+
+msgid "Settings"
+msgstr "Настройки"
+
+msgid "Show"
+msgstr "Показать"
+
+msgid "Show Details"
+msgstr "Показать подробности"
+
+msgid "Show notifications"
+msgstr "Показывать уведомления"
+
+msgid "Show ratings and reviews"
+msgstr "Показывать оценки и отзывы"
+
+msgid "Sources"
+msgstr "Источники"
+
+msgid "Submit"
+msgstr "Отправить"
+
+msgid "System Packages"
+msgstr "Системные пакеты"
+
+msgid "Tap a star to rate."
+msgstr "Нажмите на звезду, чтобы оценить."
+
+msgid "Thanks for your feedback."
+msgstr "Спасибо за отзыв."
+
+msgid "Title"
+msgstr "Заголовок"
+
+msgid "Try Again"
+msgstr "Повторить"
+
+msgid "Universal apps that run on any distribution, in a sandbox."
+msgstr "Универсальные программы для любого дистрибутива, работающие в песочнице."
+
+msgid "Update"
+msgstr "Обновить"
+
+msgid "Update All"
+msgstr "Обновить все"
+
+msgid "Updated Recently"
+msgstr "Недавно обновленные"
+
+msgid "Updates"
+msgstr "Обновления"
+
+msgid "Updates for your apps and system appear here."
+msgstr "Здесь появляются обновления программ и системы."
+
+msgid "Updates from {} are shown on the Updates page."
+msgstr "Обновления {} показываются на странице «Обновления»."
+
+msgid "Updating…"
+msgstr "Обновление…"
+
+msgid "Used when an app is available from more than one source."
+msgstr "Используется, если программа доступна из нескольких источников."
+
+msgid "Version History"
+msgstr "История версий"
+
+msgid "Version {}"
+msgstr "Версия {}"
+
+msgid "Was this review helpful?"
+msgstr "Отзыв был полезен?"
+
+msgid "Website"
+msgstr "Веб-сайт"
+
+msgid "What’s New"
+msgstr "Что нового"
+
+msgid "Work"
+msgstr "Работа"
+
+msgid "Write a Review"
+msgstr "Написать отзыв"
+
+msgid "Your Apps Are Up to Date"
+msgstr "Ваши программы обновлены"
+
+msgid "Your name"
+msgstr "Ваше имя"
+
+msgid "Your review"
+msgstr "Ваш отзыв"
+
+msgid "more"
+msgstr "еще"
+
+msgid "out of 5"
+msgstr "из 5"
+
+msgid "{} of {} found this helpful"
+msgstr "Полезен для {} из {}"
+
+msgid "{} packages can be updated"
+msgstr "Пакетов можно обновить: {}"
+
+msgid "Add Comments"
+msgstr "Добавить комментарии"
+
+msgid "Add Text"
+msgstr "Добавить текст"
+
+msgid "Advanced"
+msgstr "Дополнения"
+
+msgid "Calculate all sizes"
+msgstr "Вычислять все размеры"
+
+msgid "Change All…"
+msgstr "Изменить все…"
+
+msgid "Comments:"
+msgstr "Комментарии:"
+
+msgid "Contents"
+msgstr "Содержимое"
+
+msgid "Custom Format:"
+msgstr "Свой формат:"
+
+msgid "Date Created"
+msgstr "Дата создания"
+
+msgid "Date Last Opened"
+msgstr "Дата последнего открытия"
+
+msgid "Desktop"
+msgstr "Рабочий стол"
+
+msgid "Documents"
+msgstr "Документы"
+
+msgid "Downloads"
+msgstr "Загрузки"
+
+msgid "Example:"
+msgstr "Пример:"
+
+msgid "Find:"
+msgstr "Найти:"
+
+msgid "Finder Settings"
+msgstr "Настройки Finder"
+
+msgid "Format"
+msgstr "Формат"
+
+msgid "General:"
+msgstr "Общие:"
+
+msgid "Grid spacing:"
+msgstr "Интервал сетки:"
+
+msgid "Group By:"
+msgstr "Группировать:"
+
+msgid "Hide extension"
+msgstr "Скрыть расширение"
+
+msgid "Home"
+msgstr "Личное"
+
+msgid "Icon size:"
+msgstr "Размер значков:"
+
+msgid "Locked"
+msgstr "Защита"
+
+msgid "More Info:"
+msgstr "Подробнее:"
+
+msgid "Name & Extension:"
+msgstr "Имя и расширение:"
+
+msgid "Name Format:"
+msgstr "Формат имени:"
+
+msgid "Name and Counter"
+msgstr "Имя и счетчик"
+
+msgid "Name and Date"
+msgstr "Имя и дата"
+
+msgid "Name and Index"
+msgstr "Имя и индекс"
+
+msgid "New Finder windows show:"
+msgstr "В новых окнах Finder открывать:"
+
+msgid "No Access"
+msgstr "Нет доступа"
+
+msgid "No additional information"
+msgstr "Нет дополнительной информации"
+
+msgid "Open with:"
+msgstr "Открыть в программе:"
+
+msgid "Preview:"
+msgstr "Просмотр:"
+
+msgid "Privilege"
+msgstr "Доступ"
+
+msgid "Read & Write"
+msgstr "Чтение и запись"
+
+msgid "Read only"
+msgstr "Только чтение"
+
+msgid "Rename"
+msgstr "Переименовать"
+
+msgid "Rename Finder Items:"
+msgstr "Переименовать объекты Finder:"
+
+msgid "Replace Text"
+msgstr "Заменить текст"
+
+msgid "Replace with:"
+msgstr "Заменить на:"
+
+msgid "Search This Computer"
+msgstr "Искать на этом компьютере"
+
+msgid "Search the Current Folder"
+msgstr "Искать в текущей папке"
+
+msgid "Search:"
+msgstr "Поиск:"
+
+msgid "Server Address"
+msgstr "Адрес сервера"
+
+msgid "Sharing & Permissions:"
+msgstr "Общий доступ и права доступа:"
+
+msgid "Show Columns:"
+msgstr "Показывать столбцы:"
+
+msgid "Show icon preview"
+msgstr "Показывать миниатюры значков"
+
+msgid "Show icons"
+msgstr "Показывать значки"
+
+msgid "Show item info"
+msgstr "Показывать информацию об объекте"
+
+msgid "Show preview column"
+msgstr "Показывать столбец просмотра"
+
+msgid "Show these items in the sidebar:"
+msgstr "Показывать эти объекты в боковом меню:"
+
+msgid "Show these tags in the sidebar:"
+msgstr "Показывать эти теги в боковом меню:"
+
+msgid "Sidebar"
+msgstr "Боковое меню"
+
+msgid "Sort By:"
+msgstr "Сортировать:"
+
+msgid "Start numbers at:"
+msgstr "Начать нумерацию с:"
+
+msgid "Tags"
+msgstr "Теги"
+
+msgid "Text size:"
+msgstr "Размер текста:"
+
+msgid "This Computer"
+msgstr "Этот компьютер"
+
+msgid "Use as Defaults"
+msgstr "Использовать как стандартные"
+
+msgid "Use relative dates"
+msgstr "Использовать относительные даты"
+
+msgid "Use the Previous Search Scope"
+msgstr "Использовать предыдущую область поиска"
+
+msgid "Use this application to open all documents like this one."
+msgstr "Использовать эту программу для открытия всех таких документов."
+
+msgid "When performing a search:"
+msgstr "При выполнении поиска:"
+
+msgid "Where:"
+msgstr "Где:"
+
+msgid "Write only"
+msgstr "Только запись"
+
+msgid "You can only read"
+msgstr "Вы можете только читать"
+
+msgid "You can read and write"
+msgstr "Вы можете читать и записывать"
+
+msgid "after name"
+msgstr "после имени"
+
+msgid "before name"
+msgstr "перед именем"
+
+msgid "{} items selected"
+msgstr "Выбрано объектов: {}"
+
+msgid "Add To Sidebar"
+msgstr "Добавить в боковое меню"
+
+msgid "Choose the items shown in the toolbar."
+msgstr "Выберите объекты для панели инструментов."
+
+msgid "Connect to Server"
+msgstr "Подключение к серверу"
+
+msgid "Connecting…"
+msgstr "Подключение…"
+
+msgid "Create PDF"
+msgstr "Создать PDF"
+
+msgid "Favorite Servers:"
+msgstr "Избранные серверы:"
+
+msgid "No favorite servers"
+msgstr "Нет избранных серверов"
+
+msgid "Page {} of {}"
+msgstr "Страница {} из {}"
+
+msgid "Restore Default"
+msgstr "Восстановить стандартные"
+
+msgid "Rotate Left"
+msgstr "Повернуть влево"
+
+msgid "Save"
+msgstr "Сохранить"
+
+msgid "Snap to Grid"
+msgstr "Выравнивать по сетке"
+
+msgid "smb://server/share, sftp://host, ftp://…"
+msgstr "smb://сервер/ресурс, sftp://хост, ftp://…"
+
+msgid "Add Tags…"
+msgstr "Добавить теги…"
+
+msgid "Contains “{}”"
+msgstr "Содержит «{}»"
+
+msgid "Content"
+msgstr "Содержимое"
+
+msgid "Filenames"
+msgstr "Имена файлов"
+
+msgid "Floating"
+msgstr "Плавающая"
+
+msgid "Kinds"
+msgstr "Типы"
+
+msgid "Loading…"
+msgstr "Загрузка…"
+
+msgid "Name Contains “{}”"
+msgstr "Имя содержит «{}»"
+
+msgid "Sidebar style:"
+msgstr "Стиль боковой панели:"
+
+msgid "Solid"
+msgstr "Сплошная"
+
+msgid "is"
+msgstr "совпадает с"
+
+msgid "Sidebar style"
+msgstr "Стиль боковой панели"
+
+msgid "Finder, System Settings and the App Store"
+msgstr "Finder, Системные настройки и App Store"
+
+msgid "Glass toolbar buttons"
+msgstr "Стеклянные кнопки панели"
+
+msgid "Navigation arrows and toolbar capsules"
+msgstr "Стрелки навигации и капсулы панели инструментов"
+
+msgid "Glass traffic lights"
+msgstr "Стеклянные кнопки окна"
+
+msgid "Close, minimise and zoom buttons with a glossy glass finish"
+msgstr "Кнопки закрытия, сворачивания и масштабирования с глянцевым стеклом"
+
+msgid "Drag windows to screen edges to tile"
+msgstr "Перетаскивать окна к краям экрана для их расположения"
+
+msgid "Halves at the sides, quarters in the corners, fill at the top"
+msgstr "Половины по бокам, четверти в углах, заполнение сверху"
+
+msgid "Tiled windows have margins"
+msgstr "Отступы у расположенных окон"
+
+msgid "Show app menus in the menu bar"
+msgstr "Показывать меню приложений в строке меню"
+
+msgid "Qt, Electron and X11 apps move their menus to the top of the screen. Takes effect for newly opened apps."
+msgstr "Меню приложений Qt, Electron и X11 переносятся наверх экрана. Действует для вновь открытых приложений."
+
+msgid "Style other apps like macOS"
+msgstr "Оформлять другие приложения как macOS"
+
+msgid "GTK, libadwaita and Qt apps get Aqua colours, rounded controls and glass toolbars (Qt needs qt6ct). Reopen apps to apply."
+msgstr "Приложения GTK, libadwaita и Qt получают цвета Aqua, скруглённые элементы и стеклянные панели (для Qt нужен qt6ct). Перезапустите приложения, чтобы применить."
+
+msgid "Stage Manager"
+msgstr "Stage Manager"
+
+msgid "Keep the current app in the centre and the other apps in a strip on the left"
+msgstr "Текущее приложение — в центре, остальные — в полосе слева"

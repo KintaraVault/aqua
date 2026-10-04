@@ -76,9 +76,13 @@ impl ResizeSurfaceGrab {
     ) -> Self {
         let initial_rect = initial_window_rect;
 
-        ResizeSurfaceState::with(window.toplevel().unwrap().wl_surface(), |state| {
-            *state = ResizeSurfaceState::Resizing { edges, initial_rect };
-        });
+        // X11 windows (XWayland, e.g. Steam) have no xdg toplevel; their geometry is driven
+        // directly from `motion`, so only Wayland surfaces track the resize state.
+        if let Some(t) = window.toplevel() {
+            ResizeSurfaceState::with(t.wl_surface(), |state| {
+                *state = ResizeSurfaceState::Resizing { edges, initial_rect };
+            });
+        }
 
         Self { start_data, window, edges, initial_rect, last_window_size: initial_rect.size }
     }
@@ -94,27 +98,7 @@ impl PointerGrab<Aqua> for ResizeSurfaceGrab {
     ) {
         handle.motion(data, None, event);
 
-        let mut delta = event.location - self.start_data.location;
-
-        let mut new_window_width = self.initial_rect.size.w;
-        let mut new_window_height = self.initial_rect.size.h;
-
-        if self.edges.intersects(ResizeEdge::LEFT | ResizeEdge::RIGHT) {
-            if self.edges.intersects(ResizeEdge::LEFT) {
-                delta.x = -delta.x;
-            }
-
-            new_window_width = (self.initial_rect.size.w as f64 + delta.x) as i32;
-        }
-
-        if self.edges.intersects(ResizeEdge::TOP | ResizeEdge::BOTTOM) {
-            if self.edges.intersects(ResizeEdge::TOP) {
-                delta.y = -delta.y;
-            }
-
-            new_window_height = (self.initial_rect.size.h as f64 + delta.y) as i32;
-        }
-
+        let delta = event.location - self.start_data.location;
         let (min_size, max_size) = match self.window.toplevel() {
             Some(t) => compositor::with_states(t.wl_surface(), |states| {
                 let mut guard = states.cached_state.get::<SurfaceCachedState>();
@@ -122,32 +106,18 @@ impl PointerGrab<Aqua> for ResizeSurfaceGrab {
                 (data.min_size, data.max_size)
             }),
             None => {
-                let x = self.window.x11_surface().unwrap();
-                (x.min_size().unwrap_or((40, 30).into()), x.max_size().unwrap_or_default())
+                let Some(x) = self.window.x11_surface() else { return };
+                let (min, max) = x11_visible_hints(x.min_size(), x.max_size(), x.frame_extents());
+                (min.unwrap_or((40, 30).into()), max.unwrap_or_default())
             }
         };
-
-        let min_width = min_size.w.max(1);
-        let min_height = min_size.h.max(1);
-
-        let max_width = if max_size.w == 0 { i32::MAX } else { max_size.w };
-        let max_height = if max_size.h == 0 { i32::MAX } else { max_size.h };
-
-        self.last_window_size = Size::from((
-            new_window_width.max(min_width).min(max_width),
-            new_window_height.max(min_height).min(max_height),
-        ));
+        let r = resized_rect(self.initial_rect, self.edges, delta, min_size, max_size);
+        self.last_window_size = r.size;
 
         let Some(xdg) = self.window.toplevel() else {
-            let mut loc = self.initial_rect.loc;
-            if self.edges.intersects(ResizeEdge::LEFT) {
-                loc.x = self.initial_rect.loc.x + self.initial_rect.size.w - self.last_window_size.w;
-            }
-            if self.edges.intersects(ResizeEdge::TOP) {
-                loc.y = self.initial_rect.loc.y + self.initial_rect.size.h - self.last_window_size.h;
-            }
+            let loc = r.loc;
             if let Some(x) = self.window.x11_surface() {
-                let _ = x.configure(Rectangle::new(loc, self.last_window_size));
+                crate::wm::x11_configure(x, Rectangle::new(loc, self.last_window_size));
             }
             data.space.map_element(self.window.clone(), loc, true);
             data.needs_redraw = true;
@@ -178,6 +148,12 @@ impl PointerGrab<Aqua> for ResizeSurfaceGrab {
 
         if !handle.current_pressed().contains(&BTN_LEFT) {
             handle.unset_grab(self, data, event.serial, event.time, true);
+            // Resized by hand: no longer a tiled window.
+            {
+                let mut m = crate::state::meta(&self.window).borrow_mut();
+                m.tiled = None;
+                m.pre_tile = None;
+            }
 
             let Some(xdg) = self.window.toplevel() else { return };
             xdg.with_pending_state(|state| {
@@ -364,4 +340,98 @@ pub fn handle_commit(space: &mut Space<Window>, surface: &WlSurface) -> Option<(
     }
 
     Some(())
+}
+
+/// New rectangle of a window being resized from `edges` by the pointer `delta`, within the
+/// size hints (`max` 0 = unbounded). Left / top edges keep the opposite edge in place.
+pub fn resized_rect(
+    initial: Rectangle<i32, Logical>,
+    edges: ResizeEdge,
+    delta: Point<f64, Logical>,
+    min: Size<i32, Logical>,
+    max: Size<i32, Logical>,
+) -> Rectangle<i32, Logical> {
+    let mut w = initial.size.w;
+    let mut h = initial.size.h;
+    if edges.intersects(ResizeEdge::LEFT) {
+        w = (initial.size.w as f64 - delta.x) as i32;
+    } else if edges.intersects(ResizeEdge::RIGHT) {
+        w = (initial.size.w as f64 + delta.x) as i32;
+    }
+    if edges.intersects(ResizeEdge::TOP) {
+        h = (initial.size.h as f64 - delta.y) as i32;
+    } else if edges.intersects(ResizeEdge::BOTTOM) {
+        h = (initial.size.h as f64 + delta.y) as i32;
+    }
+    let max_w = if max.w <= 0 { i32::MAX } else { max.w };
+    let max_h = if max.h <= 0 { i32::MAX } else { max.h };
+    let size: Size<i32, Logical> = (w.max(min.w.max(1)).min(max_w), h.max(min.h.max(1)).min(max_h)).into();
+    let mut loc = initial.loc;
+    if edges.intersects(ResizeEdge::LEFT) {
+        loc.x = initial.loc.x + initial.size.w - size.w;
+    }
+    if edges.intersects(ResizeEdge::TOP) {
+        loc.y = initial.loc.y + initial.size.h - size.h;
+    }
+    Rectangle::new(loc, size)
+}
+
+/// X11 `WM_NORMAL_HINTS` describe the whole X window, which with GTK includes its
+/// client-side shadow (`_GTK_FRAME_EXTENTS`); the grab works with the visible geometry.
+pub fn x11_visible_hints(
+    min: Option<Size<i32, Logical>>,
+    max: Option<Size<i32, Logical>>,
+    fe: smithay::utils::FrameExtents<i32, Logical>,
+) -> (Option<Size<i32, Logical>>, Option<Size<i32, Logical>>) {
+    let (ew, eh) = (fe.left + fe.right, fe.top + fe.bottom);
+    let shrink = |v: i32, e: i32| if v > 0 { (v - e).max(1) } else { 0 };
+    (
+        min.map(|s| Size::from((shrink(s.w, ew), shrink(s.h, eh)))),
+        max.map(|s| Size::from((shrink(s.w, ew), shrink(s.h, eh)))),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rect(x: i32, y: i32, w: i32, h: i32) -> Rectangle<i32, Logical> {
+        Rectangle::new((x, y).into(), (w, h).into())
+    }
+
+    #[test]
+    fn right_and_bottom_edges_grow_in_place() {
+        let r = resized_rect(rect(100, 50, 400, 300), ResizeEdge::BOTTOM_RIGHT, (60.0, 20.0).into(), (1, 1).into(), (0, 0).into());
+        assert_eq!(r, rect(100, 50, 460, 320));
+    }
+
+    #[test]
+    fn left_and_top_edges_keep_the_opposite_edge() {
+        let r = resized_rect(rect(100, 50, 400, 300), ResizeEdge::TOP_LEFT, (-30.0, 10.0).into(), (1, 1).into(), (0, 0).into());
+        assert_eq!(r, rect(70, 60, 430, 290));
+        assert_eq!(r.loc.x + r.size.w, 500);
+        assert_eq!(r.loc.y + r.size.h, 350);
+    }
+
+    #[test]
+    fn hints_clamp_without_moving_the_anchor() {
+        let r = resized_rect(rect(100, 50, 400, 300), ResizeEdge::LEFT, (390.0, 0.0).into(), (200, 100).into(), (0, 0).into());
+        assert_eq!(r, rect(300, 50, 200, 300));
+        let r = resized_rect(rect(100, 50, 400, 300), ResizeEdge::RIGHT, (900.0, 0.0).into(), (1, 1).into(), (640, 480).into());
+        assert_eq!(r.size.w, 640);
+        // A size hint of min > max must not panic (clamp would).
+        let r = resized_rect(rect(0, 0, 400, 300), ResizeEdge::RIGHT, (5.0, 0.0).into(), (500, 400).into(), (300, 200).into());
+        assert_eq!(r.size, (300, 200).into());
+    }
+
+    #[test]
+    fn x11_hints_exclude_the_gtk_shadow() {
+        // gnome-text-editor on X11: min 410x250 for the X window, shadow 25px on each side.
+        let fe = smithay::utils::FrameExtents::new(25, 25, 25, 25);
+        let (min, max) = x11_visible_hints(Some((410, 250).into()), Some((0, 0).into()), fe);
+        assert_eq!(min, Some((360, 200).into()));
+        assert_eq!(max, Some((0, 0).into()));
+        let (min, _) = x11_visible_hints(Some((410, 250).into()), None, smithay::utils::FrameExtents::new(0, 0, 0, 0));
+        assert_eq!(min, Some((410, 250).into()));
+    }
 }

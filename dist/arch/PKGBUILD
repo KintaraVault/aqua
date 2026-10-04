@@ -23,6 +23,8 @@ optdepends=(
   'greetd: Aqua login screen (aqua-greeter)'
   'cage: kiosk compositor for aqua-greeter'
   'nautilus: file manager'
+  'flatpak: Flathub apps in the App Store'
+  'polkit: installing packages from the App Store'
   'gnome-calculator: Control Centre calculator'
   'pciutils: graphics card names in About This Computer'
   'fcitx5: Japanese/Korean/Chinese input sources'
