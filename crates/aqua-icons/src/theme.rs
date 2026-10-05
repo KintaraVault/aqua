@@ -20,9 +20,17 @@ pub fn load_any(p: &Path, px: u32) -> Option<Pixmap> {
     }
 }
 
+/// SVG options that never touch the file system: by default usvg reads every
+/// `<image href="/any/path">` with fs::read — `/dev/zero` exhausted memory, a FIFO hung.
+pub fn svg_options() -> resvg::usvg::Options<'static> {
+    let mut o = resvg::usvg::Options::default();
+    o.image_href_resolver.resolve_string = Box::new(|_, _| None);
+    o
+}
+
 pub fn load_svg(p: &Path, px: u32) -> Option<Pixmap> {
-    let data = std::fs::read(p).ok()?;
-    let tree = resvg::usvg::Tree::from_data(&data, &resvg::usvg::Options::default()).ok()?;
+    let data = aqua_gfx::read_regular(p, 16 << 20)?;
+    let tree = resvg::usvg::Tree::from_data(&data, &svg_options()).ok()?;
     let size = tree.size();
     let s = px as f32 / size.width().max(size.height());
     let mut pm = Pixmap::new(px, px)?;
@@ -118,9 +126,36 @@ pub fn symbol(body: &str, px: u32, rgba: [u8; 4]) -> Option<Pixmap> {
         "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"#{:02x}{:02x}{:02x}\" stroke-opacity=\"{:.3}\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\">{body}</svg>",
         rgba[0], rgba[1], rgba[2], rgba[3] as f32 / 255.0
     );
-    let tree = resvg::usvg::Tree::from_data(svg.as_bytes(), &resvg::usvg::Options::default()).ok()?;
+    let tree = resvg::usvg::Tree::from_data(svg.as_bytes(), &svg_options()).ok()?;
     let s = px as f32 / 24.0;
     let mut pm = Pixmap::new(px, px)?;
     resvg::render(&tree, resvg::tiny_skia::Transform::from_scale(s, s), &mut pm.as_mut());
     Some(pm)
+}
+
+#[cfg(test)]
+mod hostile_tests {
+    #[test]
+    fn svg_cannot_pull_in_files() {
+        let d = std::env::temp_dir().join(format!("aqua-svg-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let fifo = d.join("pipe.png");
+        let c = std::ffi::CString::new(fifo.to_str().unwrap()).unwrap();
+        extern "C" {
+            fn mkfifo(p: *const std::ffi::c_char, m: u32) -> i32;
+        }
+        assert_eq!(unsafe { mkfifo(c.as_ptr(), 0o600) }, 0);
+        let svg = format!(
+            "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='10' height='10'><image width='10' height='10' xlink:href='{}'/><image width='10' height='10' href='/dev/zero'/></svg>",
+            fifo.display()
+        );
+        let f = d.join("evil.svg");
+        std::fs::write(&f, svg).unwrap();
+        let t = std::time::Instant::now();
+        assert!(super::load_svg(&f, 32).is_some());
+        assert!(super::load_svg(&fifo.with_extension("svg"), 32).is_none());
+        assert!(t.elapsed().as_secs() < 2);
+        let _ = std::fs::remove_dir_all(&d);
+    }
 }

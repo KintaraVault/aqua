@@ -65,7 +65,7 @@ Recommends:     pipewire-pulseaudio
 Recommends:     NetworkManager
 Recommends:     bluez
 Recommends:     upower
-Recommends:     google-noto-emoji-color-fonts
+Recommends:     (google-noto-color-emoji-fonts or google-noto-emoji-color-fonts)
 Recommends:     sound-theme-freedesktop
 Recommends:     (ffmpeg-free or ffmpeg)
 Recommends:     flatpak
@@ -115,6 +115,10 @@ rm -rf %{buildroot}%{_datadir}/licenses/%{name} %{buildroot}%{_docdir}/%{name}
 export CARGO_TARGET_DIR=%{_builddir}/%{name}-%{version}/target
 cargo test --release --locked %{cargo_net} -p aqua-i18n -p aqua-config -p aqua-wm -p aqua-apps --lib
 
+%post
+# NVIDIA < 560 does not enable kernel modesetting, which Wayland compositors need
+[ $1 -eq 1 ] && %{_bindir}/aqua-nvidia-setup --quiet || :
+
 %posttrans
 for f in /usr/local/bin/aqua /usr/local/bin/aqua-session; do
     [ -e "$f" ] && echo "warning: $f (from dist/install.sh) shadows %{_bindir} — run: sudo ./dist/install.sh --uninstall" || :
@@ -126,6 +130,8 @@ done
 %{_bindir}/aqua
 %{_bindir}/aqua-session
 %{_bindir}/aqua-screenshot
+%{_bindir}/aqua-nvidia-setup
+%{_datadir}/polkit-1/actions/org.aqua.nvidia-setup.policy
 %{_bindir}/aqua-settings
 %{_bindir}/aqua-finder
 %{_bindir}/aqua-store

@@ -579,13 +579,63 @@ pub fn unique(dir: &Path, name: &str, suffix: &str) -> PathBuf {
     unreachable!()
 }
 
+/// `dest` is `src` itself or lies somewhere below it — also through symlinks
+/// (`~/link-to-a/sub` is inside `~/a`), which a lexical check misses.
+pub fn inside(dest: &Path, src: &Path) -> bool {
+    if dest.starts_with(src) {
+        return true;
+    }
+    // the last component of `src` is not followed: a symlink may go into the folder it points to
+    let src = match (src.parent(), src.file_name()) {
+        (Some(p), Some(n)) => canonical_dir(p).map(|p| p.join(n)),
+        _ => canonical_dir(src),
+    };
+    match (canonical_dir(dest), src) {
+        (Some(d), Some(s)) => d.starts_with(s),
+        _ => false,
+    }
+}
+
+/// Canonical form of a folder that may not exist yet (its nearest existing ancestor is resolved).
+fn canonical_dir(p: &Path) -> Option<PathBuf> {
+    let mut rest = vec![];
+    let mut cur = p;
+    loop {
+        if let Ok(c) = std::fs::canonicalize(cur) {
+            return Some(rest.iter().rev().fold(c, |acc: PathBuf, n| acc.join(n)));
+        }
+        rest.push(cur.file_name()?.to_owned());
+        cur = cur.parent()?;
+    }
+}
+
+/// `rename` that never replaces an existing `dst` (another program may have created it after
+/// the plan was made; plain rename(2) would silently destroy it).
+pub fn rename_noreplace(src: &Path, dst: &Path) -> std::io::Result<()> {
+    use std::os::unix::ffi::OsStrExt;
+    let c = |p: &Path| std::ffi::CString::new(p.as_os_str().as_bytes()).map_err(std::io::Error::other);
+    let (a, b) = (c(src)?, c(dst)?);
+    let r = unsafe { libc::renameat2(libc::AT_FDCWD, a.as_ptr(), libc::AT_FDCWD, b.as_ptr(), libc::RENAME_NOREPLACE) };
+    if r == 0 {
+        return Ok(());
+    }
+    let e = std::io::Error::last_os_error();
+    match e.raw_os_error() {
+        // file systems without RENAME_NOREPLACE support (some FUSE/network ones)
+        Some(libc::EINVAL) | Some(libc::ENOSYS) if dst.symlink_metadata().is_err() && !inside(dst, src) => {
+            std::fs::rename(src, dst)
+        }
+        _ => Err(e),
+    }
+}
+
 pub fn copy_rec(src: &Path, dst: &Path) -> std::io::Result<()> {
     let md = std::fs::symlink_metadata(src)?;
     if md.file_type().is_symlink() {
         let t = std::fs::read_link(src)?;
         std::os::unix::fs::symlink(t, dst)
     } else if md.is_dir() {
-        if dst.starts_with(src) {
+        if inside(dst, src) {
             return Err(std::io::Error::other("cannot copy a folder into itself"));
         }
         std::fs::create_dir_all(dst)?;
@@ -594,16 +644,24 @@ pub fn copy_rec(src: &Path, dst: &Path) -> std::io::Result<()> {
         }
         let _ = std::fs::set_permissions(dst, md.permissions());
         Ok(())
+    } else if md.is_file() {
+        // never truncate something that appeared at `dst` in the meantime
+        let mut r = std::fs::File::open(src)?;
+        let mut w = std::fs::File::options().write(true).create_new(true).open(dst)?;
+        std::io::copy(&mut r, &mut w)?;
+        let _ = std::fs::set_permissions(dst, md.permissions());
+        Ok(())
     } else {
-        std::fs::copy(src, dst).map(|_| ())
+        // FIFOs/sockets/devices: opening a FIFO would block forever
+        Ok(())
     }
 }
 
 pub fn move_to(src: &Path, dst: &Path) -> std::io::Result<()> {
-    if dst.starts_with(src) {
+    if inside(dst, src) {
         return Err(std::io::Error::other("cannot move a folder into itself"));
     }
-    match std::fs::rename(src, dst) {
+    match rename_noreplace(src, dst) {
         Ok(()) => Ok(()),
         Err(e) if e.raw_os_error() == Some(libc::EXDEV) => {
             copy_rec(src, dst)?;

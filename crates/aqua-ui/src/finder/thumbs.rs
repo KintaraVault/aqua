@@ -108,7 +108,10 @@ fn load_png(p: &Path) -> Option<(u32, u32, Vec<u8>, bool)> {
 
 fn file_preview(p: &Path, kind: i32, mtime: i64) -> Done {
     let key = p.to_path_buf();
-    let size = std::fs::metadata(p).map(|m| m.len()).unwrap_or(0);
+    // FIFOs, sockets and devices: opening one for a preview blocks (or reads forever).
+    let Some(size) = std::fs::metadata(p).ok().filter(|m| m.is_file()).map(|m| m.len()) else {
+        return Done { key, img: None, snippet: String::new() };
+    };
     if kind == 6 || (kind == 1 && size < 512 * 1024) {
         return Done { key, img: None, snippet: snippet(p).unwrap_or_default() };
     }
@@ -175,8 +178,8 @@ fn file_preview(p: &Path, kind: i32, mtime: i64) -> Done {
 fn decode_image(p: &Path) -> Option<(u32, u32, Vec<u8>, bool)> {
     let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
     if ext == "svg" {
-        let data = std::fs::read(p).ok()?;
-        let tree = resvg::usvg::Tree::from_data(&data, &resvg::usvg::Options::default()).ok()?;
+        let data = aqua_gfx::read_regular(p, 32 << 20)?;
+        let tree = resvg::usvg::Tree::from_data(&data, &aqua_icons::theme::svg_options()).ok()?;
         let s = tree.size();
         let k = 256.0 / s.width().max(s.height()).max(1.0);
         let (w, h) = (((s.width() * k).ceil() as u32).max(1), ((s.height() * k).ceil() as u32).max(1));
@@ -184,15 +187,26 @@ fn decode_image(p: &Path) -> Option<(u32, u32, Vec<u8>, bool)> {
         resvg::render(&tree, resvg::tiny_skia::Transform::from_scale(k, k), &mut pm.as_mut());
         return Some((w, h, pm.data().to_vec(), true));
     }
-    let r = image::ImageReader::open(p).ok()?.with_guessed_format().ok()?;
-    let i = r.decode().ok()?.thumbnail(256, 256).to_rgba8();
+    let i = aqua_gfx::decode_limited(&aqua_gfx::read_regular(p, 512 << 20)?)?.thumbnail(256, 256).to_rgba8();
     Some((i.width(), i.height(), i.into_raw(), false))
+}
+
+/// Open `p` for reading only if it is a regular file: a FIFO would block the open (and the
+/// thread with it) until some writer appears, a device can stream forever.
+pub fn open_regular(p: &Path) -> Option<std::fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+    if !std::fs::metadata(p).ok()?.is_file() {
+        return None;
+    }
+    // O_NONBLOCK closes the race where the path is swapped for a FIFO after the check.
+    let f = std::fs::File::options().read(true).custom_flags(0o4000).open(p).ok()?;
+    f.metadata().ok()?.is_file().then_some(f)
 }
 
 /// First ~40 lines of a text file (None for binaries).
 pub fn snippet(p: &Path) -> Option<String> {
     use std::io::Read;
-    let mut f = std::fs::File::open(p).ok()?;
+    let mut f = open_regular(p)?;
     let mut buf = vec![0u8; 3000];
     let n = f.read(&mut buf).ok()?;
     buf.truncate(n);
@@ -204,4 +218,54 @@ pub fn snippet(p: &Path) -> Option<String> {
         return None;
     }
     Some(s.lines().take(40).map(|l| l.replace('\t', "    ")).collect::<Vec<_>>().join("\n"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Previews of special files must return at once instead of hanging the worker.
+    #[test]
+    fn special_files_do_not_block() {
+        let d = std::env::temp_dir().join(format!("aqua-thumb-fifo-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let fifo = d.join("pipe.txt");
+        let img = d.join("pipe.png");
+        for p in [&fifo, &img] {
+            assert!(std::process::Command::new("mkfifo").arg(p).status().unwrap().success());
+        }
+        let (tx, rx) = std::sync::mpsc::channel();
+        let (f2, i2) = (fifo.clone(), img.clone());
+        std::thread::spawn(move || {
+            let a = snippet(&f2).is_none();
+            let b = file_preview(&f2, 6, 0).snippet.is_empty();
+            let c = file_preview(&i2, 2, 0).img.is_none();
+            let e = snippet(Path::new("/dev/zero")).is_none();
+            tx.send(a && b && c && e).unwrap();
+        });
+        let ok = rx.recv_timeout(std::time::Duration::from_secs(5));
+        // Unblock a thread stuck in open() before failing.
+        let _ = std::fs::OpenOptions::new().write(true).custom_flags_nonblock().open(&fifo);
+        let _ = std::fs::remove_dir_all(&d);
+        assert_eq!(ok, Ok(true), "preview of a FIFO or device blocked or produced data");
+    }
+
+    trait NonBlock {
+        fn custom_flags_nonblock(&mut self) -> &mut Self;
+    }
+    impl NonBlock for std::fs::OpenOptions {
+        fn custom_flags_nonblock(&mut self) -> &mut Self {
+            use std::os::unix::fs::OpenOptionsExt;
+            self.custom_flags(0o4000)
+        }
+    }
+
+    #[test]
+    fn regular_files_still_preview() {
+        let p = std::env::temp_dir().join(format!("aqua-thumb-txt-{}.txt", std::process::id()));
+        std::fs::write(&p, "line one\n\tline two\n").unwrap();
+        assert_eq!(snippet(&p).as_deref(), Some("line one\n    line two"));
+        let _ = std::fs::remove_file(&p);
+    }
 }

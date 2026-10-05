@@ -554,6 +554,29 @@ pub fn inhibited() -> bool {
 
 pub struct Inhibit;
 
+/// Session object of [`Inhibit::create_monitor`].
+struct InhibitMonitor;
+
+#[zbus::interface(name = "org.freedesktop.impl.portal.Session")]
+impl InhibitMonitor {
+    async fn close(
+        &self,
+        #[zbus(object_server)] server: &zbus::ObjectServer,
+        #[zbus(header)] hdr: zbus::message::Header<'_>,
+    ) {
+        if let Some(p) = hdr.path() {
+            let p: ObjectPath<'_> = p.clone();
+            let _ = server.remove::<InhibitMonitor, _>(p).await;
+        }
+    }
+    #[zbus(signal)]
+    async fn closed(e: &zbus::object_server::SignalEmitter<'_>) -> zbus::Result<()>;
+    #[zbus(property, name = "version")]
+    fn version(&self) -> u32 {
+        1
+    }
+}
+
 /// Exported at the request handle; Close() releases the inhibition.
 struct InhibitRequest {
     idle: bool,
@@ -597,6 +620,35 @@ impl Inhibit {
         }
         let _ = server.at(handle, InhibitRequest { idle, closed: false }).await;
     }
+
+    /// Session-state monitor (GTK 4 creates one for every application at startup). Aqua
+    /// has no logout negotiation yet, so the session simply stays "running"; without this
+    /// method every GTK app logs a failed portal call and keeps retrying.
+    async fn create_monitor(
+        &self,
+        _handle: OwnedObjectPath,
+        session_handle: OwnedObjectPath,
+        app_id: String,
+        _window: String,
+        #[zbus(object_server)] server: &zbus::ObjectServer,
+    ) -> u32 {
+        tracing::debug!("portal session monitor for {app_id:?}");
+        match server.at(session_handle, InhibitMonitor).await {
+            Ok(_) => 0,
+            Err(_) => 2,
+        }
+    }
+
+    /// Reply to a query-end StateChanged; nothing waits for it.
+    fn query_end_response(&self, _session_handle: OwnedObjectPath) {}
+
+    #[zbus(signal)]
+    async fn state_changed(
+        e: &zbus::object_server::SignalEmitter<'_>,
+        session_handle: ObjectPath<'_>,
+        state: HashMap<&str, Value<'_>>,
+    ) -> zbus::Result<()>;
+
     #[zbus(property, name = "version")]
     fn version(&self) -> u32 {
         3

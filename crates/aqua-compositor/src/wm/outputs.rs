@@ -10,6 +10,9 @@ use smithay::{
     wayland::{compositor::with_surface_tree_downward, fractional_scale::with_fractional_scale, seat::WaylandFocus},
 };
 
+/// How long a withdrawn wl_output global stays bindable (inert) after an unplug.
+pub const OUTPUT_GLOBAL_GRACE: std::time::Duration = std::time::Duration::from_secs(60);
+
 #[derive(Default)]
 pub struct Outputs {
     /// All active outputs, primary first.
@@ -57,7 +60,29 @@ impl Aqua {
         self.arrange_outputs();
     }
 
+    /// Advertise `output` to clients; the global is withdrawn again in `remove_output`
+    /// (otherwise every unplug left a dead wl_output behind and replugging duplicated it).
+    pub fn publish_output(&mut self, output: &Output) {
+        publish(&self.display_handle, output);
+    }
+
     pub fn remove_output(&mut self, output: &Output) {
+        if let Some(OutputGlobal(id)) = output.user_data().get::<OutputGlobal>() {
+            let id = id.clone();
+            // disable first so no new client binds it, destroy once in-flight binds are done.
+            // A client that was busy when the output appeared still binds it after reading
+            // the stale announcement; once the global is gone that bind is a fatal protocol
+            // error ("Invalid binding of wl_output"), so keep the inert global around long
+            // enough to cover a frozen app, not just a round-trip.
+            self.display_handle.disable_global::<Aqua>(id.clone());
+            let _ = self.loop_handle.insert_source(
+                smithay::reexports::calloop::timer::Timer::from_duration(OUTPUT_GLOBAL_GRACE),
+                move |_, _, st| {
+                    st.display_handle.remove_global::<Aqua>(id.clone());
+                    smithay::reexports::calloop::timer::TimeoutAction::Drop
+                },
+            );
+        }
         self.outputs.list.retain(|o| o != output);
         self.outputs.virtuals.retain(|o| o != output);
         self.space.unmap_output(output);
@@ -104,10 +129,26 @@ impl Aqua {
         if let Some(p) = &self.output {
             self.scale = p.current_scale().fractional_scale();
         }
-        if changed || old_size != self.output_size() {
+        // `old_size` already reflects the new mode/scale (the caller changed the output
+        // before calling us), so also compare with what the shell was last laid out for:
+        // otherwise a scale change left the menu bar, dock and wallpaper at the old size.
+        let (w, h) = self.output_size();
+        let stale = (self.shell.w - w as f32).abs() > 0.5
+            || (self.shell.h - h as f32).abs() > 0.5
+            || (self.shell.scale - self.scale as f32).abs() > 1e-4;
+        if changed || old_size != (w, h) || stale {
             self.on_output_resized();
         }
+        // `Space::map_element` also raises; moving windows around must not reshuffle the
+        // stack (a rescued window ended up above a fullscreen one after a scale change).
+        let stack: Vec<_> = self.space.elements().cloned().collect();
         self.rescue_windows();
+        self.refit_to_outputs();
+        if !self.space.elements().eq(stack.iter()) {
+            for w in &stack {
+                self.space.raise_element(w, false);
+            }
+        }
         self.update_scale_hints();
         self.needs_redraw = true;
     }
@@ -243,7 +284,22 @@ impl Aqua {
     }
 
     /// Off-screen output (testing multi-monitor without hardware, headless VNC …).
-    pub fn add_virtual_output(&mut self, name: &str, w: i32, h: i32, scale: f64) -> Output {
+    pub fn add_virtual_output(&mut self, name: &str, w: i32, h: i32, scale: f64) -> Option<Output> {
+        let (w, h) = (w.clamp(64, 16384), h.clamp(64, 16384));
+        let scale = if scale.is_finite() { scale } else { 1.0 };
+        if let Some(o) = self.outputs.list.iter().find(|o| o.name() == name).cloned() {
+            // the name identifies config, Spaces and screencasts: never create a twin
+            if !Self::is_virtual(&o) {
+                tracing::warn!("virtual output {name}: a real display has that name");
+                return None;
+            }
+            let mode = Mode { size: (w, h).into(), refresh: 60_000 };
+            let scale = self.scale_for(name, scale);
+            o.change_current_state(Some(mode), None, Some(Scale::Fractional(scale)), None);
+            o.set_preferred(mode);
+            self.arrange_outputs();
+            return Some(o);
+        }
         let output = Output::new(
             name.to_string(),
             PhysicalProperties {
@@ -254,7 +310,7 @@ impl Aqua {
                 serial_number: name.into(),
             },
         );
-        let _g = output.create_global::<Aqua>(&self.display_handle);
+        self.publish_output(&output);
         let mode = Mode { size: (w, h).into(), refresh: 60_000 };
         let scale = self.scale_for(name, scale);
         output.change_current_state(Some(mode), Some(Transform::Normal), Some(Scale::Fractional(scale)), None);
@@ -264,7 +320,7 @@ impl Aqua {
         self.outputs.list.push(output.clone());
         self.arrange_outputs();
         tracing::info!("virtual output {name} {w}x{h}@{scale} added");
-        output
+        Some(output)
     }
 
     pub fn is_virtual(o: &Output) -> bool {
@@ -292,3 +348,11 @@ impl Aqua {
 }
 
 struct VirtualMarker;
+pub fn publish(dh: &smithay::reexports::wayland_server::DisplayHandle, output: &Output) {
+    if output.user_data().get::<OutputGlobal>().is_none() {
+        let id = output.create_global::<Aqua>(dh);
+        output.user_data().insert_if_missing(|| OutputGlobal(id));
+    }
+}
+
+struct OutputGlobal(smithay::reexports::wayland_server::backend::GlobalId);

@@ -192,10 +192,9 @@ fn prepare_nvidia() -> Result<(), Box<dyn std::error::Error>> {
         Some("Y") | Some("1") => {}
         other => {
             let msg = format!(
-                "NVIDIA kernel modesetting is disabled (nvidia_drm.modeset={}). Enable it: add \
-                 `nvidia_drm.modeset=1 nvidia_drm.fbdev=1` to the kernel command line (or \
-                 `options nvidia_drm modeset=1 fbdev=1` to /etc/modprobe.d/nvidia.conf), \
-                 then `sudo mkinitcpio -P` and reboot.",
+                "NVIDIA kernel modesetting is disabled (nvidia_drm.modeset={}; drivers before 560, \
+                 e.g. the 550 series, leave it off). Enable it with `sudo aqua-nvidia-setup` \
+                 (modprobe.d option, kernel command line and initramfs), then reboot.",
                 other.unwrap_or("?")
             );
             tracing::error!("{msg}");
@@ -488,7 +487,7 @@ impl Aqua {
                 serial_number: serial,
             }
         });
-        let _global = output.create_global::<Aqua>(&self.display_handle);
+        crate::wm::outputs::publish(&self.display_handle, &output);
         output.set_preferred(wl_mode);
         output.change_current_state(
             Some(wl_mode),

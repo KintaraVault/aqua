@@ -5,7 +5,7 @@ use std::path::Path;
 
 /// Largest PNG rendition in an `.icns` file.
 pub fn load_best(path: &Path) -> Option<Pixmap> {
-    let data = std::fs::read(path).ok()?;
+    let data = aqua_gfx::read_regular(path, 64 << 20)?;
     parse(&data)
 }
 

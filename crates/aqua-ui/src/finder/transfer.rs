@@ -51,7 +51,7 @@ pub fn plan(srcs: &[PathBuf], dest: &Path, mode: Mode, choice: &dyn Fn(&Path) ->
         if same && mode == Mode::Move {
             continue;
         }
-        if dest.starts_with(s) {
+        if fs::inside(dest, s) {
             continue;
         }
         let target = dest.join(&name);
@@ -190,8 +190,21 @@ pub fn run(steps: Vec<Step>, cancel: &AtomicBool, trash: Option<&Path>, report: 
                 }
             }
         }
-        let r = if fast {
-            std::fs::rename(&s.src, &s.dst)
+        if fs::inside(s.dst.parent().unwrap_or(&s.dst), &s.src) {
+            error = Some(crate::tr("cannot copy a folder into itself").to_string());
+            break;
+        }
+        let renamed = if fast {
+            match fs::rename_noreplace(&s.src, &s.dst) {
+                // a bind mount or btrfs subvolume looks like the same device but is not
+                Err(e) if e.raw_os_error() == Some(libc::EXDEV) => None,
+                r => Some(r),
+            }
+        } else {
+            None
+        };
+        let r = if let Some(r) = renamed {
+            r
         } else {
             let mut tick = |n: u64, pr: &mut Progress| {
                 pr.bytes += n;
@@ -203,6 +216,8 @@ pub fn run(steps: Vec<Step>, cancel: &AtomicBool, trash: Option<&Path>, report: 
             let r = copy_tree(&s.src, &s.dst, cancel, &mut pr, &mut tick);
             match (r, s.mode) {
                 (Ok(()), Mode::Move) => fs::remove_rec(&s.src),
+                // AlreadyExists: something else owns `dst` now, it is not ours to delete
+                (Err(e), _) if e.kind() == std::io::ErrorKind::AlreadyExists => Err(e),
                 (Err(e), _) => {
                     let _ = fs::remove_rec(&s.dst);
                     Err(e)
@@ -243,10 +258,10 @@ fn copy_tree(
         return Ok(());
     }
     if md.is_dir() {
-        if dst.starts_with(src) {
+        if fs::inside(dst, src) {
             return Err(std::io::Error::other("cannot copy a folder into itself"));
         }
-        std::fs::create_dir_all(dst)?;
+        std::fs::create_dir(dst)?;
         for e in std::fs::read_dir(src)?.flatten() {
             copy_tree(&e.path(), &dst.join(e.file_name()), cancel, pr, tick)?;
         }
@@ -254,8 +269,21 @@ fn copy_tree(
         let _ = set_mtime(dst, &md);
         return Ok(());
     }
+    if !md.is_file() {
+        // FIFOs would block open() forever; sockets/devices cannot be copied as data
+        use std::os::unix::fs::FileTypeExt;
+        if md.file_type().is_fifo() {
+            use std::os::unix::ffi::OsStrExt;
+            use std::os::unix::fs::PermissionsExt;
+            let c = std::ffi::CString::new(dst.as_os_str().as_bytes()).map_err(std::io::Error::other)?;
+            if unsafe { libc::mkfifo(c.as_ptr(), md.permissions().mode() & 0o7777) } != 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+        }
+        return Ok(());
+    }
     let mut r = std::fs::File::open(src)?;
-    let mut w = std::fs::File::create(dst)?;
+    let mut w = std::fs::File::options().write(true).create_new(true).open(dst)?;
     let mut buf = vec![0u8; 1 << 20];
     loop {
         if cancel.load(Ordering::Relaxed) {
@@ -411,6 +439,85 @@ mod tests {
             }
         }
         assert!(ok && d.join("o/x").exists());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn symlinked_destination_inside_source_is_refused() {
+        let d = tmp("selfloop");
+        std::fs::create_dir_all(d.join("a/sub")).unwrap();
+        std::fs::write(d.join("a/f"), "x").unwrap();
+        std::os::unix::fs::symlink(d.join("a"), d.join("l")).unwrap();
+        // the Finder shows ~/l/sub, which really is ~/a/sub
+        assert!(plan(&[d.join("a")], &d.join("l/sub"), Mode::Copy, &|_| Choice::KeepBoth).is_empty());
+        let step = Step { src: d.join("a"), dst: d.join("l/sub/a"), mode: Mode::Copy, replace: false };
+        let Msg::Done { done, error, .. } = run_now(vec![step], &d.join(".t")) else { panic!() };
+        assert!(done.is_empty() && error.is_some());
+        assert!(!d.join("a/sub/a").exists());
+        // a symlink itself may still go into the folder it points to
+        assert!(!fs::inside(&d.join("a"), &d.join("l")));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn fifos_are_recreated_instead_of_read() {
+        let d = tmp("fifo");
+        std::fs::create_dir_all(d.join("src")).unwrap();
+        std::fs::create_dir_all(d.join("out")).unwrap();
+        std::fs::write(d.join("src/a"), "a").unwrap();
+        let c = std::ffi::CString::new(d.join("src/pipe").to_str().unwrap()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(c.as_ptr(), 0o600) }, 0);
+        let (tx, rx) = mpsc::channel();
+        let steps = plan(&[d.join("src")], &d.join("out"), Mode::Copy, &|_| Choice::KeepBoth);
+        let t = d.join(".t");
+        std::thread::spawn(move || {
+            let _ = tx.send(run_now(steps, &t));
+        });
+        let Ok(Msg::Done { done, error, .. }) = rx.recv_timeout(std::time::Duration::from_secs(5)) else {
+            panic!("copying a FIFO hung")
+        };
+        assert!(error.is_none() && done.len() == 1, "{error:?}");
+        use std::os::unix::fs::FileTypeExt;
+        assert!(d.join("out/src/pipe").symlink_metadata().unwrap().file_type().is_fifo());
+        assert_eq!(std::fs::read_to_string(d.join("out/src/a")).unwrap(), "a");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn items_appearing_after_planning_are_never_overwritten() {
+        for mode in [Mode::Copy, Mode::Move] {
+            let d = tmp(&format!("race{mode:?}"));
+            std::fs::create_dir_all(d.join("o")).unwrap();
+            std::fs::write(d.join("x"), "new").unwrap();
+            std::fs::create_dir_all(d.join("dir")).unwrap();
+            std::fs::write(d.join("dir/f"), "new").unwrap();
+            let steps = plan(&[d.join("x"), d.join("dir")], &d.join("o"), mode, &|_| Choice::KeepBoth);
+            assert_eq!(steps.len(), 2);
+            // another program creates the same names before the worker gets there
+            std::fs::write(d.join("o/x"), "precious").unwrap();
+            std::fs::create_dir_all(d.join("o/dir")).unwrap();
+            std::fs::write(d.join("o/dir/mine"), "precious").unwrap();
+            let Msg::Done { done, error, .. } = run_now(steps, &d.join(".t")) else { panic!() };
+            assert!(done.is_empty() && error.is_some(), "{mode:?}");
+            assert_eq!(std::fs::read_to_string(d.join("o/x")).unwrap(), "precious");
+            assert_eq!(std::fs::read_to_string(d.join("o/dir/mine")).unwrap(), "precious");
+            assert_eq!(std::fs::read_to_string(d.join("x")).unwrap(), "new");
+            let _ = std::fs::remove_dir_all(&d);
+        }
+    }
+
+    #[test]
+    fn undo_moves_never_overwrite() {
+        let d = tmp("undo");
+        std::fs::write(d.join("a"), "a").unwrap();
+        std::fs::write(d.join("b"), "b").unwrap();
+        assert!(fs::move_to(&d.join("a"), &d.join("b")).is_err());
+        assert_eq!(std::fs::read_to_string(d.join("b")).unwrap(), "b");
+        assert!(fs::move_to(&d.join("a"), &d.join("c")).is_ok());
+        assert_eq!(std::fs::read_to_string(d.join("c")).unwrap(), "a");
+        std::fs::write(d.join("e"), "mine").unwrap();
+        assert!(fs::copy_rec(&d.join("c"), &d.join("e")).is_err());
+        assert_eq!(std::fs::read_to_string(d.join("e")).unwrap(), "mine");
         let _ = std::fs::remove_dir_all(&d);
     }
 }

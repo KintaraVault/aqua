@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="aqua_glass_v1">
+  <copyright>
+    Copyright © Aqua contributors. MIT license.
+  </copyright>
+  <description summary="Liquid Glass shapes for Aqua's own apps">
+    Lets a client place shapes of the compositor's Liquid Glass material on its surface:
+    the same refracting, lit glass as the menu bar, Dock and Control Center. A shape uses
+    one of the compositor's standard materials (sidebar, control, menu, panel); the
+    compositor owns the look, so all glass on the desktop stays one standard.
+
+    Behind-content materials (sidebar, menu, panel) are drawn under the surface: the client
+    leaves those pixels transparent or translucent. The control material is a clear lens
+    drawn over the surface's own pixels (a toolbar button's rim refracts and catches light).
+  </description>
+
+  <interface name="aqua_glass_manager_v1" version="1">
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager (existing glass objects stay valid)"/>
+    </request>
+    <request name="get_glass">
+      <description summary="glass object for a surface (one per surface)"/>
+      <arg name="id" type="new_id" interface="aqua_glass_v1"/>
+      <arg name="surface" type="object" interface="wl_surface"/>
+    </request>
+  </interface>
+
+  <interface name="aqua_glass_v1" version="1">
+    <request name="destroy" type="destructor">
+      <description summary="remove all glass from the surface"/>
+    </request>
+    <request name="set_shapes">
+      <description summary="replace the surface's glass shapes">
+        Packed little-endian records of six 32-bit values each: x, y, width, height and
+        corner radius in surface-local logical coordinates as 24.8 fixed point, then the
+        material (1 = sidebar, 2 = control, 3 = menu, 4 = panel). Takes effect at once.
+        At most 32 shapes are used.
+      </description>
+      <arg name="shapes" type="array"/>
+    </request>
+  </interface>
+</protocol>

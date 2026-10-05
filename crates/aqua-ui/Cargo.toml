@@ -24,6 +24,10 @@ aqua-gfx.workspace = true
 aqua-i18n.workspace = true
 aqua-store.workspace = true
 resvg = { version = "0.45", default-features = false }
+# aqua_glass_v1 client (Liquid Glass shapes drawn by the compositor), on winit's connection
+wayland-client = { version = "0.31", features = ["system"] }
+wayland-scanner = "0.31"
+raw-window-handle = "0.6"
 
 [build-dependencies]
 slint-build = "1.13"

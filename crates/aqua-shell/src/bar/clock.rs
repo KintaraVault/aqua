@@ -172,9 +172,9 @@ pub fn parse_ics_day(text: &str, day: &str) -> Vec<(String, String)> {
             if s.ends_with('Z') && s.len() >= 15 {
                 s = utc_to_local(&s);
             }
-            if s.len() >= 8 && &s[..8] == day {
-                let time = if s.len() >= 13 && s.as_bytes()[8] == b'T' {
-                    format!("{}:{}", &s[9..11], &s[11..13])
+            if s.get(..8) == Some(day) {
+                let time = if let (Some(b'T'), Some(h), Some(m)) = (s.as_bytes().get(8), s.get(9..11), s.get(11..13)) {
+                    format!("{h}:{m}")
                 } else {
                     String::new()
                 };
@@ -231,5 +231,20 @@ mod ics_tests {
     fn civil_roundtrip() {
         let d = super::days_from_civil(2026, 10, 1);
         assert_eq!(super::civil_from_days(d), (2026, 10, 1));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn odd_ics_dates_do_not_panic() {
+        let ics = "BEGIN:VEVENT\nDTSTART:2026ü1005T1000\nSUMMARY:x\nEND:VEVENT\n\
+                   BEGIN:VEVENT\nDTSTART:20261005Tü0\nSUMMARY:y\nEND:VEVENT\n\
+                   BEGIN:VEVENT\nDTSTART:2026\nEND:VEVENT\n\
+                   BEGIN:VEVENT\nDTSTART;VALUE=DATE:20261005\nSUMMARY:Day\nEND:VEVENT\n";
+        let ev = parse_ics_day(ics, "20261005");
+        assert_eq!(ev, vec![("".to_string(), "y".to_string()), ("".to_string(), "Day".to_string())]);
     }
 }

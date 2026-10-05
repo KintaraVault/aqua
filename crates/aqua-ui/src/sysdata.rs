@@ -344,26 +344,13 @@ pub fn update_command(pm: &str) -> &'static str {
     }
 }
 
-/// Run a shell command in the user's terminal (first installed of `cfg.terminal`).
+/// Run a shell command in the user's terminal (first installed of `cfg.terminal`, else any
+/// installed terminal emulator).
 pub fn run_in_terminal(terminals: &str, cmd: &str) -> bool {
-    let script = format!("{cmd}; echo; read -r -p 'Press Enter to close…' _");
-    for t in terminals.split('|').map(str::trim).filter(|t| !t.is_empty()) {
-        let bin = t.split_whitespace().next().unwrap_or(t);
-        if !aqua_sys::have(bin) {
-            continue;
-        }
-        let sep: &[&str] = match bin {
-            "gnome-terminal" | "kgx" | "ptyxis" | "kitty" | "foot" => &["--"],
-            "wezterm" => &["start", "--"],
-            _ => &["-e"],
-        };
-        let mut c = Command::new(bin);
-        c.args(sep).args(["sh", "-c", &script]);
-        if c.spawn().is_ok() {
-            return true;
-        }
-    }
-    false
+    let script = format!("{cmd}; echo; printf 'Press Enter to close…'; read -r _");
+    let Some(term) = aqua_apps::resolve_terminal(terminals) else { return false };
+    let line = aqua_apps::terminal_run(&term, &script);
+    Command::new("sh").args(["-c", &line]).spawn().is_ok()
 }
 
 #[cfg(test)]

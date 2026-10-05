@@ -59,7 +59,7 @@ impl Aqua {
     /// Windows that belong on stage only with their app (dialogs, menus excluded).
     fn stageable(&self, w: &Window) -> bool {
         let m = meta(w).borrow();
-        !m.override_redirect && !m.menu_popup && m.minimizing.is_none() && m.fullscreen.is_none()
+        m.placed && !m.override_redirect && !m.menu_popup && m.minimizing.is_none() && m.fullscreen.is_none()
     }
 
     /// Per frame: follow the focus and put aside windows of other apps. Returns true while

@@ -99,7 +99,8 @@ impl Server {
     ) -> u32 {
         let id = if replaces_id != 0 { replaces_id } else { self.next.fetch_add(1, Ordering::Relaxed) };
         let desktop_entry = hints.get("desktop-entry").and_then(|v| String::try_from(v.clone()).ok());
-        let body = strip_markup(&body);
+        let body = clip_text(strip_markup(&body), 4000);
+        let summary = clip_text(summary, 400);
         let default_action = default_action(&actions);
         let str_hint = |k: &str| hints.get(k).and_then(|v| String::try_from(v.clone()).ok());
         let bool_hint = |k: &str| hints.get(k).and_then(|v| bool::try_from(v).ok()).unwrap_or(false);
@@ -151,19 +152,59 @@ fn button_actions(actions: &[String], default: Option<&str>) -> Vec<(String, Str
         .collect()
 }
 
-/// Very small markup stripper (spec allows <b>, <i>, <u>, <a>, <img>).
+/// Very small markup stripper (spec allows <b>, <i>, <u>, <a>, <img>). A `<` that does not
+/// start a tag ("I <3 you", "a < b") is text; entities are decoded in one pass, so an
+/// escaped "&amp;lt;" stays "&lt;".
 fn strip_markup(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
-    let mut in_tag = false;
-    for c in s.chars() {
-        match c {
-            '<' => in_tag = true,
-            '>' => in_tag = false,
-            c if !in_tag => out.push(c),
-            _ => {}
+    let b = s.as_bytes();
+    let mut i = 0;
+    while i < s.len() {
+        let rest = &s[i..];
+        if rest.starts_with('<') {
+            let tag_like = b.get(i + 1).is_some_and(|c| c.is_ascii_alphabetic() || *c == b'/' || *c == b'!');
+            if let (true, Some(end)) = (tag_like, rest.find('>')) {
+                i += end + 1;
+                continue;
+            }
+        } else if rest.starts_with('&') {
+            if let Some(end) = rest.char_indices().take(12).find(|(_, c)| *c == ';').map(|(i, _)| i) {
+                let ent = &rest[1..end];
+                let ch = match ent {
+                    "amp" => Some('&'),
+                    "lt" => Some('<'),
+                    "gt" => Some('>'),
+                    "quot" => Some('"'),
+                    "apos" => Some('\''),
+                    "nbsp" => Some('\u{a0}'),
+                    _ => ent
+                        .strip_prefix("#x")
+                        .or_else(|| ent.strip_prefix("#X"))
+                        .and_then(|h| u32::from_str_radix(h, 16).ok())
+                        .or_else(|| ent.strip_prefix('#').and_then(|d| d.parse().ok()))
+                        .and_then(char::from_u32),
+                };
+                if let Some(c) = ch {
+                    out.push(c);
+                    i += end + 1;
+                    continue;
+                }
+            }
         }
+        let c = rest.chars().next().unwrap_or(' ');
+        out.push(c);
+        i += c.len_utf8();
     }
-    out.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'")
+    out
+}
+
+/// Keep a notification's text to what a banner can show: a runaway sender (a log line, a
+/// whole file) must not make every frame lay out megabytes of text.
+fn clip_text(s: String, max_chars: usize) -> String {
+    match s.char_indices().nth(max_chars) {
+        Some((i, _)) => format!("{}…", &s[..i]),
+        None => s,
+    }
 }
 
 /// Start the daemon on a background thread.
@@ -230,11 +271,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn long_text_is_clipped() {
+        assert_eq!(clip_text("abc".into(), 5), "abc");
+        assert_eq!(clip_text("абвгд".into(), 3), "абв…");
+        assert_eq!(clip_text("x".repeat(10_000), 4000).chars().count(), 4001);
+    }
+
+    #[test]
     fn markup_is_stripped_and_entities_decoded() {
         assert_eq!(strip_markup("<b>Bold</b> &amp; <i>it</i>"), "Bold & it");
         assert_eq!(strip_markup("a &lt;tag&gt; &quot;q&quot; &apos;s&apos;"), "a <tag> \"q\" 's'");
         assert_eq!(strip_markup("<a href=\"x\">link</a>"), "link");
         assert_eq!(strip_markup("plain"), "plain");
+        assert_eq!(strip_markup("I <3 you, a < b > c"), "I <3 you, a < b > c");
+        assert_eq!(strip_markup("&amp;lt;b&amp;gt; &#39;x&#39; &#x41; &bogus; & alone"), "&lt;b&gt; 'x' A &bogus; & alone");
+        assert_eq!(strip_markup("<img src=\"a.png\" alt=\"pic\"/>после <b>жирный</b>"), "после жирный");
+        assert_eq!(strip_markup("unterminated <b"), "unterminated <b");
+        assert_eq!(strip_markup("&жжжжжжжжжж; &ж;"), "&жжжжжжжжжж; &ж;");
+        assert_eq!(strip_markup("&#1114112; &#xD800;"), "&#1114112; &#xD800;");
     }
 
     #[test]

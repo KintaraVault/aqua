@@ -51,7 +51,7 @@ impl Aqua {
         }
         if mp > 0.0 && mc <= 0.0 && self.cfg.minimize_effect != "scale" {
             if let Some((tx, ty)) = target {
-                if self.push_genie(renderer, final_out, w, mp, (tx, ty), scale) {
+                if self.push_genie(renderer, final_out, w, focused, mp, (tx, ty), scale) {
                     return;
                 }
             }
@@ -161,7 +161,7 @@ impl Aqua {
                 (scale * 100.0) as i32,
             ));
             let rc = &mut self.render_cache;
-            if rc.titlebars.get(&id).map(|(k, _)| *k != key).unwrap_or(true) {
+            if rc.titlebars.get(&id).map(|(k, _, _)| *k != key).unwrap_or(true) {
                 let pm = aqua_shell::decor::titlebar(
                     &self.shell.fonts,
                     geo.size.w as f32,
@@ -172,16 +172,16 @@ impl Aqua {
                     self.shell.style.dark,
                     self.cfg.glass_traffic_lights,
                 );
-                rc.titlebars.insert(id, (key, buffer_from_pixmap(&pm, false)));
+                rc.titlebars.insert(id, (key, buffer_from_pixmap(&pm, false), (pm.width(), pm.height())));
             }
-            let buf = &rc.titlebars.get(&id).unwrap().1;
+            let (_, buf, (tw, th)) = rc.titlebars.get(&id).unwrap();
             let tloc: Point<f64, Physical> = (frame_phys.loc.x as f64, frame_phys.loc.y as f64).into();
             if let Ok(e) = MemoryRenderBufferRenderElement::from_buffer(
                 renderer,
                 tloc,
                 buf,
                 Some(alpha),
-                None,
+                crate::render::full_src(*tw, *th),
                 Some((geo.size.w, tb).into()),
                 Kind::Unspecified,
             ) {
@@ -193,7 +193,26 @@ impl Aqua {
         let elems: Vec<WaylandSurfaceRenderElement<GlesRenderer>> =
             render_elements_from_surface_tree(renderer, &wl, surface_phys, scale, alpha, Kind::Unspecified);
         let rpx = radius * scale as f32;
-        out.extend(elems.into_iter().map(|e| WinElement::Rounded(RoundedElement::new(e, clip, rpx, &shaders, scale))));
+        // Liquid Glass shapes of Aqua's own apps (aqua_glass_v1): lenses over the app's controls
+        // go in front of the surface, sidebar / menu glass behind it.
+        let app_glass = if ssd { vec![] } else { crate::wayland::glass::shapes(&wl) };
+        let (over, behind): (Vec<_>, Vec<_>) = app_glass
+            .iter()
+            .enumerate()
+            .partition(|(_, s)| aqua_config::material::Material::from_wire(s.material).over_content());
+        let glassy = !ssd && (crate::wayland::blur::region(&wl).is_some() || !behind.is_empty());
+        let win_rect = Rectangle::new(loc, geo.size).to_f64();
+        for (i, s) in over.iter().copied() {
+            self.push_app_glass(out, id, i, s, surface_origin, win_rect, radius, alpha, scale);
+        }
+        out.extend(
+            elems
+                .into_iter()
+                .map(|e| WinElement::Rounded(RoundedElement::new(e, clip, rpx, &shaders, scale).see_through(glassy))),
+        );
+        for (i, s) in behind.iter().copied() {
+            self.push_app_glass(out, id, i, s, surface_origin, win_rect, radius, alpha, scale);
+        }
 
         if !ssd {
             if let Some(rs) = crate::wayland::blur::region(&wl) {
@@ -203,7 +222,7 @@ impl Aqua {
                 for (i, r) in rs.iter().enumerate().take(8) {
                     let r = Rectangle::new(surface_origin + r.loc, r.size);
                     let Some(r) = r.intersection(win) else { continue };
-                    let g = client_glass(if r == win { radius } else { 0.0 }, self.shell.style.dark);
+                    let g = self.client_glass(if r == win { radius } else { 0.0 });
                     let p = glass_params(&g, scale as f32);
                     if let Some(e) =
                         self.render_cache.glass_el(GlassKey::Client(id, i as u8), to_phys(r.to_f64(), scale), p, alpha)
@@ -215,7 +234,7 @@ impl Aqua {
         }
 
         if ssd {
-            let g = window_glass(radius, focused, self.shell.style.dark);
+            let g = self.window_glass(radius, focused);
             let p = glass_params(&g, scale as f32);
             if let Some(e) = self.render_cache.glass_el(GlassKey::Window(id), frame_phys, p, alpha) {
                 out.push(WinElement::Glass(e));
@@ -273,7 +292,7 @@ impl Aqua {
             let zoom = 1.0 - 0.07 * ease as f64;
             let fp = to_phys(g.frame.to_f64(), scale);
             let origin: Point<i32, Physical> = (fp.loc.x + fp.size.w / 2, fp.loc.y + fp.size.h / 2).into();
-            if let Some(tb) = &g.titlebar {
+            if let Some((tb, (tw, tph))) = &g.titlebar {
                 let tloc: Point<f64, Physical> = (fp.loc.x as f64, fp.loc.y as f64).into();
                 let th = metrics::TITLEBAR_HEIGHT as i32;
                 if let Ok(e) = MemoryRenderBufferRenderElement::from_buffer(
@@ -281,7 +300,7 @@ impl Aqua {
                     tloc,
                     tb,
                     Some(alpha),
-                    None,
+                    crate::render::full_src(*tw, *tph),
                     Some((g.frame.size.w, th).into()),
                     Kind::Unspecified,
                 ) {
@@ -334,18 +353,96 @@ impl Aqua {
             buffer_scale,
             transform,
             frame: Rectangle::new((loc.x, loc.y - tb).into(), (geo.size.w, geo.size.h + tb).into()),
-            titlebar: if ssd { self.render_cache.titlebars.get(&id).map(|(_, b)| b.clone()) } else { None },
+            titlebar: if ssd { self.render_cache.titlebars.get(&id).map(|(_, b, px)| (b.clone(), *px)) } else { None },
             start: Instant::now(),
         });
         self.needs_redraw = true;
     }
 
-    /// Genie minimise: deform the window texture into the dock icon (see genie.frag).
+    /// One `aqua_glass_v1` shape of window `id` (surface-local `s`, clipped to the window).
+    #[allow(clippy::too_many_arguments)]
+    fn push_app_glass(
+        &mut self,
+        out: &mut Vec<WinElement>,
+        id: u64,
+        i: usize,
+        s: &crate::wayland::glass::Shape,
+        surface_origin: Point<i32, Logical>,
+        win: Rectangle<f64, Logical>,
+        win_radius: f32,
+        alpha: f32,
+        scale: f64,
+    ) {
+        let r = Rectangle::new(surface_origin.to_f64() + s.rect.loc, s.rect.size);
+        let Some(mut r) = r.intersection(win) else { return };
+        let m = aqua_config::material::Material::from_wire(s.material);
+        let near = |a: f64, b: f64| (a - b).abs() < 1.0;
+        let full_h = near(r.loc.y, win.loc.y) && near(r.size.h, win.size.h);
+        let (left, right) = (near(r.loc.x, win.loc.x), near(r.loc.x + r.size.w, win.loc.x + win.size.w));
+        let mut radius = s.radius;
+        if full_h && left && right {
+            // A shape filling the window (a menu window) follows the window's own corners.
+            radius = win_radius.max(s.radius);
+        } else if full_h && (left || right) && s.radius < win_radius && !m.over_content() {
+            // A full-height sidebar: round its window-side corners like the window. Over an
+            // opaque body the inner corners hide under it (the glass extends past the edge);
+            // over a glass body (`window_glass`) that shows in the tiny gaps anyway.
+            if !self.cfg.window_glass {
+                let ext = win_radius as f64;
+                if right {
+                    r.loc.x -= ext;
+                }
+                r.size.w += ext;
+            }
+            radius = win_radius;
+        }
+        let g = self.cfg.glass.material(m, self.shell.style.dark).with_radius(radius);
+        let p = glass_params(&g, scale as f32);
+        if let Some(e) = self.render_cache.glass_el(GlassKey::App(id, i as u8), to_phys(r, scale), p, alpha) {
+            out.push(WinElement::Glass(e));
+        }
+    }
+
+    /// The window exactly as it is drawn on screen — shadow, glass frame, title bar,
+    /// rounded content and popups — rendered into one texture, so the genie effect
+    /// deforms all of it (it used to bend the bare client buffer: server-side title bars
+    /// vanished and the shadow popped off as soon as a minimise started).
+    fn genie_card(&mut self, renderer: &mut GlesRenderer, w: &Window, focused: bool, scale: f64) -> Option<GenieCard> {
+        use smithay::backend::renderer::{damage::OutputDamageTracker, Bind, Offscreen};
+        let frame = self.frame_rect(w)?.to_f64();
+        if frame.size.w < 1.0 || frame.size.h < 1.0 {
+            return None;
+        }
+        // the focused shadow reaches 2.5σ + dy = 79 px beyond the frame
+        let pad = 80.0;
+        let rect = Rectangle::<f64, Logical>::new(
+            (frame.loc.x - pad, frame.loc.y - pad).into(),
+            (frame.size.w + 2.0 * pad, frame.size.h + 2.0 * pad).into(),
+        );
+        let card_phys = to_phys(rect, scale);
+        let px: Size<i32, Physical> = (card_phys.size.w.max(1), card_phys.size.h.max(1)).into();
+        let mut els: Vec<WinElement> = Vec::new();
+        self.push_window_inner(renderer, &mut els, w, focused, scale, 1.0)?;
+        let shift: Point<i32, Physical> = (-card_phys.loc.x, -card_phys.loc.y).into();
+        let els: Vec<RelocateRenderElement<WinElement>> =
+            els.into_iter().map(|e| RelocateRenderElement::from_element(e, shift, Relocate::Relative)).collect();
+        let mut tex: GlesTexture = renderer.create_buffer(Fourcc::Abgr8888, (px.w, px.h).into()).ok()?;
+        {
+            let mut fb = renderer.bind(&mut tex).ok()?;
+            let mut dt = OutputDamageTracker::new(px, scale, Transform::Normal);
+            dt.render_output(renderer, &mut fb, 0, &els, [0.0, 0.0, 0.0, 0.0]).ok()?;
+        }
+        Some(GenieCard { tex, rect, frame, px })
+    }
+
+    /// Genie minimise: deform the window into the dock icon (see genie.frag).
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn push_genie(
         &mut self,
         renderer: &mut GlesRenderer,
         out: &mut Vec<AquaElement>,
         w: &Window,
+        focused: bool,
         mp: f32,
         target: (f32, f32),
         scale: f64,
@@ -353,19 +450,31 @@ impl Aqua {
         let (Some(ctx), Some(shaders)) = (self.render_cache.ctx.clone(), self.render_cache.shaders.clone()) else {
             return false;
         };
-        let Some(loc) = self.space.element_location(w) else { return false };
         let Some(t) = SurfRef::of(w) else { return false };
-        let geo = w.geometry();
-        let tb = if is_ssd(w) { metrics::TITLEBAR_HEIGHT as i32 } else { 0 };
-        let _ = smithay::backend::renderer::utils::import_surface_tree(renderer, t.wl_surface());
-        let Some(view) = self.window_snap(Some(renderer), w, 60) else { return false };
-        let (tex, buffer_scale, transform) = (view.tex.clone(), view.buffer_scale, view.transform);
-        let buf_loc = (loc - geo.loc) + view.offset;
-        let win = Rectangle::<f64, Logical>::new(buf_loc.to_f64(), view.dst.to_f64());
+        let id = meta(w).borrow().id;
+        let Some((started, _)) = meta(w).borrow().minimizing else { return false };
+        let fresh = self.render_cache.genie_cards.get(&id).is_some_and(|(at, _)| *at == started);
+        if !fresh {
+            let _ = smithay::backend::renderer::utils::import_surface_tree(renderer, t.wl_surface());
+            match self.genie_card(renderer, w, focused, scale) {
+                Some(card) => {
+                    self.render_cache.genie_cards.insert(id, (started, card));
+                }
+                None => return false,
+            }
+        }
+        let Some((_, card)) = self.render_cache.genie_cards.get(&id).cloned() else { return false };
+        let win = card.rect;
+        // land the *frame* (not the shadow margin) on the icon
         let isz = self.cfg.dock_icon_size as f64;
+        let k = isz / card.frame.size.w.max(card.frame.size.h).max(1.0);
+        let (mx, my) = (card.frame.loc.x - win.loc.x, card.frame.loc.y - win.loc.y);
+        let (tw, th) = (win.size.w * k, win.size.h * k);
+        let fcx = (mx + card.frame.size.w / 2.0) * k;
+        let fcy = (my + card.frame.size.h / 2.0) * k;
         let tgt = Rectangle::<f64, Logical>::new(
-            (target.0 as f64 - isz / 2.0, target.1 as f64 - isz / 2.0).into(),
-            (isz, isz).into(),
+            (target.0 as f64 - fcx, target.1 as f64 - fcy).into(),
+            (tw, th).into(),
         );
         let x0 = win.loc.x.min(tgt.loc.x).floor();
         let y0 = win.loc.y.min(tgt.loc.y).floor();
@@ -377,33 +486,22 @@ impl Aqua {
         let rel = |r: &Rectangle<f64, Logical>| {
             [((r.loc.x - x0) as f32) * s, ((r.loc.y - y0) as f32) * s, r.size.w as f32 * s, r.size.h as f32 * s]
         };
-        let frame = Rectangle::<f64, Logical>::new(
-            (loc.x as f64 - win.loc.x, (loc.y - tb) as f64 - win.loc.y).into(),
-            (geo.size.w as f64, (geo.size.h + tb) as f64).into(),
-        );
-        let clip = [frame.loc.x as f32 * s, frame.loc.y as f32 * s, frame.size.w as f32 * s, frame.size.h as f32 * s];
+        // the card is already rounded and shadowed: no extra clipping in the shader
+        let clip = [0.0, 0.0, win.size.w as f32 * s, win.size.h as f32 * s];
         let te = TextureRenderElement::from_static_texture(
             Id::new(),
             ctx,
             Point::<f64, Physical>::from((x0 * scale, y0 * scale)),
-            tex,
-            buffer_scale,
-            transform,
+            card.tex.clone(),
+            1,
+            Transform::Normal,
             Some(1.0),
-            Some(view.src),
+            Some(Rectangle::from_size((card.px.w as f64, card.px.h as f64).into())),
             Some((bw, bh).into()),
             None,
             Kind::Unspecified,
         );
-        let el = shaders.genie(
-            te,
-            [bw as f32 * s, bh as f32 * s],
-            rel(&win),
-            rel(&tgt),
-            clip,
-            self.cfg.window_radius * s,
-            mp,
-        );
+        let el = shaders.genie(te, [bw as f32 * s, bh as f32 * s], rel(&win), rel(&tgt), clip, 0.0, mp);
         out.push(AquaElement::Genie(el));
         true
     }

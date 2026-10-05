@@ -1,5 +1,6 @@
 //! Adaptive foreground colours + glass material presets.
-use aqua_config::{GlassStyle, Rgba};
+use aqua_config::material::Material;
+use aqua_config::GlassStyle;
 use aqua_gfx::{rgba, Color, Pixmap, Rect};
 
 /// Coarse luminance map of the wallpaper used to pick legible foregrounds.
@@ -101,49 +102,37 @@ pub fn accent(a: f32) -> Color {
     rgba(ACCENT.0, ACCENT.1, ACCENT.2, a)
 }
 
-/// Material presets.
+/// Material presets: thin wrappers over the desktop's one glass standard
+/// (`aqua_config::material`), kept for the call sites' readability.
 pub fn glass_panel(base: &GlassStyle, radius: f32) -> GlassStyle {
-    GlassStyle { radius, ..*base }
+    base.material(Material::Regular, false).with_radius(radius)
 }
 pub fn glass_dock(base: &GlassStyle) -> GlassStyle {
-    GlassStyle { radius: aqua_config::metrics::DOCK_RADIUS, tint: Rgba(1.0, 1.0, 1.0, base.tint.3 * 0.9), ..*base }
+    base.material(Material::Dock, false)
 }
 pub fn glass_menu(base: &GlassStyle, dark: bool) -> GlassStyle {
-    let tint = if dark { Rgba(0.12, 0.12, 0.14, 0.45) } else { Rgba(0.97, 0.97, 0.98, 0.62) };
-    GlassStyle { radius: 13.0, tint, refraction: base.refraction * 0.5, blur: base.blur * 1.2, shadow: 0.28, ..*base }
+    base.material(Material::Menu, dark)
 }
 pub fn glass_tile(base: &GlassStyle, radius: f32) -> GlassStyle {
-    GlassStyle {
-        radius,
-        tint: Rgba(1.0, 1.0, 1.0, 0.07),
-        saturation: base.saturation * 1.2,
-        refraction: base.refraction * 0.6,
-        bevel: base.bevel * 0.8,
-        shadow: 0.10,
-        max_luma: 0.54,
-        ..*base
-    }
+    base.material(Material::Tile, false).with_radius(radius)
 }
 /// Dark-mode variant of a material: smoky graphite tint, dimmer backdrop.
 pub fn darken(g: &GlassStyle) -> GlassStyle {
-    let a = (g.tint.3 * 1.2 + 0.24).min(0.74);
-    GlassStyle { tint: Rgba(0.09, 0.09, 0.11, a), max_luma: g.max_luma.min(0.45), rim: g.rim * 0.7, ..*g }
+    aqua_config::material::darken(g)
 }
 /// Glass under a Clear icon plate of width `w` (logical px): a thick lens at the rim
 /// (refraction + slight dispersion), a light blur and a whisper of tint.
 pub fn glass_icon(base: &GlassStyle, w: f32) -> GlassStyle {
-    GlassStyle {
-        radius: w * 0.275 * 1.1,
-        blur: (w * 0.07).clamp(2.0, 7.0),
-        tint: Rgba(1.0, 1.0, 1.0, 0.04),
-        saturation: 1.35,
-        refraction: w * 0.13,
-        bevel: w * 0.26,
-        rim: 0.0,
-        shadow: 0.0,
-        ..*base
-    }
+    base.material(Material::Icon(w), false)
 }
 pub fn glass_clear(base: &GlassStyle, radius: f32) -> GlassStyle {
-    GlassStyle { radius, tint: Rgba(1.0, 1.0, 1.0, 0.06), shadow: 0.0, ..*base }
+    base.material(Material::Clear, false).with_radius(radius)
+}
+/// Lock screen fields and buttons.
+pub fn glass_pill(base: &GlassStyle, radius: f32) -> GlassStyle {
+    base.material(Material::Pill, false).with_radius(radius)
+}
+/// Frosted full-screen backdrop without lens (lock screen, Mission Control).
+pub fn glass_overlay(base: &GlassStyle) -> GlassStyle {
+    base.material(Material::Overlay, false)
 }

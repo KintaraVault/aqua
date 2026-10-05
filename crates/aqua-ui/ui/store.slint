@@ -1,4 +1,4 @@
-import { Theme, TrafficLights, GlassSurround, GlassMenu, Backdrop, NavArrows, GlassCapsule } from "common.slint";
+import { Theme, TrafficLights, GlassSurround, GlassMenu, Backdrop, NavArrows, GlassCapsule, GlassSel, AquaGlass, GlassShape } from "common.slint";
 import { SG } from "store/glyphs.slint";
 import { AS, SApp, SShelf, SHero, SCat, SShot, SRelease, SReview, SInfo, SPerm, SUpd, SSetup, SMenu, SHist, SDetail } from "store/model.slint";
 import { Hairline, AppIcon, RoundButton, Badge } from "store/parts.slint";
@@ -15,14 +15,15 @@ component NavItem inherits Rectangle {
     callback clicked();
     height: 32px;
     border-radius: 10px;
-    background: selected ? (Theme.dark ? #ffffff24 : #00000012) : (ta.has-hover ? Theme.hover : transparent);
+    background: Theme.aqua ? transparent : selected ? (Theme.dark ? #ffffff24 : #00000012) : (ta.has-hover ? Theme.hover : transparent);
     animate background { duration: 120ms; }
+    if Theme.aqua: GlassSel { sel: root.selected; hot: ta.has-hover; pressed: ta.pressed; }
     Image {
         x: 9px;
         width: 18px;
         height: 18px;
         source: root.glyph;
-        colorize: Theme.accent;
+        colorize: Theme.side-glyph;
     }
     Text {
         x: 36px;
@@ -80,7 +81,7 @@ export component StoreWindow inherits Window {
     if AS.glass: GlassSurround {
         width: root.width;
         height: root.height;
-        color: Theme.window-bg;
+        color: Theme.glass-bg;
         hole-x: solid ? 0px : 8px;
         hole-y: solid ? 0px : 8px;
         hole-w: solid ? cx : side-w;
@@ -140,7 +141,7 @@ export component StoreWindow inherits Window {
         height: 52px;
         y: 0;
         property <bool> solid: AS.scroll-y > 6px;
-        background: solid ? Theme.window-bg : Theme.window-bg.with-alpha(0);
+        background: solid ? (Theme.window-glass ? Theme.aqua-content : Theme.window-bg) : Theme.window-bg.with-alpha(0);
         TouchArea {
             pointer-event(e) => {
                 if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { AS.win-drag(); }
@@ -187,13 +188,15 @@ export component StoreWindow inherits Window {
         width: solid ? cx : side-w;
         height: solid ? root.height : root.height - 16px;
         border-radius: solid ? 0px : 20px;
-        background: solid
-            ? (AS.glass ? (Theme.dark ? #26262ab8 : #f4f5f7b8) : (Theme.dark ? #29292c : #eeeff2))
+        property <bool> lg: AS.glass && AquaGlass.active;
+        GlassShape { width: parent.width; height: parent.height; material: 1; radius: parent.border-radius; on: AS.glass; }
+        background: lg ? transparent : solid
+            ? (AS.glass ? Theme.glass-side : (Theme.dark ? #29292c : #eeeff2))
             : (AS.glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%));
-        border-width: solid ? 0px : 0.5px;
+        border-width: solid || lg ? 0px : 0.5px;
         border-color: AS.glass ? (Theme.dark ? #ffffff26 : #ffffffb0) : Theme.sidebar-border;
-        drop-shadow-blur: solid ? 0px : 10px;
-        drop-shadow-color: #00000017;
+        drop-shadow-blur: solid || lg ? 0px : 10px;
+        drop-shadow-color: solid || lg ? transparent : #00000017;
         drop-shadow-offset-y: 2px;
         if root.solid: Rectangle { x: parent.width - 1px; width: 1px; background: Theme.dark ? #00000066 : #00000014; }
         if root.solid && Theme.dark: Rectangle { x: parent.width - 2px; width: 1px; background: #ffffff0a; }
@@ -284,7 +287,8 @@ export component StoreWindow inherits Window {
             width: parent.width - (root.solid ? 26px : 20px);
             height: 40px;
             border-radius: 12px;
-            background: AS.page == "account" ? (Theme.dark ? #ffffff1f : #0000000f) : (ata.has-hover ? Theme.hover : transparent);
+            background: Theme.aqua ? transparent : AS.page == "account" ? (Theme.dark ? #ffffff1f : #0000000f) : (ata.has-hover ? Theme.hover : transparent);
+            if Theme.aqua: GlassSel { border-radius: 12px; sel: AS.page == "account"; hot: ata.has-hover; }
             Rectangle {
                 x: 6px;
                 width: 28px;

@@ -59,12 +59,43 @@ pub fn rgba(r: u8, g: u8, b: u8, a: f32) -> Color {
 
 /// Load an image file into a premultiplied pixmap.
 pub fn load_image(path: &std::path::Path) -> Option<Pixmap> {
-    let img = image::open(path).ok()?.to_rgba8();
+    let img = decode_limited(&read_regular(path, 64 << 20)?)?.to_rgba8();
     from_rgba(img.width(), img.height(), img.as_raw())
 }
 
+/// Read a whole file only if it is a regular file of at most `max` bytes. Icon names and
+/// paths come from other programs (notifications, tray items, .desktop files): a FIFO used
+/// to block the compositor forever in open(), `/dev/zero` to eat all memory.
+pub fn read_regular(path: &std::path::Path, max: u64) -> Option<Vec<u8>> {
+    use std::io::Read;
+    use std::os::unix::fs::OpenOptionsExt;
+    let md = std::fs::metadata(path).ok()?;
+    if !md.is_file() || md.len() > max {
+        return None;
+    }
+    // O_NONBLOCK: the path may have been swapped for a FIFO after the check
+    let f = std::fs::File::options().read(true).custom_flags(0o4000).open(path).ok()?;
+    if !f.metadata().ok()?.is_file() {
+        return None;
+    }
+    let mut v = Vec::with_capacity(md.len() as usize);
+    f.take(max + 1).read_to_end(&mut v).ok()?;
+    (v.len() as u64 <= max).then_some(v)
+}
+
+/// Decode with limits: a tiny PNG can claim 60000×60000 pixels (a 14 GB allocation).
+pub fn decode_limited(bytes: &[u8]) -> Option<image::DynamicImage> {
+    let mut r = image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().ok()?;
+    let mut l = image::Limits::default();
+    l.max_image_width = Some(16384);
+    l.max_image_height = Some(16384);
+    l.max_alloc = Some(512 << 20);
+    r.limits(l);
+    r.decode().ok()
+}
+
 pub fn load_image_bytes(bytes: &[u8]) -> Option<Pixmap> {
-    let img = image::load_from_memory(bytes).ok()?.to_rgba8();
+    let img = decode_limited(bytes)?.to_rgba8();
     from_rgba(img.width(), img.height(), img.as_raw())
 }
 
@@ -197,6 +228,55 @@ fn resample_with(src: &Pixmap, sx: f32, sy: f32, ox: f32, oy: f32, w: u32, h: u3
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use image::ImageEncoder;
+
+    fn crc32(b: &[u8]) -> u32 {
+        let mut c = !0u32;
+        for &x in b {
+            c ^= x as u32;
+            for _ in 0..8 {
+                c = if c & 1 != 0 { (c >> 1) ^ 0xEDB8_8320 } else { c >> 1 };
+            }
+        }
+        !c
+    }
+
+    #[test]
+    fn hostile_image_paths_and_bombs() {
+        let d = std::env::temp_dir().join(format!("aqua-gfx-img-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let fifo = d.join("x.png");
+        let c = std::ffi::CString::new(fifo.to_str().unwrap()).unwrap();
+        extern "C" {
+            fn mkfifo(p: *const std::ffi::c_char, m: u32) -> i32;
+        }
+        assert_eq!(unsafe { mkfifo(c.as_ptr(), 0o600) }, 0);
+        let t = std::time::Instant::now();
+        assert!(load_image(&fifo).is_none());
+        assert!(load_image(std::path::Path::new("/dev/zero")).is_none());
+        assert!(read_regular(std::path::Path::new("/dev/zero"), 10).is_none());
+        assert!(t.elapsed().as_secs() < 2);
+        // PNG header claiming 60000×60000
+        let mut png = vec![];
+        image::codecs::png::PngEncoder::new(&mut png)
+            .write_image(&[0u8; 4], 1, 1, image::ExtendedColorType::Rgba8)
+            .unwrap();
+        png[16..20].copy_from_slice(&60000u32.to_be_bytes());
+        png[20..24].copy_from_slice(&60000u32.to_be_bytes());
+        let crc = crc32(&png[12..29]);
+        png[29..33].copy_from_slice(&crc.to_be_bytes());
+        assert!(load_image_bytes(&png).is_none());
+        let ok = d.join("ok.png");
+        let mut good = vec![];
+        image::codecs::png::PngEncoder::new(&mut good)
+            .write_image(&[9u8; 16], 2, 2, image::ExtendedColorType::Rgba8)
+            .unwrap();
+        std::fs::write(&ok, &good).unwrap();
+        assert_eq!(load_image(&ok).map(|p| p.width()), Some(2));
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     fn solid(w: u32, h: u32, c: [u8; 4]) -> Pixmap {
         let data: Vec<u8> = (0..w * h).flat_map(|_| c).collect();

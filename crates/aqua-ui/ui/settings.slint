@@ -1,5 +1,5 @@
 import "fonts/AquaKeys.ttf";
-import { Theme, Glyphs, SymbolTile, SidebarRow, Card, SectionHeader, Separator, Toggle, Checkbox, Row, NavRow, PillButton, IconButton, Segmented, Field, SliderBar, PopupSelect, UpDown, TrafficLights, GlassSurround, NavArrows, GlassCapsule } from "common.slint";
+import { Theme, Glyphs, SymbolTile, SidebarRow, Card, SectionHeader, Separator, Toggle, Checkbox, Row, NavRow, PillButton, IconButton, Segmented, Field, SliderBar, PopupSelect, UpDown, TrafficLights, GlassSurround, NavArrows, GlassCapsule, GlassSel, AquaGlass, GlassShape } from "common.slint";
 
 export struct WifiNet { ssid: string, signal: int, secure: bool, active: bool, known: bool }
 export struct BtDev { path: string, name: string, kind: string, connected: bool, paired: bool, battery: int }
@@ -58,6 +58,15 @@ export global S {
     in-out property <int> sidebar-style: 0;
     in-out property <bool> glass-controls: true;
     in-out property <bool> glass-lights: true;
+    in-out property <bool> window-glass: false;
+    // Liquid Glass (0..1 slider positions, see aqua-settings config.rs)
+    in-out property <float> glass-clear: 0.71;
+    in-out property <float> glass-blur: 0.33;
+    in-out property <float> glass-refraction: 0.5;
+    in-out property <float> glass-edges: 0.5;
+    in-out property <float> glass-dispersion: 0.35;
+    in-out property <float> glass-vibrancy: 0.3;
+    callback glass-reset();
     in-out property <float> dock-size: 0.5;
     in-out property <bool> dock-magnify: true;
     in-out property <float> dock-mag: 0.5;
@@ -336,6 +345,16 @@ component AccentPicker inherits Rectangle {
     }
 }
 
+component GlassSlider inherits Row {
+    in property <string> lo;
+    in property <string> hi;
+    in-out property <float> value;
+    HorizontalLayout { spacing: 8px;
+        Caption { text: root.lo; vertical-alignment: center; }
+        SliderBar { width: 180px; value <=> root.value; released => { S.commit(); } }
+        Caption { text: root.hi; vertical-alignment: center; } }
+}
+
 component AppearancePane inherits VerticalLayout {
     spacing: 10px;
     Card { VerticalLayout {
@@ -349,9 +368,7 @@ component AppearancePane inherits VerticalLayout {
     } }
     SectionHeader { text: @tr("Theme"); }
     Card { VerticalLayout {
-        Row { title: @tr("Colour"); AccentPicker {} }
-        Row { title: @tr("Style other apps like macOS"); subtitle: @tr("GTK, libadwaita and Qt apps get Aqua colours, rounded controls and glass toolbars (Qt needs qt6ct). Reopen apps to apply."); last: true;
-            Toggle { checked <=> S.style-apps; toggled => { S.commit(); } } }
+        Row { title: @tr("Colour"); last: true; AccentPicker {} }
     } }
     SectionHeader { text: @tr("App Icons"); }
     Card { VerticalLayout {
@@ -371,12 +388,26 @@ component AppearancePane inherits VerticalLayout {
     Card { VerticalLayout {
         Row { title: @tr("Window corner radius");
             HorizontalLayout { spacing: 8px; Caption { text: @tr("Square"); vertical-alignment: center; } SliderBar { width: 180px; value <=> S.window-radius; released => { S.commit(); } } Caption { text: @tr("Round"); vertical-alignment: center; } } }
-        Row { title: @tr("Sidebar style"); subtitle: @tr("Finder, System Settings and the App Store");
-            Segmented { items: [@tr("Floating"), @tr("Solid")]; current: S.sidebar-style; changed(v) => { S.sidebar-style = v; Theme.solid-sidebar = v == 1; S.commit(); } } }
+        Row { title: @tr("App style"); subtitle: @tr("Finder, System Settings and the App Store. Aqua: glass sidebar");
+            Segmented { items: [@tr("Aqua"), @tr("Floating"), @tr("Solid")]; current: S.sidebar-style;
+                changed(v) => { S.sidebar-style = v; Theme.aqua = v == 0; Theme.solid-sidebar = v != 1; S.commit(); } } }
+        Row { title: @tr("Translucent windows"); subtitle: @tr("Blur the desktop behind the whole window, not only the sidebar");
+            Toggle { checked: S.window-glass; toggled(v) => { S.window-glass = v; Theme.window-glass = v; S.commit(); } } }
         Row { title: @tr("Glass toolbar buttons"); subtitle: @tr("Navigation arrows and toolbar capsules");
             Toggle { checked: S.glass-controls; toggled(v) => { S.glass-controls = v; Theme.glass-controls = v; S.commit(); } } }
         Row { title: @tr("Glass traffic lights"); subtitle: @tr("Close, minimise and zoom buttons with a glossy glass finish"); last: true;
             Toggle { checked: S.glass-lights; toggled(v) => { S.glass-lights = v; Theme.glass-lights = v; S.commit(); } } }
+    } }
+    SectionHeader { text: @tr("Liquid Glass"); }
+    Card { VerticalLayout {
+        GlassSlider { title: @tr("Transparency"); subtitle: @tr("How much of what is behind shows through"); lo: @tr("Frosted"); hi: @tr("See-through"); value <=> S.glass-clear; }
+        GlassSlider { title: @tr("Blur"); lo: @tr("None"); hi: @tr("Strong"); value <=> S.glass-blur; }
+        GlassSlider { title: @tr("Refraction"); subtitle: @tr("How strongly the rim bends the background"); lo: @tr("Flat"); hi: @tr("Lens"); value <=> S.glass-refraction; }
+        GlassSlider { title: @tr("Edge highlights"); subtitle: @tr("Light catching the rim of the glass"); lo: @tr("Off"); hi: @tr("Bright"); value <=> S.glass-edges; }
+        GlassSlider { title: @tr("Colour fringes"); subtitle: @tr("Chromatic dispersion at the rim"); lo: @tr("Off"); hi: @tr("Strong"); value <=> S.glass-dispersion; }
+        GlassSlider { title: @tr("Vibrancy"); subtitle: @tr("Colour saturation of the background"); lo: @tr("Muted"); hi: @tr("Vivid"); value <=> S.glass-vibrancy; }
+        Row { title: @tr("Standard glass"); subtitle: @tr("The Dock, menus, panels and Aqua's apps share one glass; this restores its calibrated look"); last: true;
+            PillButton { text: @tr("Reset"); clicked => { S.glass-reset(); } } }
     } }
 }
 
@@ -1103,7 +1134,7 @@ export component SettingsWindow inherits Window {
     property <length> content-x: side-w + 16px;
     property <bool> solid: Theme.solid-sidebar;
     Rectangle { background: mod(repaint, 2) == 0 ? #00000000 : #00000001; }
-    if glass: GlassSurround { width: root.width; height: root.height; color: Theme.window-bg;
+    if glass: GlassSurround { width: root.width; height: root.height; color: Theme.glass-bg;
         hole-x: solid ? 0px : 8px; hole-y: solid ? 0px : 8px; hole-w: solid ? side-w + 8px : side-w;
         hole-h: solid ? root.height : root.height - 16px; hole-r: solid ? 0px : 18px; }
 
@@ -1155,7 +1186,7 @@ export component SettingsWindow inherits Window {
 
     Rectangle {
         x: content-x - 4px; y: 0; width: root.width - self.x; height: 52px;
-        background: flick.content-y < -2px ? Theme.window-bg.with-alpha(0.94) : transparent;
+        background: flick.content-y < -2px ? Theme.header-bg : transparent;
         TouchArea {
             pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { S.win-drag(); } }
         }
@@ -1167,11 +1198,13 @@ export component SettingsWindow inherits Window {
         x: solid ? 0px : 8px; y: solid ? 0px : 8px;
         width: solid ? side-w + 8px : side-w; height: solid ? root.height : root.height - 16px;
         border-radius: solid ? 0px : 18px;
-        background: solid
-            ? (root.glass ? (Theme.dark ? #26262ab8 : #f4f5f7b8) : (Theme.dark ? #29292c : #eeeff2))
+        property <bool> lg: root.glass && AquaGlass.active;
+        GlassShape { width: parent.width; height: parent.height; material: 1; radius: parent.border-radius; on: root.glass; }
+        background: lg ? transparent : solid
+            ? (root.glass ? Theme.glass-side : (Theme.dark ? #29292c : #eeeff2))
             : (root.glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%));
-        border-width: solid ? 0px : 0.5px; border-color: Theme.sidebar-border;
-        drop-shadow-blur: solid ? 0px : 10px; drop-shadow-color: #00000017; drop-shadow-offset-y: 2px;
+        border-width: solid || lg ? 0px : 0.5px; border-color: Theme.sidebar-border;
+        drop-shadow-blur: solid || lg ? 0px : 10px; drop-shadow-color: solid || lg ? transparent : #00000017; drop-shadow-offset-y: 2px;
         if solid: Rectangle { x: parent.width - 1px; width: 1px; background: Theme.dark ? #00000066 : #00000014; }
         if solid && Theme.dark: Rectangle { x: parent.width - 2px; width: 1px; background: #ffffff0a; }
         TouchArea { height: 40px;
@@ -1189,7 +1222,8 @@ export component SettingsWindow inherits Window {
             side := VerticalLayout {
                 width: parent.width;
                 padding-left: solid ? 14px : 10px; padding-right: solid ? 12px : 10px; spacing: 1px;
-                Rectangle { height: 48px; border-radius: 10px; background: S.pane == "users" ? Theme.hover : transparent;
+                Rectangle { height: 48px; border-radius: 10px; background: Theme.aqua ? transparent : S.pane == "users" ? Theme.hover : transparent;
+                    if Theme.aqua: GlassSel { sel: S.pane == "users"; }
                     HorizontalLayout { spacing: 9px; padding-left: 6px;
                         VerticalLayout { alignment: center; Avatar { size: 32px; initials: ""; photo: S.has-avatar; } }
                         VerticalLayout { alignment: center;

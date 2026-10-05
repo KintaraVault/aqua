@@ -14,12 +14,19 @@ pub const FRAME_INTERVAL: Duration = Duration::from_millis(16);
 
 /// Create the compositor on the selected backend, start the session and run it until
 /// it quits.
+/// Per-client cap on queued, not yet read events.
+pub const CLIENT_OUT_BUFFER: usize = 1 << 20;
+
 pub fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     crate::system::env::set_nested(!args.tty);
     let cfg = aqua_config::Config::load();
     crate::system::theming::apply(&cfg);
     let mut event_loop: EventLoop<'static, Aqua> = EventLoop::try_new()?;
     let display: Display<Aqua> = Display::new()?;
+    // The default 4 KiB outgoing buffer disconnects any client that stops reading for a
+    // moment (busy main loop) once the kernel socket buffer is full; mutter and KWin
+    // raised theirs for the same reason.
+    display.handle().set_default_max_buffer_size(CLIENT_OUT_BUFFER);
     // Apps must not inherit the host's display; the nested (winit) backend still needs
     // it to open its window, so it is dropped only once the backend is up.
     let forget_host_display = || unsafe {

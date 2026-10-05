@@ -1,4 +1,4 @@
-import { Theme, Glyphs } from "common.slint";
+import { Theme, Glyphs, GlassSel } from "common.slint";
 import { F, FItem, FileIcon, TagDots } from "finder-model.slint";
 import { ListView } from "std-widgets.slint";
 
@@ -109,11 +109,19 @@ export component IconCell inherits Rectangle {
     property <length> icon: F.icon-s;
     property <length> lh: F.text-s + 4px;
     opacity: item.dim ? 0.4 : (item.cut ? 0.55 : 1);
+    property <bool> hot: area.has-hover && !F.dragging;
+    // Aqua: hovering or selecting raises a glass tile behind the icon and its name.
+    if Theme.aqua: GlassSel {
+        x: 3px; y: 9px; width: parent.width - 6px;
+        height: min(parent.height - 10px, icon + 24px + 2 * lh + (F.item-info ? lh : 0px));
+        border-radius: 14px;
+        sel: root.sel || root.drop-target; hot: root.hot;
+    }
     Rectangle {
         x: (parent.width - icon - 8px) / 2; y: 16px; width: icon + 8px; height: icon + 8px;
         border-radius: min(10px, icon * 0.16);
-        background: drop-target ? Theme.accent.with-alpha(0.25) : sel ? (Theme.dark ? #ffffff24 : #0000001a) : transparent;
-        FileIcon { x: 4px; y: 4px; item: root.item; s: root.icon; }
+        background: drop-target ? Theme.accent.with-alpha(0.25) : sel && !Theme.aqua ? (Theme.dark ? #ffffff24 : #0000001a) : transparent;
+        FileIcon { x: 4px; y: 4px; item: root.item; s: root.icon; hot: Theme.aqua && (root.sel || root.hot || root.drop-target); }
     }
     if F.renaming != idx: lab := Rectangle {
         property <length> tw: item.tags.length > 0 ? 14px : 0px;
@@ -124,11 +132,12 @@ export component IconCell inherits Rectangle {
         width: two ? root.width - 4px : lbl.preferred-width + tw + 2 * padx;
         x: (root.width - self.width) / 2;
         border-radius: 5px;
-        background: sel ? Theme.accent : transparent;
+        background: sel && !Theme.aqua ? Theme.accent : transparent;
         if item.tags.length > 0: TagDots { x: padx; y: (lh + 2px - 9px) / 2; height: 9px; tags: item.tags; }
         lbl := Text {
             x: padx + tw; width: parent.width - 2 * padx - tw; height: parent.height;
-            text: item.name; font-size: F.text-s; letter-spacing: 0.35px; color: sel ? white : Theme.text;
+            text: item.name; font-size: F.text-s; letter-spacing: 0.35px; color: sel && !Theme.aqua ? white : Theme.text;
+            font-weight: sel && Theme.aqua ? 600 : 400;
             horizontal-alignment: center; vertical-alignment: center; wrap: word-wrap; overflow: elide;
         }
     }
@@ -141,7 +150,7 @@ export component IconCell inherits Rectangle {
     if F.renaming == idx: RenameField {
         y: icon + 25px; height: lh + 8px; x: 2px; width: parent.width - 4px; item: root.item; idx: root.idx; fs: F.text-s; centered: true;
     }
-    ItemArea {
+    area := ItemArea {
         idx: root.idx; sel: root.sel;
         label-top: icon + 25px; label-bottom: icon + 25px + 2 * lh + 4px;
         want-focus => { root.want-focus(); }

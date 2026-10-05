@@ -9,7 +9,11 @@ use toml::{Table, Value};
 /// Current config format. History:
 /// 1. unversioned files; Dark Mode was only the `dark` flag.
 /// 2. `version` key, `appearance` decides Dark Mode, per-display Spaces.
-pub const CONFIG_VERSION: u32 = 2;
+/// 3. the "aqua" app style (translucent glass windows) replaces "floating" as the default.
+/// 4. the Liquid Glass material: `glass.refraction` is the rim displacement in px and
+///    `glass.bevel` became `glass.thickness`; old optics values (all but `radius`) are reset to
+///    the calibrated standard.
+pub const CONFIG_VERSION: u32 = 4;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Issue {
@@ -62,6 +66,26 @@ pub fn migrate(t: &mut Table) -> Vec<String> {
                 }
             }
             notes.push("Dock Finder opens Aqua's Finder".into());
+        }
+    }
+    // The Aqua style is the new default look: switch everyone over once (the old styles stay
+    // available in System Settings → Appearance and Finder Settings → Sidebar).
+    if from < 3 && t.get("sidebar_style").is_some_and(|v| v.as_str() != Some("aqua")) {
+        t.insert("sidebar_style".into(), Value::String("aqua".into()));
+        notes.push("sidebar_style = \"aqua\" (the new default app style)".into());
+    }
+    // The glass optics changed meaning with the Liquid Glass material (the old values were
+    // written out by System Settings for everyone): start from the new standard once.
+    if from < 4 {
+        if let Some(g) = t.get_mut("glass").and_then(Value::as_table_mut) {
+            // everything but the geometry (`radius`) is optics
+            let old: Vec<String> = g.keys().filter(|k| k.as_str() != "radius").cloned().collect();
+            for k in &old {
+                g.remove(k);
+            }
+            if !old.is_empty() {
+                notes.push(format!("glass.{} reset to the Liquid Glass standard", old.join(", glass.")));
+            }
         }
     }
     if from < CONFIG_VERSION {
@@ -181,6 +205,29 @@ pub fn validate(c: &mut Config, issues: &mut Vec<Issue>) {
     range(issues, "glass.blur", &mut c.glass.blur, 0.0, 100.0);
     range(issues, "glass.saturation", &mut c.glass.saturation, 0.0, 4.0);
     range(issues, "glass.max_luma", &mut c.glass.max_luma, 0.0, 1.0);
+    range(issues, "glass.refraction", &mut c.glass.refraction, 0.0, 160.0);
+    range(issues, "glass.thickness", &mut c.glass.thickness, 0.0, 80.0);
+    range(issues, "glass.ior", &mut c.glass.ior, 1.0, 4.0);
+    range(issues, "glass.dispersion", &mut c.glass.dispersion, 0.0, 50.0);
+    range(issues, "glass.rim", &mut c.glass.rim, 0.0, 2.0);
+    range(issues, "glass.fresnel", &mut c.glass.fresnel, 0.0, 1.0);
+    range(issues, "glass.fresnel_range", &mut c.glass.fresnel_range, 1.0, 100.0);
+    range(issues, "glass.fresnel_hardness", &mut c.glass.fresnel_hardness, 0.0, 1.0);
+    range(issues, "glass.glare", &mut c.glass.glare, 0.0, 1.2);
+    range(issues, "glass.glare_range", &mut c.glass.glare_range, 1.0, 120.0);
+    range(issues, "glass.glare_hardness", &mut c.glass.glare_hardness, 0.0, 1.0);
+    range(issues, "glass.glare_convergence", &mut c.glass.glare_convergence, 0.0, 1.0);
+    range(issues, "glass.glare_opposite", &mut c.glass.glare_opposite, 0.0, 1.0);
+    range(issues, "glass.glare_angle", &mut c.glass.glare_angle, -180.0, 180.0);
+    range(issues, "glass.roundness", &mut c.glass.roundness, 2.0, 7.0);
+    range(issues, "glass.radius", &mut c.glass.radius, 0.0, 64.0);
+    range(issues, "glass.shadow", &mut c.glass.shadow, 0.0, 1.0);
+    for (i, v) in [&mut c.glass.tint.0, &mut c.glass.tint.1, &mut c.glass.tint.2, &mut c.glass.tint.3]
+        .into_iter()
+        .enumerate()
+    {
+        range(issues, &format!("glass.tint[{i}]"), v, 0.0, 1.0);
+    }
     range(issues, "keyboard.repeat_delay", &mut c.keyboard.repeat_delay, 100, 2000);
     range(issues, "keyboard.repeat_rate", &mut c.keyboard.repeat_rate, 1, 100);
     range(issues, "pointer.speed", &mut c.pointer.speed, -1.0, 1.0);
@@ -204,7 +251,7 @@ pub fn validate(c: &mut Config, issues: &mut Vec<Issue>) {
         &d.menubar_autohide,
     );
     one_of(issues, "dock_click", &mut c.dock_click, &["focus", "minimize", "cycle", "expose", "new"], &d.dock_click);
-    one_of(issues, "sidebar_style", &mut c.sidebar_style, &["floating", "solid"], &d.sidebar_style);
+    one_of(issues, "sidebar_style", &mut c.sidebar_style, &["aqua", "floating", "solid"], &d.sidebar_style);
     one_of(
         issues,
         "screenshot_save",
@@ -249,6 +296,40 @@ mod tests {
 
     fn paths(i: &[Issue]) -> Vec<&str> {
         i.iter().map(|x| x.path.as_str()).collect()
+    }
+
+    #[test]
+    fn non_finite_numbers_are_clamped() {
+        let src = "version = 4\nmenubar_height = nan\ndock_icon_size = inf\nwindow_radius = -inf\n\
+                   [glass]\nrefraction = nan\nradius = 1e30\ntint = [nan, 2.0, -1.0, 0.5]\n\
+                   [pointer]\nspeed = nan\n[[outputs]]\nname = \"A\"\nscale = nan\n";
+        let (c, issues) = check(src).unwrap();
+        for v in [c.menubar_height, c.dock_icon_size, c.window_radius, c.glass.refraction, c.glass.radius] {
+            assert!(v.is_finite(), "{v}");
+        }
+        assert!(c.pointer.speed.is_finite() && c.outputs[0].scale.is_finite());
+        assert_eq!((c.glass.tint.0, c.glass.tint.1, c.glass.tint.2), (0.0, 1.0, 0.0));
+        assert!(issues.len() >= 9, "{issues:?}");
+    }
+
+    #[test]
+    fn garbage_never_panics() {
+        // Every key of the default file with a value of every other TOML type.
+        let keys: Vec<String> = toml::to_string(&Config::default())
+            .unwrap()
+            .lines()
+            .filter_map(|l| l.split_once(" = ").map(|(k, _)| k.trim().to_string()))
+            .collect();
+        let values = ["-1", "1e400", "\"\"", "true", "[]", "[1, \"x\"]", "{ a = 1 }", "1979-05-27T07:32:00Z", "-0.0", "9223372036854775807"];
+        for k in &keys {
+            for v in values {
+                let _ = check(&format!("{k} = {v}\n"));
+                let _ = check(&format!("[glass]\n{k} = {v}\n"));
+            }
+        }
+        for src in ["[[outputs]]\n", "[[dock]]\n[[dock]]\nname = 1\n", "version = -5\n", "version = 99999999999\n", "[keyboard]\nlayouts = [[]]\n", "bindings = 3\n", "\u{feff}menubar_height = 30\n"] {
+            let _ = check(src);
+        }
     }
 
     #[test]
@@ -300,6 +381,21 @@ mod tests {
             paths(&issues),
             vec!["dock_icon_size", "cursor_size", "pointer.speed", "outputs[0].scale", "accent"]
         );
+    }
+
+    #[test]
+    fn old_glass_optics_are_reset_once() {
+        let src = "version = 3\n[glass]\nblur = 30.0\nrefraction = 9.0\nbevel = 14.0\nrim = 0.55\n";
+        let mut t: Table = toml::from_str(src).unwrap();
+        let notes = migrate(&mut t);
+        let g = t.get("glass").and_then(Value::as_table).unwrap();
+        assert!(g.is_empty(), "every optics key is reset");
+        assert_eq!(notes.len(), 1);
+        let c = Config::from_toml(src).unwrap();
+        let d = crate::GlassStyle::default();
+        assert_eq!((c.glass.blur, c.glass.refraction, c.glass.thickness), (d.blur, d.refraction, d.thickness));
+        let c = Config::from_toml("version = 4\n[glass]\nbevel = 20.0\nrefraction = 50.0\n").unwrap();
+        assert_eq!((c.glass.thickness, c.glass.refraction), (20.0, 50.0), "current files keep their values");
     }
 
     #[test]

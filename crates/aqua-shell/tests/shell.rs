@@ -292,3 +292,149 @@ fn dock_drag_respects_running_apps() {
     let after = pinned_apps(&sh);
     assert_eq!(after.last(), kept.first(), "{kept:?} → {after:?}");
 }
+
+fn app(id: &str, name: &str, exec: &str, icon: &str) -> aqua_apps::App {
+    aqua_apps::App {
+        id: id.into(),
+        name: name.into(),
+        exec: exec.into(),
+        icon: icon.into(),
+        categories: vec![],
+        wm_class: None,
+        path: PathBuf::new(),
+        terminal: false,
+        keywords: vec![],
+        workdir: None,
+    }
+}
+
+/// Several windows of one app share an icon; different apps launched through the same
+/// wrapper (Steam games and the Steam client, Flatpak apps) each get their own, with
+/// their own icon, and the icon's menu lists exactly its own windows.
+#[test]
+fn dock_groups_instances_and_separates_apps() {
+    let mut sh = shell(1440.0, 900.0, 1.0);
+    sh.apps = vec![
+        app("Dota 2", "Dota 2", "steam steam://rungameid/570", "steam_icon_570"),
+        app("steam", "Steam", "/usr/bin/steam %U", "steam"),
+        app("The Outlast Trials", "The Outlast Trials", "steam steam://rungameid/1304930", "steam_icon_1304930"),
+        app("org.example.Chat", "Chat", "flatpak run --command=chat org.example.Chat", "org.example.Chat"),
+        app("org.example.Notes", "Notes", "flatpak run org.example.Notes", "org.example.Notes"),
+        app("org.example.Editor", "Editor", "example-editor %F", "org.example.Editor"),
+    ];
+    let w = |id: u64, app: &str, title: &str| aqua_shell::WindowInfo {
+        id,
+        app_id: app.into(),
+        title: title.into(),
+        focused: id == 5,
+        minimized: false,
+    };
+    sh.set_windows(vec![
+        w(1, "steam", "Steam"),
+        w(2, "steam_app_570", "Dota 2"),
+        w(3, "steam_app_570", "Dota 2 — console"),
+        w(4, "steam_app_1304930", "TOT"),
+        w(5, "org.example.Editor", "a.txt"),
+        w(6, "org.example.Editor", "b.txt"),
+        w(7, "example-editor", "c.txt"),
+        w(8, "org.example.Chat", "Chat"),
+        w(9, "org.example.Notes", "Notes"),
+        w(10, "steam_app_999", "Unknown game"),
+    ]);
+    let items = aqua_shell::dock::visible_items(&sh);
+    let apps: Vec<_> = items.iter().filter(|i| i.kind == aqua_shell::dock::Kind::App).collect();
+    for win in &sh.windows {
+        let owners: Vec<_> = apps.iter().filter(|i| i.matches(&win.app_id)).map(|i| i.name.clone()).collect();
+        assert_eq!(owners.len(), 1, "window {} ({}) belongs to {owners:?}", win.id, win.app_id);
+    }
+    let icon_of = |app_id: &str| apps.iter().find(|i| i.matches(app_id)).map(|i| i.icon.icon.clone()).unwrap();
+    assert_eq!(icon_of("steam_app_570"), "steam_icon_570");
+    assert_eq!(icon_of("steam_app_1304930"), "steam_icon_1304930");
+    assert_eq!(icon_of("steam_app_999"), "steam_icon_999");
+    assert_eq!(icon_of("org.example.Chat"), "org.example.Chat");
+    assert_eq!(icon_of("org.example.Notes"), "org.example.Notes");
+    let distinct = |ids: &[&str]| {
+        let names: std::collections::HashSet<_> =
+            ids.iter().map(|a| apps.iter().position(|i| i.matches(a)).unwrap()).collect();
+        names.len()
+    };
+    assert_eq!(distinct(&["steam", "steam_app_570", "steam_app_1304930", "steam_app_999"]), 4);
+    assert_eq!(distinct(&["org.example.Chat", "org.example.Notes"]), 2);
+    assert_eq!(distinct(&["org.example.Editor", "example-editor"]), 1, "one app, one icon");
+    // the editor's Dock menu lists its three windows and nothing else
+    let idx = items.iter().position(|i| i.matches("org.example.Editor")).unwrap();
+    let entries = aqua_shell::menu::entries(&sh, &MenuKind::Dock(idx));
+    let wins: Vec<_> = entries
+        .iter()
+        .flatten()
+        .filter(|e| matches!(e.action, Some(Action::FocusWindow(_)) | Some(Action::Restore(_))))
+        .map(|e| e.label.clone())
+        .collect();
+    assert_eq!(wins, vec!["a.txt", "b.txt", "c.txt"]);
+}
+
+/// One app whose windows use different ids (Telegram: "org.telegram.desktop" on Wayland,
+/// WM_CLASS "TelegramDesktop" on X11) stays under its single icon — pinned or not — and
+/// several windows with the same title are told apart in the icon's menu.
+#[test]
+fn dock_groups_app_id_spellings_and_numbers_same_titles() {
+    use aqua_shell::dock::Kind;
+    let mut sh = shell(1440.0, 900.0, 1.0);
+    let mut tg = app("org.telegram.desktop", "Telegram", "Telegram -- %u", "org.telegram.desktop");
+    tg.wm_class = Some("TelegramDesktop".into());
+    let mut files = app("org.gnome.Nautilus", "Files", "nautilus --new-window", "org.gnome.Nautilus");
+    files.wm_class = Some("org.gnome.Nautilus".into());
+    sh.apps = vec![tg, files, app("org.example.Chat", "Chat", "chat", "org.example.Chat")];
+    // not kept in the Dock to begin with (the default "Messages" icon lists Telegram)
+    sh.dock.items.retain(|i| !i.matches("org.telegram.desktop"));
+    let w = |id: u64, app: &str, title: &str| aqua_shell::WindowInfo {
+        id,
+        app_id: app.into(),
+        title: title.into(),
+        focused: false,
+        minimized: id == 6,
+    };
+    let wins = vec![
+        w(1, "org.telegram.desktop", "Telegram"),
+        w(2, "TelegramDesktop", "Saved Messages"),
+        w(4, "org.gnome.Nautilus", "Home"),
+        w(5, "org.gnome.Nautilus", "Home"),
+        w(6, "org.gnome.Nautilus", "Home"),
+        w(7, "org.example.Chat", "Chat"),
+    ];
+    let check = |sh: &Shell, pinned: bool| {
+        let items = aqua_shell::dock::visible_items(sh);
+        let apps: Vec<_> = items.iter().filter(|i| i.kind == Kind::App).collect();
+        for win in &sh.windows {
+            let owners: Vec<_> = apps.iter().filter(|i| i.matches(&win.app_id)).map(|i| i.name.clone()).collect();
+            assert_eq!(owners.len(), 1, "pinned={pinned}: window {} ({}) belongs to {owners:?}", win.id, win.app_id);
+        }
+        let tg: Vec<_> = apps.iter().filter(|i| i.matches("TelegramDesktop") || i.matches("org.telegram.desktop")).collect();
+        assert_eq!(tg.len(), 1, "pinned={pinned}: one Telegram icon");
+        assert_eq!(tg[0].pinned, pinned);
+        assert!(!apps.iter().any(|i| i.matches("org.example.Chat") && i.matches("org.gnome.Nautilus")));
+        let it = aqua_shell::dock::app_item_for(sh, "TelegramDesktop").unwrap();
+        assert!(it.matches("org.telegram.desktop"));
+        let idx = items.iter().position(|i| i.matches("org.gnome.Nautilus")).unwrap();
+        let labels: Vec<_> = aqua_shell::menu::entries(sh, &MenuKind::Dock(idx))
+            .iter()
+            .flatten()
+            .filter(|e| matches!(e.action, Some(Action::FocusWindow(_)) | Some(Action::Restore(_))))
+            .map(|e| e.label.clone())
+            .collect();
+        assert_eq!(labels, vec!["Home", "Home (2)", "Home (3)"]);
+    };
+    sh.set_windows(wins.clone());
+    check(&sh, false);
+    // pinned the way a user config pins it: app id + launcher, no aliases
+    let mut pin = sh.dock.items.iter().find(|i| i.kind == Kind::App).cloned().unwrap();
+    pin.name = "Telegram".into();
+    pin.app = "org.telegram.desktop".into();
+    pin.exec = "Telegram --".into();
+    pin.pinned = true;
+    pin.aliases = vec![];
+    sh.dock.items.insert(0, pin);
+    sh.set_windows(vec![]);
+    sh.set_windows(wins);
+    check(&sh, true);
+}

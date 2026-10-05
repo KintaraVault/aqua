@@ -222,7 +222,7 @@ impl Aqua {
                 (pr.loc.x as f64, pr.loc.y as f64),
                 &buf,
                 Some(alpha),
-                None,
+                crate::render::full_src(pw, ph),
                 Some(size),
                 Kind::Unspecified,
             ) {

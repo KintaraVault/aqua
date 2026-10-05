@@ -4,7 +4,14 @@ export global Theme {
     in-out property <bool> dark: false;
     in-out property <color> accent: #007aff;
     /// Sidebars: full-height "solid" instead of a floating island (config `sidebar_style`).
-    in-out property <bool> solid-sidebar: false;
+    in-out property <bool> solid-sidebar: true;
+    /// The "Aqua" app style (config `sidebar_style = "aqua"`, the default): the sidebar is a
+    /// lighter glass pane, selections are raised glass pills, sidebar glyphs are filled grey
+    /// symbols and folders are 3D. It does not make the window body translucent.
+    in-out property <bool> aqua: true;
+    /// Translucent glass behind the whole window body (config `window_glass`), independent
+    /// of the app style.
+    in-out property <bool> window-glass: false;
     /// Toolbar capsules / navigation arrows as raised liquid glass (config `glass_controls`).
     in-out property <bool> glass-controls: true;
     /// Glossy glass traffic lights (config `glass_traffic_lights`).
@@ -29,6 +36,18 @@ export global Theme {
     out property <color> track: dark ? #ffffff29 : #00000017;
     out property <color> menu-bg: dark ? #323234f7 : #f7f7f8fa;
     out property <color> selection: accent;
+    /// Aqua style: content and sidebar tints over the compositor's blurred backdrop.
+    out property <color> aqua-content: dark ? #18181bc7 : #f7f8fab3;
+    out property <color> aqua-side: dark ? #30303580 : #ffffff52;
+    /// Window body behind the content (glass windows).
+    out property <color> glass-bg: window-glass ? aqua-content : window-bg;
+    /// Opaque-enough header bar over scrolled content.
+    out property <color> header-bg: window-glass ? aqua-content : window-bg.with-alpha(0.94);
+    /// Full-height sidebar over glass.
+    out property <color> glass-side: aqua ? aqua-side : (dark ? #26262ab8 : #f4f5f7b8);
+    /// Sidebar glyphs and section headers.
+    out property <color> side-glyph: aqua ? (dark ? #ffffffa6 : #000000a0) : accent;
+    out property <color> side-header: dark ? #ffffff73 : #00000070;
     out property <length> radius: 12px;
     out property <string> font: "SF Pro Display";
 }
@@ -173,6 +192,52 @@ export global Glyphs {
     }
 }
 
+/// Aqua style highlight: a raised glass pill — faint body, a thin rim that is bright along
+/// the top and fades down (the same edge light as the glass capsules), a soft drop shadow.
+export component GlassSel inherits Rectangle {
+    in property <bool> sel;
+    in property <bool> hot;
+    in property <bool> pressed;
+    border-radius: 10px;
+    background: sel
+        ? (Theme.dark ? @linear-gradient(180deg, #ffffff21 0%, #ffffff12 100%) : @linear-gradient(180deg, #ffffffe6 0%, #ffffffa8 100%))
+        : pressed ? (Theme.dark ? #ffffff17 : #ffffff80) : hot ? (Theme.dark ? #ffffff0d : #ffffff59) : transparent;
+    border-width: sel ? 1px : 0px;
+    border-color: Theme.dark
+        ? @linear-gradient(180deg, #ffffff4d 0%, #ffffff17 50%, #ffffff21 100%)
+        : @linear-gradient(180deg, #ffffff 0%, #ffffffc0 55%, #0000000f 100%);
+    // (a shadow colour with zero blur still paints a hard copy of the shape: keep it clear)
+    drop-shadow-blur: sel ? 8px : 0px;
+    drop-shadow-offset-y: sel ? 1px : 0px;
+    drop-shadow-color: !sel ? transparent : Theme.dark ? #00000047 : #0000001a;
+    animate background { duration: 140ms; easing: ease-out; }
+}
+
+/// A floating sheet / panel (Go to Folder, Finder Settings, alerts): a raised slab with the
+/// glass rim (bright along the top), a gentle vertical sheen and a deep soft shadow.
+export component GlassPanel inherits Rectangle {
+    in property <length> radius: 22px;
+    border-radius: radius;
+    background: Theme.dark
+        ? @linear-gradient(180deg, #313136f7 0%, #26262af7 100%)
+        : @linear-gradient(180deg, #fdfdfefa 0%, #f2f3f6fa 100%);
+    border-width: 1px;
+    border-color: Theme.dark
+        ? @linear-gradient(180deg, #ffffff42 0%, #ffffff14 40%, #ffffff0d 100%)
+        : @linear-gradient(180deg, #ffffff 0%, #ffffffb0 40%, #00000014 100%);
+    drop-shadow-blur: 36px; drop-shadow-color: Theme.dark ? #00000080 : #00000038; drop-shadow-offset-y: 14px;
+    Rectangle { border-radius: root.radius; border-width: 0.5px; border-color: Theme.dark ? #00000099 : #0000001a; }
+    @children
+}
+
+/// Rounded group of settings rows (macOS 26 inset grouped list).
+export component GroupBox inherits Rectangle {
+    border-radius: 12px;
+    background: Theme.dark ? #ffffff0d : #ffffffb3;
+    border-width: 0.5px; border-color: Theme.dark ? #ffffff14 : #0000000f;
+    lay := VerticalLayout { padding-left: 12px; padding-right: 12px; padding-top: 8px; padding-bottom: 8px; spacing: 6px; @children }
+}
+
 export component SidebarRow inherits Rectangle {
     in property <string> label;
     in property <color> tint;
@@ -180,10 +245,12 @@ export component SidebarRow inherits Rectangle {
     in property <bool> selected;
     in property <bool> plain-icon: false;
     callback clicked();
-    height: 28px;
+    height: Theme.aqua ? 30px : 28px;
     border-radius: 8px;
-    background: selected ? Theme.accent : (ta.pressed ? Theme.control-bg : (ta.has-hover ? Theme.hover : transparent));
+    property <bool> accent-sel: selected && !Theme.aqua;
+    background: Theme.aqua ? transparent : selected ? Theme.accent : (ta.pressed ? Theme.control-bg : (ta.has-hover ? Theme.hover : transparent));
     animate background { duration: 120ms; easing: ease-out; }
+    if Theme.aqua: GlassSel { sel: root.selected; hot: ta.has-hover; pressed: ta.pressed; }
     HorizontalLayout {
         padding-left: 7px;
         padding-right: 8px;
@@ -198,14 +265,15 @@ export component SidebarRow inherits Rectangle {
             Image {
                 width: 17px;
                 height: 17px;
-                source: glyph; colorize: selected ? white : Theme.accent;
+                source: glyph; colorize: accent-sel ? white : Theme.side-glyph;
             }
         }
         Text {
             text: label;
             vertical-alignment: center;
             font-size: 13px;
-            color: selected ? white : Theme.text;
+            font-weight: Theme.aqua && selected ? 500 : 400;
+            color: accent-sel ? white : Theme.text;
             overflow: elide;
         }
     }
@@ -539,6 +607,45 @@ export component UpDown inherits Path {
 }
 
 /// Window-management requests from Aqua's own title bars.
+/// Liquid Glass from the compositor (Aqua's `aqua_glass_v1`, see `aqua_ui::glass`): the
+/// shapes of this window are drawn with the same material as the menu bar, Dock and Control
+/// Center. `GlassShape`s report their geometry whenever Rust bumps `epoch`.
+export global AquaGlass {
+    /// The compositor draws this window's glass shapes.
+    in-out property <bool> active: false;
+    in-out property <int> epoch: 0;
+    /// One shape: window-relative x, y, width, height, corner radius and material
+    /// (1 sidebar, 2 control, 3 menu, 4 panel).
+    callback report(length, length, length, length, length, int);
+    /// Geometry changed: collect the shapes again.
+    callback dirty();
+}
+
+/// A compositor glass shape covering its parent (only while `AquaGlass.active` and `on`).
+/// Behind-content materials (sidebar, menu, panel) show through the parent's transparent
+/// pixels; the control material is a clear lens over them.
+export component GlassShape {
+    in property <int> material: 1;
+    in property <length> radius;
+    in property <bool> on: true;
+    property <length> ax: self.absolute-position.x;
+    property <length> ay: self.absolute-position.y;
+    property <int> ep: AquaGlass.epoch;
+    property <bool> live: AquaGlass.active && on;
+    changed ax => { AquaGlass.dirty(); }
+    changed ay => { AquaGlass.dirty(); }
+    changed width => { AquaGlass.dirty(); }
+    changed height => { AquaGlass.dirty(); }
+    changed radius => { AquaGlass.dirty(); }
+    changed live => { AquaGlass.dirty(); }
+    changed ep => {
+        if live && self.width > 0.5px && self.height > 0.5px {
+            AquaGlass.report(ax, ay, self.width, self.height, radius, material);
+        }
+    }
+    init => { AquaGlass.dirty(); }
+}
+
 export global WinCtl {
     /// The green button was hovered for a moment: ask Aqua for its tiling menu.
     callback tile-menu();
@@ -562,10 +669,15 @@ export component GlassMenu inherits Rectangle {
     in property <bool> glass;
     border-radius: radius;
     drop-shadow-blur: native ? 0px : 22px;
-    drop-shadow-color: Theme.dark ? #00000070 : #0000002e;
-    drop-shadow-offset-y: 8px;
-    background: native ? (glass ? (Theme.dark ? #26262ab0 : #f6f6f8bd) : Theme.menu-bg)
+    // A native menu gets its shadow from the compositor; a Slint shadow with zero blur would
+    // show through the translucent body as a hard dark slab offset 8px down.
+    drop-shadow-color: native ? transparent : (Theme.dark ? #00000070 : #0000002e);
+    drop-shadow-offset-y: native ? 0px : 8px;
+    property <bool> lg: native && glass && AquaGlass.active;
+    background: lg ? transparent : native ? (glass ? (Theme.dark ? #26262ab0 : #f6f6f8bd) : Theme.menu-bg)
         : (Backdrop.valid ? transparent : Theme.menu-bg);
+    // A menu window under Aqua: the compositor's menu glass (rim, light, blur) is the body.
+    GlassShape { width: parent.width; height: parent.height; material: 3; radius: root.radius; on: root.native && root.glass; }
     Rectangle {
         border-radius: root.radius;
         clip: true;
@@ -574,12 +686,12 @@ export component GlassMenu inherits Rectangle {
             source: Backdrop.image; image-fit: fill;
         }
         if Backdrop.valid && !native: Rectangle { background: Theme.dark ? #1e1e22a6 : #fbfbfdb0; }
-        Rectangle {
+        if !lg: Rectangle {
             border-radius: root.radius; border-width: 1px;
             border-color: Theme.dark ? #ffffff24 : #ffffffd9;
         }
     }
-    Rectangle { border-radius: root.radius; border-width: 0.5px; border-color: Theme.dark ? #00000080 : #0000001f; }
+    if !lg: Rectangle { border-radius: root.radius; border-width: 0.5px; border-color: Theme.dark ? #00000080 : #0000001f; }
     @children
 }
 
@@ -733,14 +845,17 @@ export component GlassSurround inherits Path {
 export component GlassCapsule inherits Rectangle {
     in property <bool> hot: false;
     property <bool> glass: Theme.glass-controls;
+    // Under Aqua the rim, refraction and edge light come from the compositor's control lens.
+    property <bool> lens: glass && AquaGlass.active;
     height: 36px;
     border-radius: self.height / 2;
+    GlassShape { width: parent.width; height: parent.height; material: 2; radius: root.height / 2; on: root.glass; }
     // Glass (macOS 26 toolbar): a quiet translucent body with a thin rim that is bright
     // along the top and fades towards the bottom — depth from the edge, no gloss band.
     background: !glass ? (Theme.dark ? #ffffff17 : #ffffffd9)
-        : Theme.dark ? @linear-gradient(180deg, #ffffff1c 0%, #ffffff12 100%)
+        : Theme.dark ? @linear-gradient(180deg, #ffffff26 0%, #ffffff1e 100%)
         : @linear-gradient(180deg, #ffffffeb 0%, #ffffffc7 100%);
-    border-width: glass ? 1px : 0.5px;
+    border-width: lens ? 0px : glass ? 1px : 0.5px;
     border-color: !glass ? (Theme.dark ? #ffffff1f : #0000000f)
         : Theme.dark ? @linear-gradient(180deg, #ffffff47 0%, #ffffff14 55%, #ffffff0a 100%)
         : @linear-gradient(180deg, #ffffff 0%, #0000000f 100%);

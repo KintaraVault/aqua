@@ -565,6 +565,31 @@ impl XwmHandler for Aqua {
 
     fn disconnected(&mut self, _xwm: XwmId) {
         tracing::warn!("XWayland disconnected; restarting");
+        // Every X11 window died with the server: without this they stayed on screen (and in
+        // the Dock, the switcher and Stage Manager) as frozen ghosts.
+        let dead: Vec<_> = self
+            .space
+            .elements()
+            .chain(self.minimized.iter())
+            .chain(self.stage.staged.iter())
+            .filter(|w| w.x11_surface().is_some())
+            .cloned()
+            .collect();
+        let had_focus = match self.seat.get_keyboard().and_then(|k| k.current_focus()) {
+            None => true,
+            Some(KeyboardFocusTarget::Window(f)) => f.x11_surface().is_some(),
+            Some(_) => false,
+        };
+        for w in &dead {
+            self.space.unmap_elem(w);
+            self.forget_staged(w);
+        }
+        self.minimized.retain(|m| m.x11_surface().is_none());
+        if had_focus && !dead.is_empty() {
+            self.focus_next(dead.first());
+        }
+        self.repick_pointer = true;
+        self.needs_redraw = true;
         self.xwm = None;
         self.xdisplay = None;
         let h = self.loop_handle.clone();

@@ -247,24 +247,10 @@ pub fn layers(sh: &mut Shell, progress: f32) -> Vec<Layer> {
         blur: 24.0 * ease,
         tint: Rgba(0.05, 0.05, 0.08, 0.10 * ease),
         saturation: 1.15,
-        refraction: 0.0,
-        bevel: 0.0,
-        rim: 0.0,
-        radius: 0.0,
-        shadow: 0.0,
         max_luma: 0.85,
+        ..style::glass_overlay(&sh.cfg.glass)
     };
-    let pill = aqua_config::GlassStyle {
-        blur: 18.0,
-        tint: Rgba(1.0, 1.0, 1.0, 0.16),
-        saturation: 1.4,
-        refraction: 4.0,
-        bevel: 8.0,
-        rim: 0.5,
-        radius: g.field.h / 2.0,
-        shadow: 0.0,
-        max_luma: 0.7,
-    };
+    let pill = style::glass_pill(&sh.cfg.glass, g.field.h / 2.0);
     let help = aqua_config::GlassStyle { radius: g.help.h / 2.0, ..pill };
     let shake = sh.lockscreen.shake();
     out.push(Layer {

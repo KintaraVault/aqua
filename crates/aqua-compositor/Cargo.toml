@@ -17,6 +17,8 @@ screencast = ["dep:aqua-screencast"]
 aqua-screencast = { workspace = true, optional = true }
 smithay.workspace = true
 smithay-drm-extras.workspace = true
+# Only a cfg switch with the pure-Rust server backend: exposes per-client buffer limits.
+wayland-server = { version = "0.31.14", default-features = false, features = ["libwayland_1_23"] }
 tracing.workspace = true
 bitflags = "2"
 aqua-config.workspace = true
@@ -38,6 +40,7 @@ aqua-sys.workspace = true
 aqua-tray.workspace = true
 wayland-protocols = { version = "0.32", features = ["server", "staging"] }
 wayland-protocols-plasma = { version = "0.3", features = ["server"] }
+wayland-scanner = "0.31"
 
 [lints]
 workspace = true

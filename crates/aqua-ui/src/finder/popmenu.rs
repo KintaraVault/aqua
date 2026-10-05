@@ -23,6 +23,8 @@ fn copy_theme(from: &crate::Theme, to: &crate::Theme) {
     to.set_accent(from.get_accent());
     to.set_glass_controls(from.get_glass_controls());
     to.set_glass_lights(from.get_glass_lights());
+    to.set_aqua(from.get_aqua());
+    to.set_window_glass(from.get_window_glass());
     to.set_motion(from.get_motion());
 }
 
@@ -98,7 +100,7 @@ impl App {
         let h = win.get_want_h();
         win.window().set_size(slint::LogicalSize::new(w, h));
         if glass {
-            crate::enable_glass(&win.as_weak());
+            crate::glass::link(&win, false);
         }
         if let Err(e) = win.show() {
             tracing::warn!("cannot show a menu window: {e}");

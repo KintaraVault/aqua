@@ -33,21 +33,9 @@ pub(super) fn open_path(p: &Path) {
 }
 
 pub(super) fn open_terminal(dir: &Path) {
-    let q = fs::sh_quote(dir);
     let cfg = aqua_config::Config::load();
-    for t in cfg.terminal.split('|') {
-        let t = t.trim();
-        if t.is_empty() || aqua_apps::find_in_path(t).is_none() {
-            continue;
-        }
-        let cmd = match t {
-            "foot" | "kitty" | "alacritty" | "wezterm" | "ghostty" => format!("cd {q} && exec {t}"),
-            "gnome-terminal" | "kgx" | "xfce4-terminal" | "tilix" => format!("{t} --working-directory={q}"),
-            "konsole" => format!("konsole --workdir {q}"),
-            _ => format!("cd {q} && exec {t}"),
-        };
-        aqua_apps::launch(&cmd);
-        return;
+    if !aqua_apps::open_terminal_in(&cfg.terminal, dir) {
+        eprintln!("aqua-finder: no terminal emulator installed (config `terminal` = {:?})", cfg.terminal);
     }
 }
 
@@ -486,7 +474,7 @@ pub fn run(chooser: Option<Chooser>, start: Option<String>, show_hidden: bool) -
             EventResult::Propagate
         });
         if glass {
-            crate::enable_glass(&ui.as_weak());
+            crate::glass::link(&ui, true);
         }
     }
 

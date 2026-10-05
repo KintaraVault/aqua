@@ -46,8 +46,7 @@ Recommends: pipewire-pulse,
             fonts-noto-color-emoji,
             sound-theme-freedesktop,
             ffmpeg,
-            flatpak,
-            policykit-1
+            flatpak
 Suggests: greetd, cage, brightnessctl, pciutils, fcitx5, gnome-calculator
 Description: macOS-style (Liquid Glass) Wayland compositor and desktop shell
  Aqua is a Wayland compositor and desktop shell written in Rust on top of

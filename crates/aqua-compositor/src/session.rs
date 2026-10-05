@@ -177,7 +177,15 @@ impl Aqua {
     }
 
     pub fn reload_config(&mut self) {
-        let (new, issues) = aqua_config::Config::load_checked();
+        let (new, issues) = match aqua_config::Config::reload_checked() {
+            Ok(r) => r,
+            Err(issue) => {
+                if let Some(i) = issue {
+                    self.report_config_issues(vec![i]);
+                }
+                return;
+            }
+        };
         self.report_config_issues(issues);
         if format!("{:?}", new) == format!("{:?}", self.cfg) {
             return;

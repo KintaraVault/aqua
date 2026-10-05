@@ -33,7 +33,7 @@ impl DockItem {
             return false;
         }
         let a = app_id.to_lowercase();
-        let bin = self.exec.split_whitespace().next().unwrap_or("").rsplit('/').next().unwrap_or("").to_lowercase();
+        let bin = aqua_apps::program_key(&self.exec);
         a == self.app.to_lowercase()
             || (!bin.is_empty() && (a == bin || a.ends_with(&format!(".{bin}"))))
             || a == self.name.to_lowercase()
@@ -166,12 +166,12 @@ fn own_aliases_only(it: &mut DockItem) {
 /// Ids identifying the app behind a pinned item (binary, desktop id, icon, WM class).
 pub(crate) fn owner_ids(it: &DockItem, apps: &[aqua_apps::App]) -> Vec<String> {
     use aqua_config::apple_icons::canon;
-    let bin = it.exec.split_whitespace().next().unwrap_or("").rsplit('/').next().unwrap_or("").to_string();
+    let bin = aqua_apps::program_key(&it.exec);
     let mut v = vec![canon(&bin)];
     v.extend(it.aliases.iter().map(|a| canon(a)));
     if let Some(a) = apps
         .iter()
-        .find(|a| a.command().split_whitespace().next().unwrap_or("").rsplit('/').next() == Some(bin.as_str()))
+        .find(|a| aqua_apps::program_key(&a.exec) == bin)
     {
         v.push(canon(&a.id));
         v.push(canon(&a.icon));
@@ -190,7 +190,8 @@ pub fn icon_owners(dock: &Dock, apps: &[aqua_apps::App]) -> Vec<(usize, Vec<Stri
     use aqua_config::apple_icons::{canon, lookup_index};
     let mut out: Vec<(usize, Vec<String>)> = vec![];
     for it in dock.items.iter().filter(|i| i.kind == Kind::App && !i.exec.is_empty()) {
-        let bin = it.exec.split_whitespace().next().unwrap_or("").rsplit('/').next().unwrap_or("");
+        let bin = aqua_apps::program_key(&it.exec);
+        let bin = bin.as_str();
         if let Some(g) = lookup_index(bin, bin) {
             if !out.iter().any(|(i, _)| *i == g) {
                 out.push((g, owner_ids(it, apps)));
@@ -223,13 +224,12 @@ fn kind_is_app(it: &DockItem) -> bool {
 /// user turned the branded replacement off for that program, show its real name and icon.
 fn real_app_identity(it: &mut DockItem, cfg: &Config, apps: &[aqua_apps::App]) {
     use aqua_config::apple_icons::{canon, lookup, Policy};
-    let bin = it.exec.split_whitespace().next().unwrap_or("").rsplit('/').next().unwrap_or("").to_string();
+    let bin = aqua_apps::program_key(&it.exec);
     if bin.is_empty() || bin.starts_with("aqua-") || lookup(&bin, &bin).is_none() {
         return;
     }
     let desktop = apps.iter().find(|a| {
-        let ab = a.command();
-        let ab = ab.split_whitespace().next().unwrap_or("").rsplit('/').next().unwrap_or("");
+        let ab = aqua_apps::program_key(&a.exec);
         ab == bin || canon(&a.id) == canon(&bin) || canon(&a.id).ends_with(&format!(".{}", canon(&bin)))
     });
     let (id, icon) = match desktop {
@@ -264,6 +264,10 @@ impl Dock {
         for d in &cfg.dock {
             let kind = if d.app == "launchpad" { Kind::Launchpad } else { Kind::App };
             let mut exec = resolve_exec(&d.exec);
+            if exec.is_empty() && d.app == "terminal" {
+                // none of the listed emulators is installed: use whichever one is
+                exec = aqua_apps::resolve_terminal(&cfg.terminal).unwrap_or_default();
+            }
             if exec.is_empty() {
                 if let Some(a) = apps.iter().find(|a| a.id == d.app) {
                     exec = a.command();
@@ -351,6 +355,21 @@ impl Dock {
     }
 }
 
+/// Icon name for a window without a matching launcher. Steam games install their icon as
+/// `steam_icon_<id>` even when there is no .desktop file for them.
+fn fallback_icon(app_id: &str) -> String {
+    match app_id.strip_prefix("steam_app_") {
+        Some(n) if !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()) => format!("steam_icon_{n}"),
+        _ => app_id.to_string(),
+    }
+}
+
+/// Does a Dock app item stand for this installed app (its desktop id or WM class)?
+fn owns_app(it: &DockItem, a: &aqua_apps::App) -> bool {
+    it.kind == Kind::App
+        && (it.matches(&a.id) || a.wm_class.as_deref().is_some_and(|c| !c.is_empty() && it.matches(c)))
+}
+
 /// Visible items: pinned items plus running unpinned apps (inserted before the separator).
 fn visible(sh: &Shell) -> Vec<DockItem> {
     let mut v: Vec<DockItem> = sh.dock.items.clone();
@@ -370,6 +389,20 @@ fn visible(sh: &Shell) -> Vec<DockItem> {
             continue;
         }
         let app = aqua_apps::match_app_id(&sh.apps, &w.app_id);
+        // Another window id of an app that already has an icon (X11 WM_CLASS vs Wayland
+        // app id, `StartupWMClass` vs desktop id: Telegram is "TelegramDesktop" on X11 and
+        // "org.telegram.desktop" on Wayland): same launcher, same icon — not a second one.
+        if let Some(a) = app {
+            if let Some(owner) = v.iter_mut().chain(extra.iter_mut()).find(|i| owns_app(i, a)) {
+                owner.aliases.push(w.app_id.clone());
+                continue;
+            }
+        }
+        let mut aliases = vec![];
+        if let Some(a) = app {
+            aliases.push(a.id.clone());
+            aliases.extend(a.wm_class.clone());
+        }
         extra.push(DockItem {
             name: sh.app_display_name(&w.app_id),
             app: w.app_id.clone(),
@@ -377,11 +410,11 @@ fn visible(sh: &Shell) -> Vec<DockItem> {
             icon: IconRequest {
                 id: w.app_id.clone(),
                 name: app.map(|a| a.name.clone()).unwrap_or_else(|| sh.app_display_name(&w.app_id)),
-                icon: app.map(|a| a.icon.clone()).unwrap_or_else(|| w.app_id.clone()),
+                icon: app.map(|a| a.icon.clone()).unwrap_or_else(|| fallback_icon(&w.app_id)),
             },
             kind: Kind::App,
             pinned: false,
-            aliases: vec![],
+            aliases,
         });
     }
     for (k, e) in extra.into_iter().enumerate() {
@@ -401,7 +434,7 @@ fn visible(sh: &Shell) -> Vec<DockItem> {
                 icon: IconRequest {
                     id: w.app_id.clone(),
                     name: app.map(|a| a.name.clone()).unwrap_or_else(|| sh.app_display_name(&w.app_id)),
-                    icon: app.map(|a| a.icon.clone()).unwrap_or_else(|| w.app_id.clone()),
+                    icon: app.map(|a| a.icon.clone()).unwrap_or_else(|| fallback_icon(&w.app_id)),
                 },
                 kind: Kind::Minimized(w.id),
                 pinned: false,
@@ -410,6 +443,15 @@ fn visible(sh: &Shell) -> Vec<DockItem> {
         );
     }
     v
+}
+
+/// The app icon the Dock shows windows with `app_id` under (with every other window id
+/// grouped on it), if any.
+pub fn app_item_for(sh: &Shell, app_id: &str) -> Option<DockItem> {
+    if app_id.is_empty() {
+        return None;
+    }
+    visible(sh).into_iter().find(|i| i.kind == Kind::App && i.matches(app_id))
 }
 
 /// Stable identity of a Dock item across rebuilds (animations follow it).

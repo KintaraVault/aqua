@@ -109,3 +109,17 @@ fn shortcut_recording() {
     let bs = char::from(slint::platform::Key::Backspace).to_string();
     assert!(matches!(record_key(&bs, false, false, false, false), Rec::Clear));
 }
+
+#[test]
+fn glass_sliders_round_trip() {
+    let d = aqua_config::GlassStyle::default();
+    for (get, set) in GLASS_KNOBS.iter() {
+        let v0 = get(&d);
+        assert!(v0 > 0.0 && v0 < 1.0, "the standard glass sits inside every slider's range");
+        for v in [0.0, 0.3, 1.0] {
+            let mut g = d;
+            set(&mut g, v);
+            assert!((get(&g) - v).abs() < 1e-4);
+        }
+    }
+}

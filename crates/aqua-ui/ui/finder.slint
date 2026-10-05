@@ -1,4 +1,4 @@
-import { Theme, Glyphs, Field, PillButton, Checkbox, TrafficLights, PopupSelect, GlassSurround, Backdrop, SliderBar, GlassCapsule, NavArrows } from "common.slint";
+import { Theme, Glyphs, Field, PillButton, Checkbox, TrafficLights, PopupSelect, GlassSurround, Backdrop, SliderBar, GlassCapsule, NavArrows, GlassSel, AquaGlass, GlassShape } from "common.slint";
 import { F, FItem, FPlace, FColumn, FMenuItem, FKV, FTagDef, FRow, FTab, FCrumb, FLCol, FOpt, FSpot, FCrit, FileIcon, FolderIcon, TagDots } from "finder-model.slint";
 import { IconView, ListViewV, ColumnViewV, GalleryV } from "finder-views.slint";
 import { MenuOverlay, FinderMenuWindow, AlertSheet, GotoPanel, ProgressCard, QuickLook, ViewOptions, PrefsPanel, RenamePanel, CustomizePanel } from "finder-panels.slint";
@@ -37,13 +37,16 @@ component Capsule inherits GlassCapsule { }
 component Sidebar inherits Rectangle {
     callback want-focus();
     property <bool> solid: Theme.solid-sidebar;
+    // Under Aqua the sidebar is the compositor's Liquid Glass (sidebar material).
+    property <bool> lg: F.glass && AquaGlass.active;
     border-radius: solid ? 0px : 20px;
-    background: solid
-        ? (F.glass ? (Theme.dark ? #26262ab8 : #f4f5f7b8) : (Theme.dark ? #29292c : #eeeff2))
+    GlassShape { width: parent.width; height: parent.height; material: 1; radius: parent.border-radius; on: F.glass; }
+    background: lg ? transparent : solid
+        ? (F.glass ? Theme.glass-side : (Theme.dark ? #29292c : #eeeff2))
         : (F.glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%));
-    border-width: solid ? 0px : 0.5px;
+    border-width: solid || lg ? 0px : 0.5px;
     border-color: F.glass ? (Theme.dark ? #ffffff26 : #ffffffb0) : Theme.sidebar-border;
-    drop-shadow-blur: solid ? 0px : 10px; drop-shadow-color: #00000017; drop-shadow-offset-y: 2px;
+    drop-shadow-blur: solid || lg ? 0px : 10px; drop-shadow-color: solid || lg ? transparent : #00000017; drop-shadow-offset-y: 2px;
     // Solid style: a hairline separates the sidebar from the content, with a faint highlight on its left.
     if solid: Rectangle { x: parent.width - 1px; width: 1px; background: Theme.dark ? #00000066 : #00000014; }
     if solid && Theme.dark: Rectangle { x: parent.width - 2px; width: 1px; background: #ffffff0a; }
@@ -62,8 +65,9 @@ component Sidebar inherits Rectangle {
                 height: 32px;
                 if p.path == "": Rectangle {
                     Text {
-                        x: 8px; y: 0; height: 29px; text: p.header; font-size: 11px; font-weight: 700; letter-spacing: 0.2px;
-                        color: Theme.dark ? #ffffff80 : #00000096; vertical-alignment: TextVerticalAlignment.bottom;
+                        x: 8px; y: 0; height: 29px; text: p.header;
+                        font-size: Theme.aqua ? 12px : 11px; font-weight: Theme.aqua ? 500 : 700; letter-spacing: 0.2px;
+                        color: Theme.aqua ? Theme.side-header : (Theme.dark ? #ffffff80 : #00000096); vertical-alignment: TextVerticalAlignment.bottom;
                     }
                     if hta.has-hover: Image {
                         x: parent.width - 20px; y: 15px; width: 10px; height: 10px; source: F.i-chev-right;
@@ -75,13 +79,14 @@ component Sidebar inherits Rectangle {
                     border-radius: 10px;
                     property <bool> sel: F.cur-place == p.path;
                     property <bool> drop: F.dragging && F.drop-place == p.path && F.drop-line < 0;
-                    background: drop ? Theme.accent.with-alpha(0.3) : sel ? (Theme.dark ? #ffffff24 : #00000012) : (ta.has-hover ? Theme.hover : transparent);
+                    background: drop ? Theme.accent.with-alpha(0.3) : Theme.aqua ? transparent : sel ? (Theme.dark ? #ffffff24 : #00000012) : (ta.has-hover ? Theme.hover : transparent);
                     animate background { duration: 120ms; }
                     border-width: F.menu-open && F.ctx-place == p.path ? 2px : 0px;
                     border-color: Theme.accent;
+                    if Theme.aqua && !(F.dragging && F.drop-place == p.path && F.drop-line < 0): GlassSel { sel: F.cur-place == p.path; hot: ta.has-hover; pressed: ta.pressed; }
                     if !p.is-tag: Image {
-                        x: 9px; width: 19px; height: 19px; source: F.glyph(p.icon);
-                        colorize: Theme.accent;
+                        x: 9px; width: Theme.aqua ? 18px : 19px; height: self.width; source: Theme.aqua ? F.aqua-glyph(p.icon) : F.glyph(p.icon);
+                        colorize: Theme.side-glyph;
                     }
                     if p.is-tag: Rectangle { x: 13px; width: 11px; height: 11px; border-radius: 5.5px; background: p.dot; }
                     Text {
@@ -170,10 +175,13 @@ component TabBar inherits Rectangle {
     height: 38px;
     property <length> track-w: self.width - 20px - 38px;
     property <length> tw: (track-w - 4px) / max(1, F.tabs.length);
+    // Aqua: the track is a glass capsule (rim lit from the top), the current tab a raised
+    // glass pill inside it and “+” a round glass button — the toolbar's material.
+    if Theme.aqua: GlassCapsule { x: 10px; y: 2px; width: track-w; height: 30px; }
     track := Rectangle {
         x: 10px; y: 2px; width: track-w; height: 30px; border-radius: 15px;
-        background: Theme.dark ? #ffffff0d : #0000000a;
-        border-width: 0.5px; border-color: Theme.dark ? #ffffff12 : #0000000a;
+        background: Theme.aqua ? transparent : Theme.dark ? #ffffff0d : #0000000a;
+        border-width: Theme.aqua ? 0px : 0.5px; border-color: Theme.dark ? #ffffff12 : #0000000a;
         for t[i] in F.tabs: Rectangle {
             property <length> dx: tta.dragging ? tta.mouse-x - tta.pressed-x : 0px;
             property <bool> out: tta.dragging && abs(tta.mouse-y - tta.pressed-y) > 36px;
@@ -182,10 +190,11 @@ component TabBar inherits Rectangle {
             z: tta.dragging ? 1 : 0;
             opacity: out ? 0.6 : 1;
             border-radius: self.height / 2;
-            background: cur || tta.dragging ? (Theme.dark ? #ffffff24 : #ffffff) : (tta.has-hover ? Theme.hover : transparent);
-            border-width: cur ? 0.5px : 0px; border-color: Theme.dark ? #ffffff1f : #0000000f;
-            drop-shadow-blur: cur || tta.dragging ? 4px : 0px; drop-shadow-color: #00000024; drop-shadow-offset-y: 1px;
+            background: Theme.aqua ? transparent : cur || tta.dragging ? (Theme.dark ? #ffffff24 : #ffffff) : (tta.has-hover ? Theme.hover : transparent);
+            border-width: cur && !Theme.aqua ? 0.5px : 0px; border-color: Theme.dark ? #ffffff1f : #0000000f;
+            drop-shadow-blur: (cur || tta.dragging) && !Theme.aqua ? 4px : 0px; drop-shadow-color: #00000024; drop-shadow-offset-y: 1px;
             animate background { duration: 120ms; }
+            if Theme.aqua: GlassSel { border-radius: self.height / 2; sel: cur || tta.dragging; hot: tta.has-hover; }
             if i > 0 && !cur && i - 1 != F.tab-idx: Rectangle {
                 x: -0.5px; y: (parent.height - 14px) / 2; width: 1px; height: 14px; background: Theme.dark ? #ffffff1f : #0000001a;
             }
@@ -220,7 +229,14 @@ component TabBar inherits Rectangle {
             }
         }
     }
-    Rectangle {
+    if Theme.aqua: GlassCapsule {
+        x: parent.width - 10px - 30px; y: 2px; width: 30px; height: 30px;
+        hot: apta.has-hover;
+        Rectangle { border-radius: 15px; background: apta.pressed ? Theme.control-pressed : transparent; }
+        Image { width: 14px; height: 14px; source: F.i-plus; colorize: Theme.text; }
+        apta := TouchArea { clicked => { F.tab-new(); } }
+    }
+    if !Theme.aqua: Rectangle {
         x: parent.width - 10px - 30px; y: 2px; width: 30px; height: 30px; border-radius: 15px;
         background: pta.pressed ? Theme.control-pressed : (pta.has-hover ? (Theme.dark ? #ffffff24 : #0000000f) : (Theme.dark ? #ffffff17 : #ffffffd9));
         border-width: 0.5px; border-color: Theme.dark ? #ffffff1f : #0000000f;
@@ -500,7 +516,8 @@ export component FinderWindow inherits Window {
     property <bool> solid-side: Theme.solid-sidebar;
     property <length> cx: side-on ? side-w + 8px : 0px;
     property <length> pv-w: F.show-preview && F.mode == 0 && root.width > 820px ? 268px : 0px;
-    property <length> tab-h: F.show-tabbar && F.mode == 0 ? 38px : 0px;
+    // Like macOS: no tab bar for a single tab (it appears with the second one).
+    property <length> tab-h: F.show-tabbar && F.mode == 0 && F.tabs.length > 1 ? 38px : 0px;
     property <length> scope-h: F.in-search ? 40px + F.crit.length * 36px : 0px;
     property <length> top-h: 52px + tab-h + scope-h + (F.mode == 2 ? 78px : 0px);
     property <length> path-h: F.show-pathbar && F.mode == 0 ? 28px : 0px;
@@ -516,7 +533,7 @@ export component FinderWindow inherits Window {
 
     if !F.glass: Rectangle { background: Theme.window-bg; }
     if F.glass: GlassSurround {
-        width: root.width; height: root.height; color: Theme.window-bg;
+        width: root.width; height: root.height; color: Theme.glass-bg;
         hole-x: solid-side ? 0px : 8px; hole-y: solid-side ? 0px : 8px;
         hole-w: side-on ? (solid-side ? cx : side-w) : 0px; hole-h: solid-side ? root.height : root.height - 16px;
         hole-r: solid-side ? 0px : 20px;

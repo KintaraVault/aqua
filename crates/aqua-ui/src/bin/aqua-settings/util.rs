@@ -6,6 +6,8 @@ pub fn apply_theme_from(ui: &SettingsWindow, cfg: &Config) {
     t.set_dark(is_dark(cfg));
     t.set_accent(accent_color(&cfg.accent));
     t.set_solid_sidebar(cfg.solid_sidebar());
+    t.set_aqua(cfg.aqua_style());
+    t.set_window_glass(cfg.window_glass);
     t.set_glass_controls(cfg.glass_controls);
     t.set_glass_lights(cfg.glass_traffic_lights);
     t.set_motion(!cfg.reduce_motion);

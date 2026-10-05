@@ -44,6 +44,10 @@ U=$DESTDIR/usr/share
 for b in $BINS; do install -Dm755 "$TARGET/$b" "$R/bin/$b"; done
 install -Dm755 dist/aqua-session "$R/bin/aqua-session"
 install -Dm755 dist/aqua-screenshot "$R/bin/aqua-screenshot"
+install -Dm755 dist/aqua-nvidia-setup "$R/bin/aqua-nvidia-setup"
+install -d "$U/polkit-1/actions"
+sed "s|@BINDIR@|$PREFIX/bin|g" dist/org.aqua.nvidia-setup.policy > "$U/polkit-1/actions/org.aqua.nvidia-setup.policy"
+chmod 644 "$U/polkit-1/actions/org.aqua.nvidia-setup.policy"
 
 install -d "$U/wayland-sessions"
 sed -e "s|^Exec=.*|Exec=$PREFIX/bin/aqua-session|" -e "s|^TryExec=.*|TryExec=$PREFIX/bin/aqua|" \

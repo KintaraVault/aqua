@@ -417,6 +417,7 @@ impl Aqua {
         seat.add_touch();
         let p = crate::wayland::protocols::Protocols::new(&dh, &event_loop.handle(), &primary_selection_state);
         crate::wayland::blur::init(&dh);
+        crate::wayland::glass::init(&dh);
         crate::wayland::appmenu::init(&dh);
 
         let socket_name = Self::init_wayland_listener(display, event_loop);
@@ -689,5 +690,10 @@ pub struct ClientState {
 
 impl ClientData for ClientState {
     fn initialized(&self, _client_id: ClientId) {}
-    fn disconnected(&self, _client_id: ClientId, _reason: DisconnectReason) {}
+    fn disconnected(&self, client_id: ClientId, reason: DisconnectReason) {
+        // Protocol errors are otherwise silent: the client just sees ECONNRESET.
+        if let DisconnectReason::ProtocolError(err) = reason {
+            tracing::warn!(?client_id, %err, "client disconnected for a protocol error");
+        }
+    }
 }

@@ -38,17 +38,34 @@ pub struct Lock {
 pub const UNLOCK_ANIM_MS: f32 = 420.0;
 pub const LOCK_ANIM_MS: f32 = 320.0;
 
-pub fn marker_path() -> std::path::PathBuf {
-    marker()
+/// Forget the persisted lock state (clean logout).
+pub fn clear_marker() {
+    if let Some(m) = marker() {
+        let _ = std::fs::remove_file(m);
+    }
 }
 
-fn marker() -> std::path::PathBuf {
-    aqua_config::paths::runtime_dir().join("aqua-locked")
+/// The crash-recovery marker belongs to the real (tty) session only: nested sessions share
+/// `$XDG_RUNTIME_DIR` with it, so they used to start locked after the real session locked,
+/// and — worse — their unlock or logout deleted the real session's marker, so a crash of
+/// the locked real session came back unlocked.
+fn marker() -> Option<std::path::PathBuf> {
+    marker_for(crate::system::env::is_nested(), &aqua_config::paths::runtime_dir())
+}
+
+fn marker_for(nested: bool, runtime: &std::path::Path) -> Option<std::path::PathBuf> {
+    (!nested).then(|| runtime.join("aqua-locked"))
+}
+
+fn write_marker(kind: &str) {
+    if let Some(m) = marker() {
+        let _ = std::fs::write(m, kind);
+    }
 }
 
 impl Lock {
     pub fn new(lock_on_start: bool) -> Self {
-        let crashed_locked = marker().exists();
+        let crashed_locked = marker().is_some_and(|m| m.exists());
         let mut l = Self {
             mode: Mode::Unlocked,
             since: None,
@@ -74,14 +91,14 @@ impl Lock {
         self.mode = Mode::External;
         self.since.get_or_insert_with(Instant::now);
         locker.lock();
-        let _ = std::fs::write(marker(), "external");
+        write_marker("external");
     }
     pub fn external_unlock(&mut self) {
         self.ext_surfaces.clear();
         self.mode = Mode::Unlocked;
         self.unlocking = None;
         self.since = None;
-        let _ = std::fs::remove_file(marker());
+        clear_marker();
     }
     /// 0..1 fade of the lock screen.
     pub fn lock_progress(&self) -> f32 {
@@ -114,7 +131,7 @@ impl Aqua {
         self.lock.mode = Mode::Internal;
         self.lock.since = Some(Instant::now());
         self.lock.unlocking = None;
-        let _ = std::fs::write(marker(), "internal");
+        write_marker("internal");
         self.on_locked();
     }
 
@@ -154,7 +171,7 @@ impl Aqua {
     }
 
     pub fn on_unlocked(&mut self) {
-        let _ = std::fs::remove_file(marker());
+        clear_marker();
         self.lock.failures = 0;
         self.shell.locked = false;
         crate::system::logind::set_hints(false, false);
@@ -181,8 +198,10 @@ impl Aqua {
         self.lock.auth_rx = Some(rx);
         self.shell.lockscreen.busy = true;
         std::thread::spawn(move || {
-            let r = match std::env::var("AQUA_TEST_PASSWORD") {
-                Ok(p) if !p.is_empty() => {
+            // Test hook of debug builds only: a release session never accepts it.
+            let test_pw = if cfg!(debug_assertions) { std::env::var("AQUA_TEST_PASSWORD").ok() } else { None };
+            let r = match test_pw {
+                Some(p) if !p.is_empty() => {
                     std::thread::sleep(std::time::Duration::from_millis(300));
                     if p == password {
                         Ok(())
@@ -198,6 +217,17 @@ impl Aqua {
 
     /// Poll the PAM worker; returns true when something changed.
     pub fn poll_lock(&mut self) -> bool {
+        if self.external_locker_gone() {
+            // swaylock & co. crashed or were killed: the session must stay locked
+            // (ext-session-lock-v1), but with nothing on screen the user could never get
+            // back in. Fall back to Aqua's own password screen.
+            tracing::warn!("external screen locker went away while locked: using the built-in lock screen");
+            self.lock.ext_surfaces.clear();
+            self.lock.mode = Mode::Internal;
+            write_marker("internal");
+            self.on_locked();
+            return true;
+        }
         let Some(rx) = &self.lock.auth_rx else { return self.lock.animating() };
         let Ok(r) = rx.try_recv() else { return true };
         self.lock.auth_rx = None;
@@ -223,6 +253,14 @@ impl Aqua {
         true
     }
 
+    /// Locked by an external locker that no longer shows any surface (after a grace period
+    /// for it to create them).
+    fn external_locker_gone(&self) -> bool {
+        self.lock.mode == Mode::External
+            && self.lock.since.is_some_and(|t| t.elapsed() > std::time::Duration::from_secs(3))
+            && self.lock.ext_surfaces.iter().all(|(_, s)| !s.alive())
+    }
+
     pub fn lock_surface_under(
         &self,
         pos: smithay::utils::Point<f64, smithay::utils::Logical>,
@@ -237,5 +275,15 @@ impl Aqua {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn only_the_real_session_persists_its_lock() {
+        let rt = std::path::Path::new("/run/user/1000");
+        assert_eq!(super::marker_for(false, rt), Some(rt.join("aqua-locked")));
+        assert_eq!(super::marker_for(true, rt), None);
     }
 }

@@ -9,8 +9,22 @@
 #   --no-build       do not run cargo, install what is in target/release
 #   --rebuild        force relinking the Aqua binaries
 #   --no-reload      do not touch the running session
+#   --no-deps        do not install build/runtime dependencies with the package manager
+#   --deps-only      only install the dependencies (and the Rust toolchain), then exit
+#   --no-nvidia      do not configure NVIDIA kernel modesetting
 #   --uninstall      remove everything this script installs (any prefix)
 #   -h, --help
+#
+# Dependencies (Arch, Debian/Ubuntu, Fedora; openSUSE best effort): every package is
+# checked against the distribution's repositories first, so names that do not exist on a
+# given release are skipped instead of failing the whole transaction. A Rust toolchain
+# older than the workspace's rust-version (e.g. Debian 13's rustc 1.85) is replaced by
+# rustup (the distribution's rustup package, else rustup.rs) for the building user.
+#
+# NVIDIA: drivers before 560 (the 550 LTS series in Debian 13 / Ubuntu 24.04 …) do not
+# enable nvidia_drm.modeset, which every Wayland compositor needs, and the desktop has no
+# rights to change boot settings. The installer runs aqua-nvidia-setup as root: modprobe.d
+# option, kernel command line (GRUB / grubby / systemd-boot) and initramfs; reboot after.
 #
 # Safe for updates on top of an existing install:
 #   * always runs cargo first and installs the fresh target/release binaries (never a
@@ -30,6 +44,9 @@ BUILD=yes
 RELOAD=1
 UNINSTALL=0
 REBUILD=0
+DEPS=1
+DEPS_ONLY=0
+NVIDIA=1
 while [ $# -gt 0 ]; do
     case "$1" in
         --prefix) PREFIX=${2:?--prefix needs a directory}; shift ;;
@@ -38,7 +55,10 @@ while [ $# -gt 0 ]; do
         --rebuild) BUILD=yes; REBUILD=1 ;;
         --no-reload) RELOAD=0 ;;
         --uninstall) UNINSTALL=1 ;;
-        -h|--help) sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        --no-deps) DEPS=0 ;;
+        --deps-only) DEPS_ONLY=1 ;;
+        --no-nvidia) NVIDIA=0 ;;
+        -h|--help) sed -n '2,42p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown option: $1 (see --help)" >&2; exit 2 ;;
     esac
     shift
@@ -97,7 +117,7 @@ fi
 root() { $SUDO "$@"; }
 
 BINS="aqua aqua-settings aqua-finder aqua-store aqua-filechooser aqua-polkit-agent aqua-greeter"
-SCRIPTS="aqua-session aqua-screenshot"
+SCRIPTS="aqua-session aqua-screenshot aqua-nvidia-setup"
 ALL_PREFIXES="/usr /usr/local"
 
 # who owns a file (pacman / dpkg / rpm), empty if nobody
@@ -119,7 +139,7 @@ remove_stale() { # path — remove an old copy unless a package owns it
     [ -e "$f" ] || [ -L "$f" ] || return 0
     owner=$(pkg_owner "$f")
     if [ -n "$owner" ]; then
-        warn "$f belongs to package '$owner' and shadows/duplicates this install — remove it: sudo pacman -R $owner"
+        warn "$f belongs to package '$owner' and shadows/duplicates this install — remove that package"
         return 0
     fi
     case "$f" in
@@ -143,9 +163,20 @@ if [ "$UNINSTALL" -eq 1 ]; then
     remove_stale /usr/share/wayland-sessions/aqua.desktop
     remove_stale /usr/share/xdg-desktop-portal/portals/aqua.portal
     remove_stale /usr/share/xdg-desktop-portal/aqua-portals.conf
+    remove_stale /usr/share/polkit-1/actions/org.aqua.nvidia-setup.policy
     echo "Kept /etc/pam.d/aqua and ~/.config/aqua (delete them by hand if you want)."
     exit 0
 fi
+
+# ------------------------------------------------------------------ dependencies
+. "$SRC/dist/deps.sh"
+if [ "$DEPS" -eq 1 ] || [ "$DEPS_ONLY" -eq 1 ]; then
+    install_dependencies
+fi
+if [ "$BUILD" != no ] || [ "$DEPS_ONLY" -eq 1 ]; then
+    ensure_rust
+fi
+[ "$DEPS_ONLY" -eq 1 ] && { ok "dependencies installed"; exit 0; }
 
 # ------------------------------------------------------------------------- build
 TARGET=${CARGO_TARGET_DIR:-$SRC/target}
@@ -161,7 +192,7 @@ if [ "$BUILD" != no ]; then
     fi
     # login shell so ~/.cargo/env and rustup are picked up even under sudo
     as_user sh -lc "cd '$SRC' && { [ -f \"\$HOME/.cargo/env\" ] && . \"\$HOME/.cargo/env\"; true; } && \
-        CARGO_TARGET_DIR='$TARGET' cargo build --release --locked -p aqua-compositor -p aqua-ui" \
+        CARGO_TARGET_DIR='$TARGET' ${CARGO_BIN:-cargo} build --release --locked -p aqua-compositor -p aqua-ui" \
         || die "cargo build failed (see the errors above)"
     ok "build finished"
 fi
@@ -190,6 +221,7 @@ done
 ok "binaries: $BINS"
 put 755 dist/aqua-session "$BIN/aqua-session"
 put 755 dist/aqua-screenshot "$BIN/aqua-screenshot"
+put 755 dist/aqua-nvidia-setup "$BIN/aqua-nvidia-setup"
 ok "scripts: $SCRIPTS"
 
 # session entry: absolute Exec so display managers never pick an old aqua-session
@@ -203,6 +235,10 @@ put 644 dist/aqua-screenshot.desktop "$PREFIX/share/applications/aqua-screenshot
 put 644 dist/org.aqua.finder.desktop "$PREFIX/share/applications/org.aqua.finder.desktop"
 put 644 dist/org.aqua.store.desktop "$PREFIX/share/applications/org.aqua.store.desktop"
 put 644 dist/org.aqua.store-updates.desktop /etc/xdg/autostart/org.aqua.store-updates.desktop
+tmp=$(mktemp)
+sed "s|@BINDIR@|$BIN|g" dist/org.aqua.nvidia-setup.policy > "$tmp"
+put 644 "$tmp" /usr/share/polkit-1/actions/org.aqua.nvidia-setup.policy
+rm -f "$tmp"
 ok "session, portal and desktop entries"
 
 if [ ! -f /etc/pam.d/aqua ]; then
@@ -265,16 +301,12 @@ step "Refreshing caches"
 command -v fc-cache >/dev/null 2>&1 && root fc-cache -f "$SHARE/fonts" >/dev/null 2>&1 && ok "font cache"
 command -v update-desktop-database >/dev/null 2>&1 && root update-desktop-database -q "$PREFIX/share/applications" 2>/dev/null && ok "desktop database"
 
-# ------------------------------------------------------------------ dependencies
-missing=
-have_font() { command -v fc-list >/dev/null 2>&1 && fc-list "$1" 2>/dev/null | grep -q .; }
-have_font "Noto Color Emoji" || missing="$missing noto-fonts-emoji(emoji)"
-have_font "Noto Sans Symbols2" || have_font "Symbola" || missing="$missing noto-fonts(symbols)"
-command -v xdg-open >/dev/null 2>&1 || missing="$missing xdg-utils"
-command -v Xwayland >/dev/null 2>&1 || missing="$missing xorg-xwayland"
-if [ -n "$missing" ]; then
-    warn "recommended packages missing:$missing"
-    command -v pacman >/dev/null 2>&1 && warn "  sudo pacman -S --needed noto-fonts noto-fonts-emoji xdg-utils xorg-xwayland"
+# ---------------------------------------------------------------------- NVIDIA
+if [ "$NVIDIA" -eq 1 ]; then
+    step "NVIDIA kernel modesetting"
+    if ! root "$BIN/aqua-nvidia-setup"; then
+        warn "aqua-nvidia-setup failed — run: sudo $BIN/aqua-nvidia-setup"
+    fi
 fi
 
 # ---------------------------------------------------------------- running session

@@ -8,31 +8,79 @@ use smithay::utils::user_data::UserDataMap;
 use smithay::utils::{Buffer, Physical, Point, Rectangle, Scale, Transform};
 use std::cell::RefCell;
 
-/// Material parameters in *physical* pixels.
+/// Material parameters in *physical* pixels (see `aqua_config::GlassStyle` for meanings).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GlassParams {
     pub radius: f32,
+    pub roundness: f32,
     pub blur: f32,
     pub tint: [f32; 4],
     pub saturation: f32,
-    pub refraction: f32,
-    pub bevel: f32,
-    pub rim: f32,
     pub max_luma: f32,
+    pub thickness: f32,
+    pub refraction: f32,
+    pub ior: f32,
+    pub dispersion: f32,
+    /// The rim refracts the sharp backdrop, blurring in toward the flat top.
+    pub sharp_rim: bool,
+    /// Gain of the edge lights.
+    pub rim: f32,
+    pub fresnel: f32,
+    /// Fresnel band falloff per physical px.
+    pub fresnel_k: f32,
+    pub fresnel_hardness: f32,
+    /// LCh (hue in radians) of the Fresnel light colour.
+    pub fresnel_lch: [f32; 3],
+    pub glare: f32,
+    /// Glare band falloff per physical px.
+    pub glare_k: f32,
+    pub glare_hardness: f32,
+    pub glare_convergence: f32,
+    pub glare_opposite: f32,
+    /// Light angle in radians.
+    pub glare_angle: f32,
 }
+
+/// Highlights scale with the length of the shape normal like the reference renderer does on a
+/// typical canvas.
+const NORMAL_GAIN: f32 = 1.25;
 
 impl GlassParams {
     pub fn from_style(g: &aqua_style::GlassStyleLike, scale: f32) -> Self {
+        let s = scale.max(0.01);
+        // Band falloff of the reference model, `(500 / range)² / 1500` per logical px.
+        let band = |range: f32| (500.0 / range.max(0.5)).powi(2) / 1500.0 / s;
+        let a = g.tint[3] * 0.5;
+        let f = [1.0 + (g.tint[0] - 1.0) * a, 1.0 + (g.tint[1] - 1.0) * a, 1.0 + (g.tint[2] - 1.0) * a];
         Self {
-            radius: g.radius * scale,
-            blur: g.blur * scale,
+            radius: g.radius * s,
+            roundness: g.roundness,
+            blur: g.blur * s,
             tint: g.tint,
             saturation: g.saturation,
-            refraction: g.refraction * scale,
-            bevel: g.bevel * scale,
-            rim: g.rim,
             max_luma: g.max_luma,
+            thickness: g.thickness * s,
+            refraction: g.refraction * s,
+            ior: g.ior.max(1.0),
+            dispersion: g.dispersion,
+            sharp_rim: !g.blur_edge,
+            rim: g.rim,
+            fresnel: g.fresnel,
+            fresnel_k: band(g.fresnel_range),
+            fresnel_hardness: g.fresnel_hardness,
+            fresnel_lch: color::srgb_to_lch(f),
+            glare: g.glare,
+            glare_k: band(g.glare_range),
+            glare_hardness: g.glare_hardness,
+            glare_convergence: g.glare_convergence,
+            glare_opposite: g.glare_opposite,
+            glare_angle: g.glare_angle.to_radians(),
         }
+    }
+
+    /// No refraction, no lights: the rim band can be skipped entirely.
+    fn plain(&self) -> bool {
+        self.refraction <= 0.0 && (self.rim <= 0.0 || (self.fresnel <= 0.0 && self.glare <= 0.0))
     }
 }
 
@@ -40,14 +88,79 @@ impl GlassParams {
 pub mod aqua_style {
     pub struct GlassStyleLike {
         pub radius: f32,
+        pub roundness: f32,
         pub blur: f32,
         pub tint: [f32; 4],
         pub saturation: f32,
-        pub refraction: f32,
-        pub bevel: f32,
-        pub rim: f32,
         pub max_luma: f32,
+        pub thickness: f32,
+        pub refraction: f32,
+        pub ior: f32,
+        pub dispersion: f32,
+        pub blur_edge: bool,
+        pub rim: f32,
+        pub fresnel: f32,
+        pub fresnel_range: f32,
+        pub fresnel_hardness: f32,
+        pub glare: f32,
+        pub glare_range: f32,
+        pub glare_hardness: f32,
+        pub glare_convergence: f32,
+        pub glare_opposite: f32,
+        pub glare_angle: f32,
     }
+}
+
+/// sRGB → CIE LCh (D65), as in the shader.
+pub mod color {
+    fn lin(c: f32) -> f32 {
+        if c > 0.04045 {
+            ((c + 0.055) / 1.055).powf(2.4)
+        } else {
+            c / 12.92
+        }
+    }
+    fn f(x: f32) -> f32 {
+        if x > 0.008_856_452 {
+            x.cbrt()
+        } else {
+            7.787_037 * x + 0.137_931_03
+        }
+    }
+    /// `[L, C, h]` with the hue in radians.
+    pub fn srgb_to_lch(c: [f32; 3]) -> [f32; 3] {
+        let (r, g, b) = (lin(c[0]), lin(c[1]), lin(c[2]));
+        let x = 0.4124 * r + 0.3576 * g + 0.1805 * b;
+        let y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        let z = 0.0193 * r + 0.1192 * g + 0.9505 * b;
+        let (fx, fy, fz) = (f(x / 0.950_455_9), f(y), f(z / 1.089_057_8));
+        let (l, a, bb) = (116.0 * fy - 16.0, 500.0 * (fx - fy), 200.0 * (fy - fz));
+        [l, (a * a + bb * bb).sqrt(), bb.atan2(a)]
+    }
+
+    #[cfg(test)]
+    #[test]
+    fn white_and_black() {
+        let w = srgb_to_lch([1.0, 1.0, 1.0]);
+        assert!((w[0] - 100.0).abs() < 0.1 && w[1] < 0.5, "{w:?}");
+        let k = srgb_to_lch([0.0, 0.0, 0.0]);
+        assert!(k[0].abs() < 0.1);
+    }
+}
+
+/// Corner extent and exponent for a `w`×`h` px shape (mirrors `aqua_config::material::corner`).
+pub fn corner(w: f32, h: f32, r: f32, n: f32) -> (f32, f32) {
+    let half = (w.min(h) * 0.5).max(0.0);
+    let r = r.clamp(0.0, half);
+    if r <= 0.0 || n <= 2.001 {
+        return (r, 2.0);
+    }
+    const INSET: f32 = 1.0 - std::f32::consts::FRAC_1_SQRT_2;
+    let k = INSET / (1.0 - 2f32.powf(-1.0 / n));
+    let extent = (k * r).min(half);
+    let t = 1.0 - INSET * r / extent;
+    let n_eff = if t <= 0.0 { 2.0 } else { (-(2f32.ln()) / t.ln()).clamp(2.0, n) };
+    (extent, n_eff)
 }
 
 pub struct GlassElement {
@@ -128,6 +241,8 @@ fn fb_mapping(proj: &[f32; 9], vp: [i32; 4], dst: Rectangle<i32, Physical>) -> (
 
 fn passes_for(blur: f32) -> (usize, f32) {
     match blur {
+        // clear glass: refract the sharp backdrop, no blur chain at all
+        b if b < 0.5 => (0, 1.0),
         b if b < 4.0 => (1, 1.0),
         b if b < 12.0 => (2, 1.5),
         b if b < 30.0 => (3, 2.0),
@@ -151,35 +266,50 @@ impl RenderElement<GlesRenderer> for GlassElement {
         if !c.valid {
             return Ok(());
         }
-        let tex = c.result;
+        let (tex, sharp) = (c.result, c.levels.first().map(|l| l.tex).unwrap_or(c.result));
         frame.with_context(|gl| unsafe {
             gl.ActiveTexture(ffi::TEXTURE1);
             gl.BindTexture(ffi::TEXTURE_2D, tex);
+            gl.ActiveTexture(ffi::TEXTURE2);
+            gl.BindTexture(ffi::TEXTURE_2D, sharp);
             gl.ActiveTexture(ffi::TEXTURE0);
         })?;
         let p = &self.params;
-        let size = (dst.size.w, dst.size.h).into();
+        // `src` is in the element's own (unscaled) space, see `src()`: the shader's
+        // texture space must be that size too. Using `dst.size` drew the glass at zoom²
+        // inside a RescaleRenderElement (open / minimise / Mission Control animations), so
+        // the frame behind server-side title bars shrank away from the window.
+        let (w, h) = (self.geo.size.w.max(1), self.geo.size.h.max(1));
+        let (extent, n) = corner(w as f32, h as f32, p.radius, p.roundness);
+        // A plain frosted pane skips the rim band (zero thickness).
+        let thickness = if p.plain() { 0.0 } else { p.thickness.max(0.0) };
         let res = frame.render_pixel_shader_to(
             &self.shaders.glass,
             src,
             dst,
-            size,
+            (w, h).into(),
             Some(damage),
             self.alpha,
             &[
                 Uniform::new("blur_tex", 1i32),
+                Uniform::new("sharp_tex", 2i32),
                 Uniform::new("fb_rect", c.fb_rect),
                 Uniform::new("axes", c.axes),
-                Uniform::new("radius", p.radius),
+                Uniform::new("shape", [extent, n, thickness, 1.0 / p.ior.max(1.0)]),
+                Uniform::new(
+                    "refr",
+                    [p.refraction, p.dispersion, if p.sharp_rim { 1.0 } else { 0.0 }, p.saturation],
+                ),
+                Uniform::new("fres", [p.fresnel_k, p.fresnel_hardness, p.fresnel, p.rim]),
+                Uniform::new("glare", [p.glare_k, p.glare_hardness, p.glare, p.glare_convergence]),
+                Uniform::new("glare2", [p.glare_opposite, p.glare_angle, p.max_luma, NORMAL_GAIN]),
                 Uniform::new("tint", p.tint),
-                Uniform::new("saturation", p.saturation),
-                Uniform::new("refraction", p.refraction),
-                Uniform::new("bevel", p.bevel),
-                Uniform::new("rim", p.rim),
-                Uniform::new("max_luma", p.max_luma),
+                Uniform::new("fres_lch", p.fresnel_lch),
             ],
         );
         frame.with_context(|gl| unsafe {
+            gl.ActiveTexture(ffi::TEXTURE2);
+            gl.BindTexture(ffi::TEXTURE_2D, 0);
             gl.ActiveTexture(ffi::TEXTURE1);
             gl.BindTexture(ffi::TEXTURE_2D, 0);
             gl.ActiveTexture(ffi::TEXTURE0);
@@ -229,12 +359,20 @@ pub struct RoundedElement<E = WaylandSurfaceRenderElement<GlesRenderer>> {
     shaders: Shaders,
     /// Unscaled element geometry, so the clip follows when wrapped in a rescale element.
     base: Rectangle<i32, Physical>,
+    /// Report no opaque regions (the surface sits on compositor glass, which must see the
+    /// windows below it: occlusion culling would leave a stale backdrop under the glass).
+    see_through: bool,
 }
 
 impl<E: Element> RoundedElement<E> {
     pub fn new(inner: E, clip: Rectangle<i32, Physical>, radius: f32, shaders: &Shaders, scale: f64) -> Self {
         let base = inner.geometry(Scale::from(scale));
-        Self { inner, clip, radius, shaders: shaders.clone(), base }
+        Self { inner, clip, radius, shaders: shaders.clone(), base, see_through: false }
+    }
+
+    pub fn see_through(mut self, on: bool) -> Self {
+        self.see_through = on;
+        self
     }
 }
 
@@ -261,6 +399,9 @@ impl<E: Element> Element for RoundedElement<E> {
         self.inner.damage_since(scale, commit)
     }
     fn opaque_regions(&self, scale: Scale<f64>) -> OpaqueRegions<i32, Physical> {
+        if self.see_through {
+            return OpaqueRegions::default();
+        }
         let g = self.inner.geometry(scale);
         let r = self.radius.ceil() as i32;
         let local_clip = Rectangle::new(self.clip.loc - g.loc, self.clip.size);

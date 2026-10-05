@@ -427,8 +427,16 @@ fn context_entries(sh: &Shell, kind: &MenuKind) -> Vec<Option<Entry>> {
                     let wins: Vec<_> = sh.windows.iter().filter(|w| it.matches(&w.app_id)).collect();
                     let running = !wins.is_empty();
                     let mut v = vec![];
+                    let mut seen: Vec<String> = vec![];
                     for w in wins.iter().take(12) {
-                        let title = if w.title.is_empty() { it.name.clone() } else { short(&w.title, 48) };
+                        let mut title = if w.title.is_empty() { it.name.clone() } else { short(&w.title, 48) };
+                        // several windows with the same title (two "Home" file browsers):
+                        // number the copies so each row is told apart
+                        let n = seen.iter().filter(|t| **t == title).count();
+                        seen.push(title.clone());
+                        if n > 0 {
+                            title = format!("{title} ({})", n + 1);
+                        }
                         let act = if w.minimized { Action::Restore(w.id) } else { Action::FocusWindow(w.id) };
                         v.push(x(&title, Extra::Check(w.focused), true, Some(act)));
                     }

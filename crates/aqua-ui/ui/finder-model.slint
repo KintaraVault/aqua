@@ -313,6 +313,28 @@ export global F {
     out property <image> i-info: @image-url("icons/f-info.svg");
     out property <image> i-back: @image-url("icons/f-back.svg");
     out property <image> i-forward: @image-url("icons/f-forward.svg");
+    /// Filled sidebar symbols of the Aqua style.
+    public pure function aqua-glyph(n: string) -> image {
+        if n == "apps" { return @image-url("icons/fa-apps.svg"); }
+        if n == "shared" { return @image-url("icons/fa-shared.svg"); }
+        if n == "recents" { return @image-url("icons/fa-recents.svg"); }
+        if n == "desktop" { return @image-url("icons/fa-desktop.svg"); }
+        if n == "docs" { return @image-url("icons/fa-docs.svg"); }
+        if n == "downloads" { return @image-url("icons/fa-downloads.svg"); }
+        if n == "home" { return @image-url("icons/fa-home.svg"); }
+        if n == "computer" { return @image-url("icons/fa-computer.svg"); }
+        if n == "disk" { return @image-url("icons/fa-disk.svg"); }
+        if n == "network" { return @image-url("icons/fa-network.svg"); }
+        if n == "trash" { return @image-url("icons/fa-trash.svg"); }
+        if n == "pictures" { return @image-url("icons/fa-pictures.svg"); }
+        if n == "music" { return @image-url("icons/fa-music.svg"); }
+        if n == "movies" { return @image-url("icons/fa-movies.svg"); }
+        if n == "cloud" { return @image-url("icons/fa-cloud.svg"); }
+        if n == "smart" { return @image-url("icons/fa-smart.svg"); }
+        if n == "terminal" { return @image-url("icons/fa-terminal.svg"); }
+        if n == "copy" { return @image-url("icons/f-copy.svg"); }
+        return @image-url("icons/fa-folder.svg");
+    }
     public pure function glyph(n: string) -> image {
         if n == "apps" { return @image-url("icons/f-apps.svg"); }
         if n == "shared" { return @image-url("icons/f-shared.svg"); }
@@ -400,20 +422,75 @@ export global F {
 
 export component FolderIcon inherits Rectangle {
     in property <length> s: 64px;
-    in property <color> tint: #5ebcf7;
+    in property <color> tint: Theme.aqua ? #6f8dfb : #5ebcf7;
     in property <string> symbol;
+    /// Hovered / selected: the Aqua folder opens a little (the sheet inside rises, the
+    /// front flap dips).
+    in property <bool> hot;
     width: s; height: s;
     property <color> back: tint.darker(18%);
-    Rectangle { x: s * 0.04; y: s * 0.13; width: s * 0.40; height: s * 0.16; border-radius: s * 0.05; background: back; }
-    Rectangle { x: s * 0.04; y: s * 0.19; width: s * 0.92; height: s * 0.64; border-radius: s * 0.06; background: back; }
-    Rectangle {
-        x: s * 0.04; y: s * 0.29; width: s * 0.92; height: s * 0.56; border-radius: s * 0.06;
-        background: @linear-gradient(180deg, tint.brighter(14%) 0%, tint 100%);
-        drop-shadow-blur: s * 0.03; drop-shadow-color: #0000001c; drop-shadow-offset-y: -0.5px;
-        Rectangle { y: 0; height: max(1px, s * 0.012); x: parent.border-radius; width: parent.width - 2 * parent.border-radius; background: #ffffff80; }
-        if symbol != "": Text {
-            text: symbol; font-size: s * 0.27; color: tint.darker(38%).with-alpha(0.78);
-            horizontal-alignment: center; vertical-alignment: center;
+    if !Theme.aqua: Rectangle {
+        Rectangle { x: s * 0.04; y: s * 0.13; width: s * 0.40; height: s * 0.16; border-radius: s * 0.05; background: back; }
+        Rectangle { x: s * 0.04; y: s * 0.19; width: s * 0.92; height: s * 0.64; border-radius: s * 0.06; background: back; }
+        Rectangle {
+            x: s * 0.04; y: s * 0.29; width: s * 0.92; height: s * 0.56; border-radius: s * 0.06;
+            background: @linear-gradient(180deg, tint.brighter(14%) 0%, tint 100%);
+            drop-shadow-blur: s * 0.03; drop-shadow-color: #0000001c; drop-shadow-offset-y: -0.5px;
+            Rectangle { y: 0; height: max(1px, s * 0.012); x: parent.border-radius; width: parent.width - 2 * parent.border-radius; background: #ffffff80; }
+            if symbol != "": Text {
+                text: symbol; font-size: s * 0.27; color: tint.darker(38%).with-alpha(0.78);
+                horizontal-alignment: center; vertical-alignment: center;
+            }
+        }
+    }
+    // Aqua: a soft 3D folder — a deeper back plate with its tab, a sheet of paper and a
+    // glossy front flap with a lit rim and a grounded shadow.
+    if Theme.aqua: Rectangle {
+        property <color> deep: tint.darker(30%);
+        property <length> hair: max(0.5px, s * 0.008);
+        // back plate + tab
+        Rectangle {
+            x: s * 0.07; y: s * 0.14; width: s * 0.36; height: s * 0.16; border-radius: s * 0.07;
+            background: @linear-gradient(180deg, tint.darker(6%) 0%, deep 100%);
+        }
+        Rectangle {
+            x: s * 0.07; y: s * 0.19; width: s * 0.86; height: s * 0.62; border-radius: s * 0.09;
+            background: @linear-gradient(180deg, tint.darker(10%) 0%, deep 100%);
+            border-width: hair; border-color: @linear-gradient(180deg, #ffffff55 0%, #ffffff00 30%);
+        }
+        // the sheet inside
+        Rectangle {
+            x: s * 0.14; y: hot ? s * 0.155 : s * 0.235; width: s * 0.72; height: s * 0.36; border-radius: s * 0.04;
+            background: @linear-gradient(180deg, #ffffff 0%, #e9ecf4 100%);
+            drop-shadow-blur: s * 0.03; drop-shadow-color: #0000002e; drop-shadow-offset-y: s * 0.01;
+            animate y { duration: 180ms; easing: ease-out; }
+            Rectangle { x: s * 0.07; y: s * 0.07; width: parent.width - s * 0.14; height: max(1px, s * 0.016); background: #c9cfdc; }
+            Rectangle { x: s * 0.07; y: s * 0.12; width: parent.width - s * 0.26; height: max(1px, s * 0.016); background: #d6dbe6; }
+        }
+        // front flap
+        Rectangle {
+            x: s * 0.07; y: hot ? s * 0.34 : s * 0.305; width: s * 0.86; height: hot ? s * 0.50 : s * 0.535;
+            border-radius: s * 0.09;
+            background: @linear-gradient(180deg, tint.brighter(24%) 0%, tint.brighter(6%) 45%, tint 100%);
+            border-width: hair;
+            border-color: @linear-gradient(180deg, #ffffffb3 0%, #ffffff33 35%, #ffffff14 80%, #00000014 100%);
+            drop-shadow-blur: s * 0.07; drop-shadow-offset-y: s * 0.03; drop-shadow-color: deep.darker(40%).with-alpha(0.38);
+            animate y, height { duration: 180ms; easing: ease-out; }
+            // glossy light along the top of the flap
+            Rectangle {
+                x: s * 0.03; y: hair; width: parent.width - s * 0.06; height: parent.height * 0.42;
+                border-radius: s * 0.07;
+                background: @linear-gradient(180deg, #ffffff40 0%, #ffffff12 55%, #ffffff00 100%);
+            }
+            // shade toward the bottom edge
+            Rectangle {
+                y: parent.height * 0.62; height: parent.height * 0.38; border-radius: parent.border-radius;
+                background: @linear-gradient(180deg, #00000000 0%, #0000001a 100%);
+            }
+            if symbol != "": Text {
+                text: symbol; font-size: s * 0.25; color: #ffffffd0;
+                horizontal-alignment: center; vertical-alignment: center;
+            }
         }
     }
 }
@@ -422,9 +499,10 @@ export component FileIcon inherits Rectangle {
     in property <FItem> item;
     in property <length> s: 64px;
     in property <bool> big-text: false;
+    in property <bool> hot;
     width: s; height: s;
     property <float> ar: item.thumb.width > 0 ? item.thumb.width / max(1, item.thumb.height) : 1;
-    if item.kind == 0: FolderIcon { s: root.s; tint: item.has-tint ? item.tint : #5ebcf7; symbol: item.symbol; }
+    if item.kind == 0: FolderIcon { s: root.s; tint: item.has-tint ? item.tint : (Theme.aqua ? #6f8dfb : #5ebcf7); symbol: item.symbol; hot: root.hot; }
     if item.kind == 9: Rectangle {
         width: s * 0.86; height: s * 0.5; border-radius: s * 0.1;
         background: @linear-gradient(180deg, #e9e9ec 0%, #b9b9bf 100%);

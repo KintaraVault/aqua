@@ -146,7 +146,7 @@ impl Aqua {
         let frames: Vec<aqua_wm::RectF> =
             wins.iter().map(|(_, r)| aqua_wm::RectF::new(r.loc.x, r.loc.y, r.size.w, r.size.h)).collect();
         let grid = aqua_wm::mission::grid(&frames, area);
-        let rect = |r: aqua_wm::RectF| Rectangle::<f64, Logical>::new((r.x, r.y).into(), (r.w, r.h).into());
+        let rect = |r: aqua_wm::RectF| Rectangle::<f64, Logical>::new((r.x, r.y).into(), (r.w.max(0.0), r.h.max(0.0)).into());
         let mut out = Vec::with_capacity(wins.len());
         for ((w, r), g) in wins.into_iter().zip(grid) {
             let mut t = rect(g);

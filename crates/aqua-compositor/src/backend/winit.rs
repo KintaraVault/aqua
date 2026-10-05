@@ -42,7 +42,7 @@ pub fn init(
             serial_number: "0".into(),
         },
     );
-    let _global = output.create_global::<Aqua>(&state.display_handle);
+    state.publish_output(&output);
     output.change_current_state(
         Some(mode),
         Some(Transform::Flipped180),

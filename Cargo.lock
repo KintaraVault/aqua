@@ -154,6 +154,8 @@ dependencies = [
  "tracing",
  "wayland-protocols",
  "wayland-protocols-plasma",
+ "wayland-scanner",
+ "wayland-server",
  "zbus",
 ]
 
@@ -294,11 +296,14 @@ dependencies = [
  "dirs",
  "image",
  "libc",
+ "raw-window-handle",
  "resvg 0.45.1",
  "serde_json",
  "slint",
  "slint-build",
  "tracing",
+ "wayland-client",
+ "wayland-scanner",
  "zbus",
 ]
 

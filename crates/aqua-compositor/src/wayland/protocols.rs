@@ -306,6 +306,14 @@ impl SessionLockHandler for Aqua {
         &mut self.p.session_lock
     }
     fn lock(&mut self, confirmation: SessionLocker) {
+        if self.lock.mode == crate::system::lock::Mode::Internal {
+            // Already behind Aqua's own lock screen: confirming would let any client end the
+            // lock with unlock_and_destroy — without a password. Dropping the locker sends
+            // `finished`.
+            tracing::warn!("refusing external session locker: the session is already locked");
+            drop(confirmation);
+            return;
+        }
         tracing::info!("external session locker connected");
         self.lock.external_lock(confirmation);
         self.on_locked();

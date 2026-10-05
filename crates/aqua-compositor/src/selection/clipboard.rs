@@ -12,6 +12,29 @@ use std::sync::{mpsc, Arc};
 
 const MAX_ENTRIES: usize = 60;
 const MAX_BYTES: usize = 24 * 1024 * 1024;
+/// Memory budget of the whole history: 60 copied screenshots must not pin gigabytes in
+/// the compositor. The newest entry is always kept.
+const HISTORY_BUDGET: usize = 160 * 1024 * 1024;
+
+/// Bytes held by an entry.
+fn entry_bytes(e: &Entry) -> usize {
+    e.data.iter().map(|(m, d)| m.len() + d.len()).sum()
+}
+
+/// Enforce [`MAX_ENTRIES`] and [`HISTORY_BUDGET`] (oldest entries go first).
+fn trim_history(v: &mut Vec<Arc<Entry>>) {
+    v.truncate(MAX_ENTRIES);
+    let mut total = 0usize;
+    let mut keep = v.len();
+    for (i, e) in v.iter().enumerate() {
+        total += entry_bytes(e);
+        if i > 0 && total > HISTORY_BUDGET {
+            keep = i;
+            break;
+        }
+    }
+    v.truncate(keep);
+}
 
 #[derive(Debug)]
 pub struct Entry {
@@ -197,7 +220,7 @@ impl Aqua {
                 self.shell.clipboard.push(item);
                 self.clip.entries.insert(0, e);
             }
-            self.clip.entries.truncate(MAX_ENTRIES);
+            trim_history(&mut self.clip.entries);
             let keep: Vec<u64> = self.clip.entries.iter().map(|e| e.id).collect();
             self.shell.clipboard.retain_ids(&keep);
         }
@@ -239,7 +262,9 @@ impl Aqua {
             self.shell.clipboard.push(item);
         }
         self.clip.entries.insert(0, e);
-        self.clip.entries.truncate(MAX_ENTRIES);
+        trim_history(&mut self.clip.entries);
+        let keep: Vec<u64> = self.clip.entries.iter().map(|e| e.id).collect();
+        self.shell.clipboard.retain_ids(&keep);
         self.clipboard_activate(id);
     }
 
@@ -252,7 +277,9 @@ impl Aqua {
             self.shell.clipboard.push(item);
         }
         self.clip.entries.insert(0, e);
-        self.clip.entries.truncate(MAX_ENTRIES);
+        trim_history(&mut self.clip.entries);
+        let keep: Vec<u64> = self.clip.entries.iter().map(|e| e.id).collect();
+        self.shell.clipboard.retain_ids(&keep);
         self.clipboard_activate(id);
     }
 
@@ -359,4 +386,37 @@ fn describe(e: &Entry) -> Option<ClipItem> {
         }
     };
     Some(ClipItem { id: e.id, kind, title, detail, time: aqua_shell::clock::now_hm(), thumb })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry(id: u64, bytes: usize) -> Arc<Entry> {
+        Arc::new(Entry { id, data: vec![("image/png".into(), Arc::new(vec![0u8; bytes]))] })
+    }
+
+    #[test]
+    fn history_respects_count_and_memory_budget() {
+        let mut v: Vec<Arc<Entry>> = (0..100).map(|i| entry(i, 10)).collect();
+        trim_history(&mut v);
+        assert_eq!(v.len(), MAX_ENTRIES);
+        let big = MAX_BYTES - 1;
+        let mut v: Vec<Arc<Entry>> = (0..20).map(|i| entry(i, big)).collect();
+        trim_history(&mut v);
+        assert!(v.iter().map(|e| entry_bytes(e)).sum::<usize>() <= HISTORY_BUDGET);
+        assert_eq!(v.first().map(|e| e.id), Some(0), "newest entry kept");
+        assert_eq!(v.len(), HISTORY_BUDGET / (big + 9));
+        let mut one = vec![entry(7, HISTORY_BUDGET * 2)];
+        trim_history(&mut one);
+        assert_eq!(one.len(), 1, "a single oversized entry stays");
+    }
+
+    #[test]
+    fn preferred_representations() {
+        let m = |v: &[&str]| wanted(&v.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+        assert_eq!(m(&["TEXT", "text/plain;charset=utf-8", "image/png"]), vec!["image/png", "text/plain;charset=utf-8", "TEXT"]);
+        assert_eq!(m(&["image/webp", "application/x-foo"]), vec!["image/webp"]);
+        assert!(m(&["application/x-foo"]).is_empty());
+    }
 }

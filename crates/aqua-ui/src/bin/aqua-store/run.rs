@@ -355,7 +355,7 @@ pub fn run(start: Route) -> Result<(), slint::PlatformError> {
         }
     });
     if glass {
-        aqua_ui::enable_glass(&ui.as_weak());
+        aqua_ui::glass::link(&ui, true);
     }
     if store.prefs().auto_check {
         crate::notify::sync_autostart(true);

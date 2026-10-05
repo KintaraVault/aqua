@@ -9,7 +9,8 @@ pub fn decode_entities(s: &str) -> String {
     while let Some(i) = rest.find('&') {
         out.push_str(&rest[..i]);
         rest = &rest[i..];
-        let Some(end) = rest[..rest.len().min(12)].find(';') else {
+        // Within 12 characters (not bytes: `&` followed by Cyrillic must not split a char).
+        let Some(end) = rest.char_indices().take(12).find(|(_, c)| *c == ';').map(|(i, _)| i) else {
             out.push('&');
             rest = &rest[1..];
             continue;
@@ -211,6 +212,13 @@ pub fn first_line(blocks: &[Block]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn entities_next_to_non_ascii_text() {
+        assert_eq!(decode_entities("R&D отдел разработки"), "R&D отдел разработки");
+        assert_eq!(decode_entities("&ёжик; &amp;ё"), "&ёжик; &ё");
+        assert_eq!(decode_entities("中&文字文字文字文字;"), "中&文字文字文字文字;");
+    }
 
     #[test]
     fn paragraphs_and_lists() {

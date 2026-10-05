@@ -8,6 +8,8 @@ _stale() {
 }
 post_install() {
   _stale
+  # NVIDIA < 560 does not enable kernel modesetting, which Wayland compositors need
+  /usr/bin/aqua-nvidia-setup --quiet || true
   echo "  Pick \"Aqua\" on the login screen, or run aqua-session from a TTY."
 }
 post_upgrade() {

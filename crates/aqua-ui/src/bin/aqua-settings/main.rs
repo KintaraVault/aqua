@@ -74,7 +74,7 @@ fn main() -> Result<(), slint::PlatformError> {
     aqua_ui::set_app_id();
     if aqua_ui::glass_supported() {
         ui.set_glass(true);
-        aqua_ui::enable_glass(&ui.as_weak());
+        aqua_ui::glass::link(&ui, true);
     }
     apply_theme!(ui);
     let cfg = Rc::new(RefCell::new(Config::load()));
@@ -328,7 +328,10 @@ fn main() -> Result<(), slint::PlatformError> {
             let mt = Config::mtime();
             if mt != *seen.borrow() {
                 let outputs = c.outputs.clone();
-                *c = Config::load();
+                // Unparsable right now (syntax error, editor mid-write): keep our copy.
+                if let Some(n) = Config::load_for_update() {
+                    *c = n;
+                }
                 if c.outputs.is_empty() {
                     c.outputs = outputs;
                 }
@@ -344,6 +347,20 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     };
     s.on_commit(save.clone());
+    s.on_glass_reset({
+        let ui = ui.as_weak();
+        let cfg = cfg.clone();
+        let save = save.clone();
+        move || {
+            let Some(ui) = ui.upgrade() else { return };
+            {
+                let mut c = cfg.borrow_mut();
+                c.glass = aqua_config::GlassStyle { radius: c.glass.radius, ..Default::default() };
+                config::load_glass(&ui.global::<S>(), &c.glass);
+            }
+            save();
+        }
+    });
     s.set_icon_apps(ModelRc::new(VecModel::from(icon_apps(&cfg.borrow()))));
     s.on_toggle_icon_app({
         let ui = ui.as_weak();

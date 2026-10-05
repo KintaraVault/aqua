@@ -1,9 +1,11 @@
 //! aqua-render: GPU effects for the Smithay GLES renderer.
 //!
-//! * [`GlassElement`] – real-time glass: captures the framebuffer behind
-//!   itself (Smithay framebuffer-effect API, so it is only re-captured when the
-//!   content behind changes), dual-kawase blurs it, and composites it with an
-//!   edge-refraction lens, dispersion, saturation, tint and specular rim.
+//! * [`GlassElement`] – real-time Liquid Glass (a port of Liquid Glass Studio's
+//!   material): captures the framebuffer behind itself (Smithay framebuffer-effect
+//!   API, so it is only re-captured when the content behind changes), dual-kawase
+//!   blurs it, and composites it through a convex slab — Snell refraction with
+//!   dispersion at the rim, Fresnel and directional glare lights in LCh,
+//!   saturation, legibility cap and tint.
 //! * [`RoundedElement`] – clips client surfaces to continuous rounded corners.
 //! * [`shadow`] – SDF soft shadows for windows and panels.
 //! * [`stats`] – frame/damage/blur profiling counters.
@@ -14,7 +16,7 @@ pub mod stats;
 
 pub use blur::{dropped_blurs, free_dropped_blurs, set_blur_max_fps, set_blur_unthrottled, BlurGate};
 pub use elements::aqua_style;
-pub use elements::{GlassElement, GlassParams, RoundedElement};
+pub use elements::{color, corner, GlassElement, GlassParams, RoundedElement};
 
 use smithay::backend::renderer::element::Kind;
 use smithay::backend::renderer::gles::{
@@ -40,15 +42,16 @@ impl Shaders {
             include_str!("shaders/glass.frag"),
             &[
                 UniformName::new("blur_tex", UniformType::_1i),
+                UniformName::new("sharp_tex", UniformType::_1i),
                 UniformName::new("fb_rect", UniformType::_4f),
                 UniformName::new("axes", UniformType::_4f),
-                UniformName::new("radius", UniformType::_1f),
+                UniformName::new("shape", UniformType::_4f),
+                UniformName::new("refr", UniformType::_4f),
+                UniformName::new("fres", UniformType::_4f),
+                UniformName::new("glare", UniformType::_4f),
+                UniformName::new("glare2", UniformType::_4f),
                 UniformName::new("tint", UniformType::_4f),
-                UniformName::new("saturation", UniformType::_1f),
-                UniformName::new("refraction", UniformType::_1f),
-                UniformName::new("bevel", UniformType::_1f),
-                UniformName::new("rim", UniformType::_1f),
-                UniformName::new("max_luma", UniformType::_1f),
+                UniformName::new("fres_lch", UniformType::_3f),
             ],
         )?;
         let shadow = renderer.compile_custom_pixel_shader(

@@ -1537,3 +1537,90 @@ msgstr "Stage Manager"
 
 msgid "Keep the current app in the centre and the other apps in a strip on the left"
 msgstr "Текущее приложение — в центре, остальные — в полосе слева"
+
+msgid "App style"
+msgstr "Стиль приложений"
+
+msgid "Finder, System Settings and the App Store. Aqua: glass sidebar"
+msgstr "Finder, Системные настройки и App Store. Aqua — стеклянная боковая панель"
+
+msgid "Translucent windows"
+msgstr "Полупрозрачные окна"
+
+msgid "Blur the desktop behind the whole window, not only the sidebar"
+msgstr "Размывать рабочий стол за всем окном, а не только за боковой панелью"
+
+msgid "Aqua"
+msgstr "Aqua"
+
+msgid "App style:"
+msgstr "Стиль приложений:"
+
+msgid "Liquid Glass"
+msgstr "Liquid Glass"
+
+msgid "Transparency"
+msgstr "Прозрачность"
+
+msgid "How much of what is behind shows through"
+msgstr "Насколько видно то, что под стеклом"
+
+msgid "Frosted"
+msgstr "Матовое"
+
+msgid "Blur"
+msgstr "Размытие"
+
+msgid "Strong"
+msgstr "Сильное"
+
+msgid "Refraction"
+msgstr "Преломление"
+
+msgid "How strongly the rim bends the background"
+msgstr "Насколько край стекла искривляет фон"
+
+msgid "Flat"
+msgstr "Плоское"
+
+msgid "Lens"
+msgstr "Линза"
+
+msgid "Edge highlights"
+msgstr "Блики на краях"
+
+msgid "Light catching the rim of the glass"
+msgstr "Свет, отражённый краем стекла"
+
+msgid "Bright"
+msgstr "Яркие"
+
+msgid "Colour fringes"
+msgstr "Цветная кайма"
+
+msgid "Chromatic dispersion at the rim"
+msgstr "Хроматическая дисперсия на краю"
+
+msgid "Vibrancy"
+msgstr "Насыщенность"
+
+msgid "Colour saturation of the background"
+msgstr "Насыщенность цвета фона"
+
+msgid "Muted"
+msgstr "Приглушённая"
+
+msgid "Vivid"
+msgstr "Яркая"
+
+msgid "Standard glass"
+msgstr "Стандартное стекло"
+
+msgid "The Dock, menus, panels and Aqua's apps share one glass; this restores its calibrated look"
+msgstr "Dock, меню, панели и приложения Aqua используют одно стекло; кнопка возвращает откалиброванный вид"
+
+msgid "Reset"
+msgstr "Сбросить"
+
+msgid "See-through"
+msgstr "Прозрачное"

@@ -60,7 +60,10 @@ impl Settings {
         if let Some(v) = ini_get(&ini, "gtk-cursor-theme-name").or_else(|| std::env::var("XCURSOR_THEME").ok()) {
             m.insert("cursor-theme".into(), s(&v));
         }
-        m.insert("font-name".into(), s(&ini_get(&ini, "gtk-font-name").unwrap_or_else(|| "SF Pro Display 11".into())));
+        // the user's font only: Aqua does not change the UI font of other apps
+        if let Some(v) = ini_get(&ini, "gtk-font-name") {
+            m.insert("font-name".into(), s(&v));
+        }
         m.insert("enable-animations".into(), OwnedValue::from(true));
         m
     }
@@ -237,6 +240,10 @@ pub fn gtk_theme_for(dark: bool) -> String {
             base = b.to_string();
             break;
         }
+    }
+    if base == "Aqua" {
+        // retired Aqua GTK theme (app-wide styling was removed)
+        base = "Adwaita".into();
     }
     if base == "Breeze-Dark" || base == "BreezeDark" {
         base = "Breeze".into();

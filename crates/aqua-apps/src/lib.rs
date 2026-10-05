@@ -3,6 +3,10 @@
 
 use std::path::{Path, PathBuf};
 
+pub mod terminal;
+pub use terminal::{open_terminal, open_terminal_in, resolve_terminal, terminal_in_dir, terminal_run};
+use terminal::exec_separator;
+
 /// Category of the Applications panel (freedesktop main categories, names).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Section {
@@ -170,7 +174,7 @@ impl App {
         let cmd = self.command();
         let cmd = if self.terminal { terminal_wrap(&cmd) } else { cmd };
         match self.workdir.as_deref().filter(|d| Path::new(d).is_dir()) {
-            Some(d) => format!("cd {} && exec {cmd}", shell_quote(d)),
+            Some(d) => format!("cd {} && {}{cmd}", shell_quote(d), exec_prefix(&cmd)),
             None => cmd,
         }
     }
@@ -178,25 +182,17 @@ impl App {
 
 /// Wrap `cmd` so it runs in the first installed terminal emulator.
 pub fn terminal_wrap(cmd: &str) -> String {
-    const TERMS: [(&str, &str); 11] = [
-        ("foot", ""),
-        ("kitty", ""),
-        ("alacritty", "-e"),
-        ("ghostty", "-e"),
-        ("wezterm", "start --"),
-        ("gnome-terminal", "--"),
-        ("kgx", "--"),
-        ("konsole", "-e"),
-        ("xfce4-terminal", "-x"),
-        ("tilix", "-e"),
-        ("xterm", "-e"),
-    ];
-    for (t, flag) in TERMS {
-        if find_in_path(t).is_some() {
-            return if flag.is_empty() { format!("{t} {cmd}") } else { format!("{t} {flag} {cmd}") };
+    match resolve_terminal("") {
+        Some(t) => {
+            let mut out = t.clone();
+            for a in exec_separator(&t) {
+                out.push(' ');
+                out.push_str(a);
+            }
+            format!("{out} {cmd}")
         }
+        None => cmd.to_string(),
     }
-    cmd.to_string()
 }
 
 /// Locate an executable: absolute/relative paths are checked directly, bare names in $PATH.
@@ -238,6 +234,41 @@ pub fn find_in_path(bin: &str) -> Option<PathBuf> {
         dirs.push(d);
     }
     dirs.into_iter().map(|d| d.join(bin)).find(|p| is_exe(p))
+}
+
+/// Steam game id of a launcher (`steam steam://rungameid/570`, `xdg-open steam://run/570`).
+pub fn steam_game_id(exec: &str) -> Option<String> {
+    for pat in ["steam://rungameid/", "steam://run/"] {
+        if let Some(i) = exec.find(pat) {
+            let n: String = exec[i + pat.len()..].chars().take_while(|c| c.is_ascii_digit()).collect();
+            if !n.is_empty() {
+                return Some(n);
+            }
+        }
+    }
+    None
+}
+
+/// What a launcher really starts, as a key for matching windows: the program's file name,
+/// except for wrappers that start something else — `flatpak run APP` (the app id) and
+/// Steam game URLs (`steam_app_N`, the window class Steam/Proton give the game).
+/// Matching on the bare first word made every Steam game "be" the Steam client (and the
+/// client's Dock icon show a game's icon), and every Flatpak app "be" `flatpak`.
+pub fn program_key(exec: &str) -> String {
+    if let Some(n) = steam_game_id(exec) {
+        return format!("steam_app_{n}");
+    }
+    let prog = exec_program(exec).unwrap_or_default();
+    let base = prog.rsplit('/').next().unwrap_or("").to_lowercase();
+    if base == "flatpak" {
+        let toks = split_exec(exec);
+        if let Some(run) = toks.iter().position(|t| t == "run") {
+            if let Some(id) = toks[run + 1..].iter().find(|t| !t.starts_with('-') && !t.starts_with('%')) {
+                return id.to_lowercase();
+            }
+        }
+    }
+    base
 }
 
 /// First real program of an Exec line (skips `env`, `VAR=value`, quoting).
@@ -357,9 +388,15 @@ fn split_exec(exec: &str) -> Vec<String> {
                 quoted = !quoted;
                 any = true;
             }
-            '\\' if quoted => {
+            // Inside quotes `\` escapes `"`, `$`, `` ` `` and `\` (desktop entry spec); outside,
+            // like GLib's parser, it escapes any character (Wine writes `C:\\windows\\…`).
+            '\\' => {
                 if let Some(n) = chars.next() {
+                    if quoted && !matches!(n, '"' | '`' | '$' | '\\') {
+                        cur.push('\\');
+                    }
                     cur.push(n);
+                    any = true;
                 }
             }
             c if c.is_whitespace() && !quoted => {
@@ -440,6 +477,10 @@ pub fn parse_desktop(path: &Path) -> Option<App> {
 }
 
 fn parse_entry(path: &Path, id: String) -> Parsed {
+    // a FIFO or a giant file dropped into an applications folder must not stall the scan
+    if !std::fs::metadata(path).map(|m| m.is_file() && m.len() <= 4 << 20).unwrap_or(false) {
+        return Parsed::Skip;
+    }
     let Ok(text) = std::fs::read_to_string(path) else { return Parsed::Skip };
     let mut in_entry = false;
     let (mut name, mut exec, mut icon, mut cats, mut wm, mut hidden, mut ty) =
@@ -466,7 +507,8 @@ fn parse_entry(path: &Path, id: String) -> Parsed {
             continue;
         }
         let Some((k, v)) = l.split_once('=') else { continue };
-        let (k, v) = (k.trim(), v.trim());
+        let v = unescape_value(v.trim());
+        let (k, v) = (k.trim(), v.as_str());
         match k {
             "Name" => name = Some(clean_name(v)),
             "Exec" => exec = Some(v.to_string()),
@@ -531,6 +573,35 @@ fn parse_entry(path: &Path, id: String) -> Parsed {
         keywords,
         workdir,
     }))
+}
+
+/// String escapes of desktop entry values (`\s`, `\n`, `\t`, `\r`, `\\`); other
+/// backslash sequences are kept for the Exec quoting rules (`\"`, `\$` …).
+fn unescape_value(v: &str) -> String {
+    if !v.contains('\\') {
+        return v.to_string();
+    }
+    let mut out = String::with_capacity(v.len());
+    let mut chars = v.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('s') => out.push(' '),
+            Some('n') => out.push('\n'),
+            Some('t') => out.push('\t'),
+            Some('r') => out.push('\r'),
+            Some('\\') => out.push('\\'),
+            Some(o) => {
+                out.push('\\');
+                out.push(o);
+            }
+            None => out.push('\\'),
+        }
+    }
+    out
 }
 
 /// Desktop files below `dir` with their desktop-file ids (`sub/foo.desktop` → `sub-foo`).
@@ -708,6 +779,22 @@ pub fn release_launches() {
     }
 }
 
+/// `exec ` for a simple command line — or `exec env ` when it starts with `VAR=value`
+/// assignments: `exec FOO=1 prog` makes the shell look for a program called "FOO=1".
+fn exec_prefix(cmd: &str) -> &'static str {
+    let first = cmd.split_whitespace().next().unwrap_or("");
+    match first.split_once('=') {
+        Some((k, _))
+            if !k.is_empty()
+                && !k.starts_with(|c: char| c.is_ascii_digit())
+                && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') =>
+        {
+            "exec env "
+        }
+        _ => "exec ",
+    }
+}
+
 /// Spawn a shell command detached from the compositor.
 pub fn launch(cmd: &str) -> bool {
     if cmd.trim().is_empty() {
@@ -722,7 +809,7 @@ pub fn launch(cmd: &str) -> bool {
 
 fn spawn_now(cmd: &str) -> bool {
     let compound = ["||", "&&", ";", "|", "&"].iter().any(|op| cmd.contains(op));
-    let script = if compound { cmd.to_string() } else { format!("exec {cmd}") };
+    let script = if compound { cmd.to_string() } else { format!("{}{cmd}", exec_prefix(cmd)) };
     let log = exec_program(cmd).map(|p| p.rsplit('/').next().unwrap_or("app").to_string());
     let res = std::thread::Builder::new().name("aqua-launch".into()).spawn(move || {
         let mut c = launch_process(&script, log.as_deref());
@@ -927,14 +1014,20 @@ pub fn match_app_id<'a>(apps: &'a [App], app_id: &str) -> Option<&'a App> {
     if a.is_empty() {
         return None;
     }
-    let exe = |x: &App| -> String {
-        exec_program(&x.exec).unwrap_or_default().rsplit('/').next().unwrap_or("").to_lowercase()
-    };
+    let exe = |x: &App| -> String { program_key(&x.exec) };
+    if a.starts_with("steam_app_") {
+        // a Steam game window: its launcher, never the Steam client (or another game)
+        return apps.iter().find(|x| exe(x) == a);
+    }
     apps.iter()
         .find(|x| x.id.to_lowercase() == a || x.wm_class.as_deref().map(|w| w.to_lowercase() == a).unwrap_or(false))
         .or_else(|| apps.iter().find(|x| x.id.to_lowercase().ends_with(&format!(".{a}"))))
         .or_else(|| apps.iter().find(|x| exe(x) == a))
-        .or_else(|| apps.iter().find(|x| x.name.to_lowercase() == a.rsplit('.').next().unwrap_or(&a)))
+        .or_else(|| {
+            apps.iter().find(|x| {
+                steam_game_id(&x.exec).is_none() && x.name.to_lowercase() == a.rsplit('.').next().unwrap_or(&a)
+            })
+        })
 }
 
 /// Drop version tokens from display names ("LibreOffice 26.8 Calc" -> "LibreOffice Calc").
@@ -1010,6 +1103,52 @@ mod tests {
         let c = launch_process("true", None);
         assert_eq!(c.get_current_dir(), dirs::home_dir().filter(|h| h.is_dir()).as_deref());
         assert_eq!(c.get_program(), "sh");
+    }
+
+    #[test]
+    fn wine_style_backslashes_survive() {
+        // As written by Wine: string escapes first (`\\\\` → `\\`), then the quoting rules.
+        let raw = r#"env WINEPREFIX="/home/u/.wine" wine C:\\\\windows\\\\notepad.exe"#;
+        let v = split_exec(&unescape_value(raw));
+        assert_eq!(v, vec!["env", "WINEPREFIX=/home/u/.wine", "wine", r"C:\windows\notepad.exe"]);
+        assert_eq!(split_exec(r#"sh -c "echo \$HOME \a""#), vec!["sh", "-c", r"echo $HOME \a"]);
+    }
+
+    #[test]
+    fn value_escapes() {
+        assert_eq!(unescape_value(r"My\sApp"), "My App");
+        assert_eq!(unescape_value(r"a\nb\tc\\d"), "a\nb\tc\\d");
+        assert_eq!(unescape_value(r#"say \"x\" \$y"#), r#"say \"x\" \$y"#);
+        assert_eq!(unescape_value("trailing\\"), "trailing\\");
+        assert_eq!(unescape_value("plain"), "plain");
+    }
+
+    #[test]
+    fn exec_prefix_handles_assignments() {
+        assert_eq!(exec_prefix("GDK_BACKEND=x11 /opt/app --x"), "exec env ");
+        assert_eq!(exec_prefix("_A1=b prog"), "exec env ");
+        assert_eq!(exec_prefix("prog --opt=1"), "exec ");
+        assert_eq!(exec_prefix("/usr/bin/x=y"), "exec ");
+        assert_eq!(exec_prefix("1A=b prog"), "exec ");
+        assert_eq!(exec_prefix("=x"), "exec ");
+        assert_eq!(exec_prefix(""), "exec ");
+    }
+
+    #[test]
+    fn assignment_commands_really_run() {
+        let out = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(format!("{}AQUA_T=ok sh -c 'printf %s \"$AQUA_T\"'", exec_prefix("AQUA_T=ok sh")))
+            .output()
+            .unwrap();
+        assert_eq!(String::from_utf8_lossy(&out.stdout), "ok");
+    }
+
+    #[test]
+    fn workdir_with_assignment() {
+        let mut a = app("x", "X", "FOO=1 true", &[]);
+        a.workdir = Some("/".into());
+        assert_eq!(a.launch_command(), "cd / && exec env FOO=1 true");
     }
 
     #[test]
@@ -1163,5 +1302,75 @@ mod tests {
         assert!(find_in_path("\"sh\"").is_some());
         assert!(find_in_path("").is_none());
         assert!(find_in_path("/etc/hostname-aqua-missing").is_none());
+    }
+
+    #[test]
+    fn fifo_desktop_entries_are_skipped() {
+        let d = std::env::temp_dir().join(format!("aqua-apps-fifo-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let f = d.join("evil.desktop");
+        let c = std::ffi::CString::new(f.to_str().unwrap()).unwrap();
+        extern "C" {
+            fn mkfifo(p: *const std::ffi::c_char, m: u32) -> i32;
+        }
+        assert_eq!(unsafe { mkfifo(c.as_ptr(), 0o600) }, 0);
+        let t = std::time::Instant::now();
+        assert!(matches!(parse_entry(&f, "evil".into()), Parsed::Skip));
+        assert!(t.elapsed().as_secs() < 2);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+}
+
+#[cfg(test)]
+mod identity_tests {
+    use super::*;
+
+    fn app(id: &str, name: &str, exec: &str) -> App {
+        App {
+            id: id.into(),
+            name: name.into(),
+            exec: exec.into(),
+            icon: format!("icon-{id}"),
+            categories: vec![],
+            wm_class: None,
+            path: PathBuf::new(),
+            terminal: false,
+            keywords: vec![],
+            workdir: None,
+        }
+    }
+
+    #[test]
+    fn launcher_wrappers_have_their_own_identity() {
+        assert_eq!(program_key("steam steam://rungameid/570"), "steam_app_570");
+        assert_eq!(program_key("xdg-open steam://run/1304930"), "steam_app_1304930");
+        assert_eq!(program_key("/usr/bin/steam %U"), "steam");
+        assert_eq!(
+            program_key("/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=telegram-desktop org.telegram.desktop -- %u"),
+            "org.telegram.desktop"
+        );
+        assert_eq!(program_key("env GDK_BACKEND=x11 /opt/App/app --flag"), "app");
+        assert_eq!(program_key(""), "");
+        assert_eq!(steam_game_id("steam steam://rungameid/"), None);
+    }
+
+    #[test]
+    fn steam_games_and_the_client_stay_apart() {
+        let apps = vec![
+            app("Dota 2", "Dota 2", "steam steam://rungameid/570"),
+            app("steam", "Steam", "/usr/bin/steam %U"),
+            app("The Outlast Trials", "The Outlast Trials", "steam steam://rungameid/1304930"),
+            app("org.telegram.desktop", "Telegram", "flatpak run --command=telegram-desktop org.telegram.desktop"),
+            app("org.mozilla.firefox", "Firefox", "flatpak run org.mozilla.firefox %u"),
+        ];
+        let id = |q: &str| match_app_id(&apps, q).map(|a| a.id.as_str());
+        assert_eq!(id("steam"), Some("steam"));
+        assert_eq!(id("steam_app_570"), Some("Dota 2"));
+        assert_eq!(id("steam_app_1304930"), Some("The Outlast Trials"));
+        assert_eq!(id("steam_app_42"), None, "an unknown game is not the client");
+        assert_eq!(id("org.telegram.desktop"), Some("org.telegram.desktop"));
+        assert_eq!(id("flatpak"), None);
+        assert_eq!(id("firefox"), Some("org.mozilla.firefox"));
     }
 }

@@ -1,4 +1,4 @@
-import { Theme, Glyphs, Field, PillButton, Checkbox, Segmented, PopupSelect, SliderBar, GlassMenu } from "common.slint";
+import { Theme, Glyphs, Field, PillButton, Checkbox, Segmented, PopupSelect, SliderBar, GlassMenu, GlassPanel, GroupBox, GlassSel } from "common.slint";
 import { F, FMenuItem, FOpt, FileIcon, FolderIcon } from "finder-model.slint";
 
 component MenuList inherits VerticalLayout {
@@ -103,11 +103,8 @@ export component Dialog inherits Rectangle {
     property <length> ch: lay.preferred-height;
     background: #00000030;
     TouchArea {}
-    card := Rectangle {
+    card := GlassPanel {
         x: (parent.width - root.w) / 2; y: root.top; width: root.w; height: ch;
-        border-radius: 22px; background: Theme.menu-bg;
-        border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
-        drop-shadow-blur: 30px; drop-shadow-color: #00000055; drop-shadow-offset-y: 10px;
         lay := VerticalLayout { padding: 18px; spacing: 10px; @children }
     }
 }
@@ -143,28 +140,50 @@ export component AlertSheet inherits Dialog {
 }
 
 export component GotoPanel inherits Rectangle {
+    // macOS 26 "Go to Folder": a floating glass bar with a borderless path field; matching
+    // folders drop down below a hairline.
     background: #00000026;
     TouchArea { clicked => { F.goto-open = false; } }
-    Rectangle {
-        x: (parent.width - self.width) / 2; y: 60px; width: 460px; height: 52px + min(F.goto-sugg.length, 8) * 26px + (F.goto-sugg.length > 0 ? 8px : 0px);
-        border-radius: 16px;
-        background: Theme.menu-bg; drop-shadow-blur: 24px; drop-shadow-color: #00000050; drop-shadow-offset-y: 8px;
-        border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
+    property <int> n: min(F.goto-sugg.length, 8);
+    GlassPanel {
+        x: (parent.width - self.width) / 2; y: 64px; width: min(540px, root.width - 40px);
+        height: 50px + (n > 0 ? 9px + n * 30px + 6px : 0px);
+        radius: n > 0 ? 18px : 25px;
+        animate height { duration: 140ms; easing: ease-out; }
         TouchArea {}
-        Image { x: 16px; y: 18px; width: 16px; height: 16px; source: F.i-search; colorize: Theme.text-secondary; }
-        Field {
-            x: 40px; y: 11px; width: parent.width - 54px; height: 30px; text <=> F.goto-text;
-            placeholder: F.goto-kind == 1 ? @tr("Server Address") : @tr("Go to Folder (~/Documents, /etc …)");
-            edited(t) => { F.goto-edited(t); }
-            accepted(t) => { F.goto(t); }
+        Image {
+            x: 18px; y: 16px; width: 18px; height: 18px;
+            source: F.goto-kind == 1 ? F.glyph("network") : F.i-search; colorize: Theme.text-secondary;
+        }
+        input := TextInput {
+            x: 46px; y: 0; width: parent.width - 46px - 40px; height: 50px;
+            text <=> F.goto-text; font-size: 16px; color: Theme.text; vertical-alignment: center; single-line: true;
+            edited => { F.goto-edited(self.text); }
+            accepted => { F.goto(self.text); }
             init => { self.focus(); }
         }
+        if F.goto-text == "": Text {
+            x: 46px; y: 0; height: 50px; font-size: 16px; color: Theme.text-tertiary; vertical-alignment: center;
+            text: F.goto-kind == 1 ? @tr("Server Address") : @tr("Go to Folder (~/Documents, /etc …)");
+        }
+        if F.goto-text != "": Rectangle {
+            x: parent.width - 34px; y: 16px; width: 18px; height: 18px; border-radius: 9px;
+            background: cxa.has-hover ? Theme.text-secondary : Theme.text-tertiary;
+            Image { width: 8px; height: 8px; source: F.i-xmark; colorize: Theme.dark ? #1e1e22 : white; }
+            cxa := TouchArea { clicked => { F.goto-text = ""; F.goto-edited(""); input.focus(); } }
+        }
+        if n > 0: Rectangle { x: 14px; y: 50px; width: parent.width - 28px; height: 1px; background: Theme.separator; }
         for s[i] in F.goto-sugg: Rectangle {
             visible: i < 8;
-            x: 8px; y: 52px + i * 26px; width: parent.width - 16px; height: 26px; border-radius: 7px;
-            background: sta.has-hover ? Theme.accent : transparent;
-            Image { x: 10px; y: 5px; width: 16px; height: 16px; source: F.glyph("folder"); colorize: sta.has-hover ? white : Theme.accent; }
-            Text { x: 34px; width: parent.width - 44px; text: s; font-size: 13px; color: sta.has-hover ? white : Theme.text; vertical-alignment: center; overflow: elide; }
+            x: 7px; y: 59px + i * 30px; width: parent.width - 14px; height: 30px;
+            border-radius: 9px;
+            background: Theme.aqua ? transparent : sta.has-hover ? Theme.accent : transparent;
+            if Theme.aqua: GlassSel { hot: sta.has-hover; sel: sta.pressed; }
+            FolderIcon { x: 10px; y: 6px; s: 18px; }
+            Text {
+                x: 38px; width: parent.width - 48px; text: s; font-size: 13px;
+                color: !Theme.aqua && sta.has-hover ? white : Theme.text; vertical-alignment: center; overflow: elide;
+            }
             sta := TouchArea { clicked => { F.goto(s); } }
         }
     }
@@ -287,12 +306,9 @@ component Caption inherits Text {
     font-size: 11px; font-weight: 600; color: Theme.text-secondary;
 }
 
-export component ViewOptions inherits Rectangle {
+export component ViewOptions inherits GlassPanel {
     width: 270px; height: vl.preferred-height;
-    border-radius: 18px;
-    background: Theme.menu-bg;
-    border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
-    drop-shadow-blur: 30px; drop-shadow-color: #00000050; drop-shadow-offset-y: 10px;
+    radius: 18px;
     TouchArea {}
     property <[string]> sorts: [@tr("Name"), @tr("Kind"), @tr("Date Modified"), @tr("Size"), @tr("Date Created"), @tr("Date Last Opened")];
     property <[string]> groups: [@tr("None"), @tr("Name"), @tr("Kind"), @tr("Date Modified"), @tr("Date Created"), @tr("Date Last Opened"), @tr("Size"), @tr("Tags")];
@@ -343,62 +359,102 @@ export component ViewOptions inherits Rectangle {
     }
 }
 
+component PrefTab inherits Rectangle {
+    in property <image> glyph;
+    in property <string> label;
+    in property <bool> sel;
+    callback clicked();
+    width: 76px; height: 54px; border-radius: 12px;
+    if Theme.aqua: GlassSel { border-radius: 12px; sel: root.sel; hot: ta.has-hover; pressed: ta.pressed; }
+    if !Theme.aqua: Rectangle { border-radius: 12px; background: root.sel ? Theme.control-pressed : ta.has-hover ? Theme.hover : transparent; }
+    Image { x: (parent.width - 22px) / 2; y: 8px; width: 22px; height: 22px; source: glyph; colorize: root.sel ? Theme.accent : Theme.text-secondary; }
+    Text {
+        y: 34px; width: parent.width; height: 14px; text: label; font-size: 11px; font-weight: root.sel ? 600 : 400;
+        color: root.sel ? Theme.text : Theme.text-secondary; horizontal-alignment: center; overflow: elide;
+    }
+    ta := TouchArea { clicked => { root.clicked(); } }
+}
+
 export component PrefsPanel inherits Rectangle {
+    // Finder Settings as a glass sheet: icon tabs on top (General, Tags, Sidebar, Advanced),
+    // options in rounded groups below.
     background: #00000030;
     TouchArea { clicked => { F.prefs-open = false; } }
     property <[string]> starts: [@tr("Recents"), @tr("Home"), @tr("Desktop"), @tr("Documents"), @tr("Downloads")];
     property <[string]> scopes: [@tr("Search This Computer"), @tr("Search the Current Folder"), @tr("Use the Previous Search Scope")];
-    Rectangle {
-        x: (parent.width - self.width) / 2; y: 50px; width: 440px; height: min(root.height - 70px, pl.preferred-height);
-        border-radius: 22px; clip: true;
-        background: Theme.menu-bg;
-        border-width: 0.5px; border-color: Theme.dark ? #ffffff26 : #0000001f;
-        drop-shadow-blur: 30px; drop-shadow-color: #00000055; drop-shadow-offset-y: 10px;
+    GlassPanel {
+        x: (parent.width - self.width) / 2; y: 46px; width: min(470px, root.width - 32px); height: min(root.height - 62px, pl.preferred-height);
+        clip: true;
         TouchArea {}
         pl := VerticalLayout {
-            padding: 18px; spacing: 10px;
-            HorizontalLayout {
-                Text { text: @tr("Finder Settings"); font-size: 14px; font-weight: 700; color: Theme.text; horizontal-stretch: 1; vertical-alignment: center; }
+            padding: 14px; padding-top: 12px; spacing: 10px;
+            Rectangle {
+                height: 22px;
+                Text { text: @tr("Finder Settings"); font-size: 13px; font-weight: 700; color: Theme.text; horizontal-alignment: center; vertical-alignment: center; }
                 Rectangle {
-                    width: 20px; height: 20px; border-radius: 10px; background: pxa.has-hover ? Theme.control-pressed : Theme.control-bg;
-                    Image { width: 9px; height: 9px; source: F.i-xmark; colorize: Theme.text; }
+                    x: parent.width - 22px; y: 1px; width: 20px; height: 20px; border-radius: 10px;
+                    background: pxa.has-hover ? Theme.control-pressed : Theme.control-bg;
+                    Image { width: 8px; height: 8px; source: F.i-xmark; colorize: Theme.text; }
                     pxa := TouchArea { clicked => { F.prefs-open = false; } }
                 }
             }
-            Segmented { items: [@tr("General"), @tr("Tags"), @tr("Sidebar"), @tr("Advanced")]; current <=> F.prefs-tab; }
+            HorizontalLayout {
+                alignment: center; spacing: 6px;
+                PrefTab { glyph: @image-url("icons/gear.svg"); label: @tr("General"); sel: F.prefs-tab == 0; clicked => { F.prefs-tab = 0; } }
+                PrefTab { glyph: F.i-tag; label: @tr("Tags"); sel: F.prefs-tab == 1; clicked => { F.prefs-tab = 1; } }
+                PrefTab { glyph: @image-url("icons/m-sidebar-right.svg"); label: @tr("Sidebar"); sel: F.prefs-tab == 2; clicked => { F.prefs-tab = 2; } }
+                PrefTab { glyph: @image-url("icons/f-sliders.svg"); label: @tr("Advanced"); sel: F.prefs-tab == 3; clicked => { F.prefs-tab = 3; } }
+            }
+            Rectangle { height: 1px; background: Theme.separator; }
             if F.prefs-tab == 0: VerticalLayout {
                 spacing: 8px;
-                Caption { text: @tr("New Finder windows show:"); }
-                PopupSelect { bezel: true; items: starts; current: F.pref-new-window; changed(i) => { F.opt("new-window", i); } }
-                for o in F.pref-general: OptRow { o: o; group: "general:"; }
+                GroupBox {
+                    HorizontalLayout {
+                        spacing: 8px; height: 26px;
+                        Text { text: @tr("New Finder windows show:"); font-size: 12px; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
+                        PopupSelect { bezel: true; width: 150px; items: starts; current: F.pref-new-window; changed(i) => { F.opt("new-window", i); } }
+                    }
+                }
+                GroupBox { for o in F.pref-general: OptRow { o: o; group: "general:"; } }
             }
             if F.prefs-tab == 1: VerticalLayout {
-                spacing: 4px;
+                spacing: 8px;
                 Caption { text: @tr("Show these tags in the sidebar:"); }
-                for o[i] in F.pref-tags: HorizontalLayout {
-                    spacing: 8px; height: 24px;
-                    VerticalLayout { alignment: center; Checkbox { checked: o.on; toggled(v) => { F.opt("tags:" + o.id, v ? 1 : 0); } } }
-                    VerticalLayout { alignment: center; Rectangle { width: 11px; height: 11px; border-radius: 5.5px; background: i < F.tag-defs.length ? F.tag-defs[i].color : gray; } }
-                    Text { text: o.label; font-size: 12px; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
+                GroupBox {
+                    for o[i] in F.pref-tags: HorizontalLayout {
+                        spacing: 8px; height: 24px;
+                        VerticalLayout { alignment: center; Checkbox { checked: o.on; toggled(v) => { F.opt("tags:" + o.id, v ? 1 : 0); } } }
+                        VerticalLayout { alignment: center; Rectangle { width: 11px; height: 11px; border-radius: 5.5px; background: i < F.tag-defs.length ? F.tag-defs[i].color : gray; } }
+                        Text { text: o.label; font-size: 12px; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
+                    }
                 }
             }
             if F.prefs-tab == 2: VerticalLayout {
-                spacing: 4px;
-                Caption { text: @tr("Sidebar style:"); }
-                HorizontalLayout {
-                    alignment: start;
-                    Segmented { items: [@tr("Floating"), @tr("Solid")]; current: Theme.solid-sidebar ? 1 : 0; changed(i) => { Theme.solid-sidebar = i == 1; F.opt("side-style", i); } }
+                spacing: 8px;
+                GroupBox {
+                    HorizontalLayout {
+                        spacing: 8px; height: 28px;
+                        Text { text: @tr("App style:"); font-size: 12px; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
+                        Segmented {
+                            items: [@tr("Aqua"), @tr("Floating"), @tr("Solid")];
+                            current: Theme.aqua ? 0 : Theme.solid-sidebar ? 2 : 1;
+                            changed(i) => { Theme.aqua = i == 0; Theme.solid-sidebar = i != 1; F.opt("side-style", i); }
+                        }
+                    }
                 }
-                Rectangle { height: 6px; }
                 Caption { text: @tr("Show these items in the sidebar:"); }
-                for o in F.pref-side: OptRow { o: o; group: "side:"; }
+                GroupBox { for o in F.pref-side: OptRow { o: o; group: "side:"; } }
             }
             if F.prefs-tab == 3: VerticalLayout {
-                spacing: 6px;
-                for o in F.pref-adv: OptRow { o: o; group: "adv:"; }
-                Rectangle { height: 4px; }
-                Caption { text: @tr("When performing a search:"); }
-                PopupSelect { bezel: true; items: scopes; current: F.pref-scope; changed(i) => { F.opt("scope", i); } }
+                spacing: 8px;
+                GroupBox { for o in F.pref-adv: OptRow { o: o; group: "adv:"; } }
+                GroupBox {
+                    HorizontalLayout {
+                        spacing: 8px; height: 26px;
+                        Text { text: @tr("When performing a search:"); font-size: 12px; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
+                        PopupSelect { bezel: true; width: 190px; items: scopes; current: F.pref-scope; changed(i) => { F.opt("scope", i); } }
+                    }
+                }
             }
         }
     }

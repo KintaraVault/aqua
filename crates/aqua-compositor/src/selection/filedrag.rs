@@ -176,7 +176,7 @@ impl Aqua {
         let source = FileSource { data: file_data(&uris, false), alive: alive.clone() };
         let pm = drag_image(&self.shell.fonts, &uris, self.scale as f32);
         self.render_cache.file_drag =
-            Some(crate::render::FileDragImage { buf: crate::render::buffer_from_pixmap(&pm, false), alive });
+            Some(crate::render::FileDragImage { buf: crate::render::buffer_from_pixmap(&pm, false), px: (pm.width(), pm.height()), alive });
         self.render_cache.grab_cursor = Some(smithay::input::pointer::CursorIcon::Copy);
         self.render_cache.cursor_override = self.render_cache.grab_cursor;
         let grab = DnDGrab::new_pointer(&self.display_handle, start, source, self.seat.clone());

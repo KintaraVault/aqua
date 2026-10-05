@@ -427,8 +427,7 @@ impl Aqua {
             }
             KeyAction::ControlCenter => self.shell.control.toggle(),
             KeyAction::Terminal => {
-                let t = aqua_shell::dock::resolve_exec(&self.cfg.terminal);
-                aqua_apps::launch(&t);
+                aqua_apps::open_terminal(&self.cfg.terminal);
             }
             KeyAction::CloseWindow => self.shell_actions(vec![aqua_shell::Action::CloseFocused]),
             KeyAction::Minimize => self.shell_actions(vec![aqua_shell::Action::MinimizeFocused]),
@@ -959,8 +958,7 @@ impl Aqua {
             "sleep" => self.shell_actions(vec![A::Sleep]),
             "settings" => self.shell_actions(vec![A::OpenSettings(String::new())]),
             "terminal" => {
-                let t = aqua_shell::dock::resolve_exec(&self.cfg.terminal);
-                aqua_apps::launch(&t);
+                aqua_apps::open_terminal(&self.cfg.terminal);
             }
             "volume-up" => self.media_key(Media::VolUp),
             "volume-down" => self.media_key(Media::VolDown),

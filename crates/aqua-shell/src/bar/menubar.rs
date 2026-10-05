@@ -75,26 +75,14 @@ pub fn layout(sh: &Shell) -> Vec<(Item, Rect)> {
     let h = sh.cfg.menubar_height;
     let f = &sh.fonts;
     let pad = aqua_config::metrics::MENU_ITEM_PAD;
-    let mut v = vec![];
-    let mut x = 10.0;
-    let aw = 34.0;
-    v.push((Item::Apple, Rect::new(x, 0.0, aw, h)));
-    x += aw;
-    let name = sh.active_app_name();
-    let nw = f.measure(&name, FONT, Weight::Bold) + pad * 2.0;
-    v.push((Item::AppName, Rect::new(x, 0.0, nw, h)));
-    x += nw;
-    for (i, m) in menu_titles(sh).iter().enumerate() {
-        let w = f.measure(m, FONT, Weight::Regular) + pad * 2.0;
-        v.push((Item::Menu(i), Rect::new(x, 0.0, w, h)));
-        x += w;
-    }
+    // Status items first: they own the right edge, app menus get what is left.
+    let mut right = vec![];
     let n = clock::now();
     let clock_s = clock::menubar_string_fmt(&n, sh.cfg.clock_24h, sh.cfg.clock_seconds, sh.cfg.clock_date);
     let mut rx = sh.w - 10.0;
     let cw = f.measure(&clock_s, FONT, Weight::Regular) + pad * 2.0;
     rx -= cw;
-    v.push((Item::Status(Status::Clock), Rect::new(rx, 0.0, cw, h)));
+    right.push((Item::Status(Status::Clock), Rect::new(rx, 0.0, cw, h)));
     for (st, w) in [
         (Status::Control, 36.0),
         (Status::Search, 34.0),
@@ -107,8 +95,28 @@ pub fn layout(sh: &Shell) -> Vec<(Item, Rect)> {
             continue;
         }
         rx -= w;
-        v.push((Item::Status(st), Rect::new(rx, 0.0, w, h)));
+        right.push((Item::Status(st), Rect::new(rx, 0.0, w, h)));
     }
+    let mut v = vec![];
+    let mut x = 10.0;
+    let aw = 34.0;
+    v.push((Item::Apple, Rect::new(x, 0.0, aw, h)));
+    x += aw;
+    let name = sh.active_app_name();
+    let nw = f.measure(&name, FONT, Weight::Bold) + pad * 2.0;
+    v.push((Item::AppName, Rect::new(x, 0.0, nw, h)));
+    x += nw;
+    // On narrow displays (or at a large scale) the menus used to run under the status
+    // icons; like macOS, menus that do not fit are left out.
+    for (i, m) in menu_titles(sh).iter().enumerate() {
+        let w = f.measure(m, FONT, Weight::Regular) + pad * 2.0;
+        if x + w > rx - 8.0 {
+            break;
+        }
+        v.push((Item::Menu(i), Rect::new(x, 0.0, w, h)));
+        x += w;
+    }
+    v.extend(right);
     for it in crate::tray::visible(sh).iter().rev() {
         if rx - crate::tray::SLOT < x + 16.0 {
             break;
@@ -360,4 +368,43 @@ pub fn click(sh: &mut Shell, x: f32, y: f32) -> Vec<Action> {
     }
     menu::dismiss(sh);
     vec![Action::Redraw]
+}
+
+#[cfg(test)]
+mod layout_tests {
+    use super::*;
+
+    fn shell(w: f32) -> Shell {
+        let cfg = aqua_config::Config::default();
+        let wp = aqua_gfx::tiny_skia::Pixmap::new(8, 8).unwrap();
+        Shell::new(cfg, w, 400.0, 2.0, &wp)
+    }
+
+    #[test]
+    fn menus_never_run_under_the_status_icons() {
+        for w in [320.0, 480.0, 640.0, 900.0, 1440.0] {
+            let items = layout(&shell(w));
+            let left_end = items
+                .iter()
+                .filter(|(it, _)| matches!(it, Item::Apple | Item::AppName | Item::Menu(_)))
+                .map(|(_, r)| r.x + r.w)
+                .fold(0.0f32, f32::max);
+            let status_start = items
+                .iter()
+                .filter(|(it, _)| matches!(it, Item::Status(_)))
+                .map(|(_, r)| r.x)
+                .fold(f32::MAX, f32::min);
+            let menus = items.iter().filter(|(it, _)| matches!(it, Item::Menu(_))).count();
+            if w >= 900.0 {
+                assert_eq!(menus, menu_titles(&shell(w)).len(), "all menus fit at {w}");
+            }
+            if menus > 0 {
+                assert!(left_end <= status_start, "menus overlap the status area at {w}: {left_end} > {status_start}");
+            }
+            // menus are consecutive from the first one, so keyboard navigation stays sane
+            for (k, (it, _)) in items.iter().filter(|(it, _)| matches!(it, Item::Menu(_))).enumerate() {
+                assert!(matches!(it, Item::Menu(i) if *i == k));
+            }
+        }
+    }
 }

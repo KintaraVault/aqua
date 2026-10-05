@@ -9,9 +9,23 @@ pub fn grid(frames: &[RectF], area: RectF) -> Vec<RectF> {
     if n == 0 {
         return vec![];
     }
+    // tiny screens / hundreds of windows: cells smaller than the paddings used to give
+    // negative thumbnail sizes (a panic in Size::new); zero-sized frames gave NaN
+    let area = RectF::new(area.x, area.y, area.w.max(1.0), area.h.max(1.0));
+    let frames: Vec<RectF> = frames
+        .iter()
+        .map(|r| {
+            let ok = |v: f64, d: f64| if v.is_finite() { v } else { d };
+            RectF::new(ok(r.x, 0.0), ok(r.y, 0.0), ok(r.w, 1.0).max(1.0), ok(r.h, 1.0).max(1.0))
+        })
+        .collect();
+    let frames = &frames[..];
     let mut order: Vec<usize> = (0..n).collect();
     order.sort_by(|&a, &b| frames[a].cx().partial_cmp(&frames[b].cx()).unwrap_or(std::cmp::Ordering::Equal));
-    let scale = |r: &RectF, cw: f64, ch: f64| ((cw - 40.0) / r.w).min((ch - 60.0) / r.h).min(0.85);
+    let scale = |r: &RectF, cw: f64, ch: f64| {
+        let (px, py) = (40.0f64.min(cw * 0.2), 60.0f64.min(ch * 0.3));
+        ((cw - px) / r.w).min((ch - py) / r.h).clamp(0.0, 0.85)
+    };
     let mut best = (1usize, f64::MIN);
     for cols in 1..=n {
         let rows = n.div_ceil(cols);
@@ -41,10 +55,11 @@ pub fn grid(frames: &[RectF], area: RectF) -> Vec<RectF> {
 
 /// Thumbnail of a window being dragged: shrunk to at most 200 px wide around the grab point.
 pub fn drag_thumb(t: RectF, start: (f64, f64), pos: (f64, f64)) -> RectF {
-    let k = (200.0 / t.w).min(1.0);
-    let (w, h) = (t.w * k, t.h * k);
-    let gx = (start.0 - t.x) / t.w;
-    let gy = (start.1 - t.y) / t.h;
+    let (tw, th) = (t.w.max(1.0), t.h.max(1.0));
+    let k = (200.0 / tw).min(1.0);
+    let (w, h) = (tw * k, th * k);
+    let gx = (start.0 - t.x) / tw;
+    let gy = (start.1 - t.y) / th;
     RectF::new(pos.0 - gx * w, pos.1 - gy * h, w, h)
 }
 
@@ -54,6 +69,23 @@ mod tests {
 
     fn overlaps(a: &RectF, b: &RectF) -> bool {
         a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+    }
+
+    /// Found by the stress run: 150 windows (or a tiny display) made thumbnails of negative
+    /// size and crashed the compositor when Mission Control opened.
+    #[test]
+    fn crowds_tiny_areas_and_degenerate_frames_stay_valid() {
+        let odd = [RectF::new(0.0, 0.0, 0.0, 0.0), RectF::new(f64::NAN, 1.0, f64::INFINITY, -5.0)];
+        for (n, area) in [(150, RectF::new(50.0, 96.0, 1340.0, 674.0)), (7, RectF::new(50.0, 300.0, -20.0, -90.0)), (500, RectF::new(0.0, 0.0, 300.0, 200.0))] {
+            let frames: Vec<RectF> = (0..n).map(|i| if i < 2 { odd[i] } else { RectF::new(i as f64, 3.0, 640.0, 480.0) }).collect();
+            let g = grid(&frames, area);
+            assert_eq!(g.len(), n);
+            for r in &g {
+                assert!(r.w >= 0.0 && r.h >= 0.0 && r.x.is_finite() && r.y.is_finite() && r.w.is_finite(), "{r:?}");
+            }
+            let d = drag_thumb(RectF::new(0.0, 0.0, 0.0, 0.0), (1.0, 1.0), (5.0, 5.0));
+            assert!(d.x.is_finite() && d.w >= 0.0);
+        }
     }
 
     #[test]

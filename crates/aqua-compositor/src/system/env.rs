@@ -15,6 +15,10 @@ pub fn set_nested(on: bool) {
 /// A nested session (tests, trying Aqua in a window) must not: it would point the real
 /// session's portals and services at a display that soon disappears. `AQUA_NESTED_DBUS=1`
 /// opts a nested session in (e.g. under its own `dbus-run-session`).
+pub fn is_nested() -> bool {
+    NESTED.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 pub fn owns_session_bus() -> bool {
     !NESTED.load(std::sync::atomic::Ordering::Relaxed) || std::env::var_os("AQUA_NESTED_DBUS").is_some()
 }
@@ -137,14 +141,9 @@ pub fn export_session(wayland_display: &str) {
         let val = std::env::var(k).unwrap_or_else(|_| def.to_string());
         v.push((k.into(), val));
     }
-    let style_apps = aqua_config::Config::load().style_apps;
     v.push((
         "QT_QPA_PLATFORMTHEME".into(),
-        super::apptheme::qt_platform_theme(
-            std::env::var("QT_QPA_PLATFORMTHEME").ok().as_deref(),
-            style_apps,
-            super::apptheme::qt6ct_installed(),
-        ),
+        super::apptheme::qt_platform_theme(std::env::var("QT_QPA_PLATFORMTHEME").ok().as_deref()),
     ));
     for k in [
         "XDG_SESSION_ID",

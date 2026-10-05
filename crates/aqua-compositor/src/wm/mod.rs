@@ -352,6 +352,39 @@ impl Aqua {
         self.needs_redraw = true;
     }
 
+    /// After a display changed size or scale, fullscreen and zoomed windows still had the
+    /// old geometry (a 1280×720 "fullscreen" window in a corner of a 2560×1440 desktop).
+    pub fn refit_to_outputs(&mut self) {
+        let wins: Vec<_> = self.space.elements().cloned().collect();
+        for w in wins {
+            if !meta(&w).borrow().placed || meta(&w).borrow().override_redirect {
+                continue;
+            }
+            let fullscreen = meta(&w).borrow().fullscreen.is_some();
+            let zoomed = !fullscreen && Self::is_maximized(&w);
+            if !fullscreen && !zoomed {
+                continue;
+            }
+            let Some(out) = self.output_of(&w) else { continue };
+            let current = self.space.element_location(&w).map(|loc| Rectangle::new(loc, w.geometry().size));
+            if fullscreen {
+                let Some(geo) = self.space.output_geometry(&out) else { continue };
+                if current == Some(geo) {
+                    continue;
+                }
+                if let Some(t) = w.toplevel() {
+                    t.with_pending_state(|s| s.size = Some(geo.size));
+                    t.send_pending_configure();
+                } else if let Some(x) = w.x11_surface() {
+                    x11_configure(x, geo);
+                }
+                self.space.map_element(w.clone(), geo.loc, false);
+            } else if current != Some(self.zoom_rect(&w, &out)) {
+                self.zoom_in(&w, &out);
+            }
+        }
+    }
+
     /// Enter/leave fullscreen on the output the window is on.
     pub fn set_fullscreen(&mut self, w: &Window, on: bool) {
         if !meta(w).borrow().placed {
@@ -490,21 +523,39 @@ impl Aqua {
 
     pub fn windows_of_app(&self, app_id: &str) -> Vec<Window> {
         let want = app_id.to_lowercase();
-        self.space
+        let want = want.strip_suffix(".desktop").unwrap_or(&want).to_string();
+        let all: Vec<Window> = self
+            .space
             .elements()
             .chain(self.minimized.iter())
             .chain(self.stage.staged.iter())
             .filter(|w| !meta(w).borrow().override_redirect)
+            .cloned()
+            .collect();
+        let id_of = |w: &Window| title_of(w).0.to_lowercase();
+        let strict: Vec<Window> = all
+            .iter()
             .filter(|w| {
-                let (id, _) = title_of(w);
-                let id = id.to_lowercase();
-                id == want
-                    || id.ends_with(&format!(".{want}"))
-                    || want.ends_with(&format!(".{id}"))
-                    || (!id.is_empty() && want.contains(&id))
+                let id = id_of(w);
+                !id.is_empty()
+                    && (id == want || id.ends_with(&format!(".{want}")) || want.ends_with(&format!(".{id}")))
             })
             .cloned()
-            .collect()
+            .collect();
+        // Every window the Dock groups on the same icon (other id spellings of the same
+        // app: X11 WM_CLASS vs Wayland app id), so Quit / Hide / Show All / a Dock click
+        // reach all of them, not just the ones spelled like the first window.
+        let strict: Vec<Window> = match aqua_shell::dock::app_item_for(&self.shell, app_id) {
+            Some(it) => all.iter().filter(|w| strict.contains(w) || it.matches(&title_of(w).0)).cloned().collect(),
+            None => strict,
+        };
+        if !strict.is_empty() {
+            return strict;
+        }
+        // Loose fallback for names that only resemble the app id (notification senders,
+        // MPRIS players). Never used when real matches exist: "Quit" on a Steam game
+        // (steam_app_570) also closed the Steam client because "steam" is a substring.
+        all.into_iter().filter(|w| { let id = id_of(w); !id.is_empty() && want.contains(&id) }).collect()
     }
 
     pub fn activate_app(&mut self, app_id: &str) {
@@ -867,7 +918,7 @@ impl Aqua {
                 Beep => crate::system::sound::play_alert(),
                 SetStageManager(on) => {
                     self.set_stage_manager(on);
-                    let mut c = aqua_config::Config::load();
+                    let mut c = aqua_config::Config::load_for_update().unwrap_or_else(|| self.cfg.clone());
                     c.stage_manager = on;
                     if c.save().is_ok() {
                         self.cfg.stage_manager = on;
@@ -875,7 +926,7 @@ impl Aqua {
                 }
                 SetFocusMode(on) => {
                     self.shell.notes.dnd = on;
-                    let mut c = aqua_config::Config::load();
+                    let mut c = aqua_config::Config::load_for_update().unwrap_or_else(|| self.cfg.clone());
                     c.do_not_disturb = on;
                     if c.save().is_ok() {
                         self.cfg.do_not_disturb = on;
@@ -911,8 +962,7 @@ impl Aqua {
                     }
                 }
                 OpenTerminal => {
-                    let t = aqua_shell::dock::resolve_exec(&self.cfg.terminal);
-                    aqua_apps::launch(&t);
+                    aqua_apps::open_terminal(&self.cfg.terminal);
                 }
                 MissionControl => self.toggle_mission(),
                 Redraw => {}
@@ -929,7 +979,7 @@ impl Aqua {
         for w in &wins {
             self.close(w);
         }
-        let _ = std::fs::remove_file(crate::system::lock::marker_path());
+        crate::system::lock::clear_marker();
         let delay = if wins.is_empty() { 50 } else { 1200 };
         use smithay::reexports::calloop::timer::{TimeoutAction, Timer};
         let _ = self.loop_handle.insert_source(

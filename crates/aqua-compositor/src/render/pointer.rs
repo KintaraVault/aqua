@@ -21,12 +21,14 @@ impl Aqua {
             let loc: Point<f64, Physical> =
                 (((pos.x - hx as f64 * size) * scale).round(), ((pos.y - hy as f64 * size) * scale).round()).into();
             let side = (crate::input::cursors::BOX as f64 * size).round() as i32;
+            // same pixel size as `cursors::draw`
+            let px = (crate::input::cursors::BOX * (scale * size) as f32).ceil().max(1.0) as f64;
             if let Ok(e) = MemoryRenderBufferRenderElement::from_buffer(
                 renderer,
                 loc,
                 buf,
                 None,
-                None,
+                crate::render::full_src(px, px),
                 Some((side, side).into()),
                 Kind::Cursor,
             ) {
@@ -64,7 +66,7 @@ impl Aqua {
                     loc,
                     &fd.buf,
                     Some(0.9),
-                    None,
+                    crate::render::full_src(fd.px.0, fd.px.1),
                     Some(size),
                     Kind::Unspecified,
                 ) {

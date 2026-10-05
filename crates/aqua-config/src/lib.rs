@@ -14,41 +14,91 @@ pub mod xkb;
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, schemars::JsonSchema)]
 pub struct Rgba(pub f32, pub f32, pub f32, pub f32);
 
-/// Liquid-glass material parameters (shared by CPU preview and GL shaders).
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, schemars::JsonSchema)]
+/// Liquid Glass material — one physically based model shared by every glass surface of the
+/// desktop (menu bar, Dock, Control Center, menus, notifications, window chrome and the
+/// glass of Aqua's own apps). It is a port of the Liquid Glass Studio model
+/// (<https://github.com/iyinchao/liquid-glass-studio>): a convex slab whose rim refracts the
+/// backdrop by Snell's law (with per-channel dispersion), a Fresnel edge light and a
+/// directional glare, over a blurred, saturated, tinted backdrop.
+///
+/// Lengths are logical px. The values in the config file are the user's master knobs;
+/// [`material`] derives every surface type from them, so all glass stays one standard.
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, schemars::JsonSchema)]
 #[serde(default)]
 pub struct GlassStyle {
-    /// Blur radius in logical px.
+    /// Blur radius of the backdrop in logical px (0 = clear glass).
     pub blur: f32,
-    /// Tint color mixed over the blurred backdrop (premultiplied in shader).
+    /// Tint colour mixed over the backdrop (alpha = amount).
     pub tint: Rgba,
     /// Saturation boost of the backdrop (1.0 = unchanged).
     pub saturation: f32,
-    /// Edge refraction strength in logical px (glass lens).
+    /// Maximum displacement of the backdrop at the very rim, logical px (the lens strength).
     pub refraction: f32,
-    /// Width of the refracting bevel in logical px.
-    pub bevel: f32,
-    /// Specular rim highlight intensity.
+    /// Width of the refracting rim (glass thickness) in logical px.
+    #[serde(alias = "bevel")]
+    pub thickness: f32,
+    /// Index of refraction of the slab (1.0 = no bending, glass ≈ 1.4–1.5).
+    pub ior: f32,
+    /// Chromatic dispersion at the rim (0 = none).
+    pub dispersion: f32,
+    /// Overall gain of the edge lights (Fresnel + glare); 0 turns them off.
     pub rim: f32,
+    /// Fresnel edge light strength (0..1).
+    pub fresnel: f32,
+    /// Fresnel band width (larger = wider band).
+    pub fresnel_range: f32,
+    /// Fresnel band hardness (0..1).
+    pub fresnel_hardness: f32,
+    /// Directional glare strength (0..1+).
+    pub glare: f32,
+    /// Glare band width.
+    pub glare_range: f32,
+    /// Glare band hardness (0..1).
+    pub glare_hardness: f32,
+    /// How tightly the glare gathers around the light direction (0..1).
+    pub glare_convergence: f32,
+    /// Strength of the glare on the edge facing away from the light (0..1).
+    pub glare_opposite: f32,
+    /// Light angle in degrees (-45 = from the top left).
+    pub glare_angle: f32,
     /// Corner radius in logical px.
     pub radius: f32,
+    /// Corner shape: 2 = circular, 3 ≈ Apple continuous corners, higher = squarer.
+    pub roundness: f32,
+    /// Blur reaches the rim (true) or the rim refracts the sharp backdrop (false).
+    pub blur_edge: bool,
     /// Drop shadow alpha.
     pub shadow: f32,
     /// Legibility cap for the backdrop luminance (1.0 = off).
-    #[serde(default = "one")]
     pub max_luma: f32,
 }
 
 impl Default for GlassStyle {
     fn default() -> Self {
         Self {
-            blur: 22.0,
-            tint: Rgba(1.0, 1.0, 1.0, 0.18),
-            saturation: 1.6,
-            refraction: 9.0,
-            bevel: 14.0,
-            rim: 0.55,
+            // Calibrated against macOS 26 (Dock, Finder toolbar and menus side by side): a
+            // light, fairly clear body and a crisp ~1 px edge highlight, brightest where the
+            // light hits — no thick white frame.
+            blur: 10.0,
+            tint: Rgba(1.0, 1.0, 1.0, 0.10),
+            saturation: 1.3,
+            refraction: 44.0,
+            thickness: 16.0,
+            ior: 1.4,
+            dispersion: 7.0,
+            rim: 1.0,
+            fresnel: 0.45,
+            fresnel_range: 16.7,
+            fresnel_hardness: 0.3,
+            glare: 0.3,
+            glare_range: 16.7,
+            glare_hardness: 0.3,
+            glare_convergence: 0.5,
+            glare_opposite: 0.8,
+            glare_angle: -45.0,
             radius: 16.0,
+            roundness: 3.0,
+            blur_edge: true,
             shadow: 0.18,
             max_luma: 1.0,
         }
@@ -64,7 +114,27 @@ impl GlassStyle {
         self.tint = t;
         self
     }
+    /// The same glass with a thinner/thicker rim: lens strength follows the thickness so the
+    /// optics stay the same at every size.
+    pub fn with_thickness(mut self, t: f32) -> Self {
+        let k = if self.thickness > 0.0 { t / self.thickness } else { 0.0 };
+        self.thickness = t;
+        self.refraction *= k;
+        self
+    }
+    /// No lens, no edge lights: a plain frosted backdrop.
+    pub fn flat(mut self) -> Self {
+        self.refraction = 0.0;
+        self.rim = 0.0;
+        self
+    }
+    /// The surface type `m` of this material, see [`material`].
+    pub fn material(&self, m: material::Material, dark: bool) -> GlassStyle {
+        material::style(self, m, dark)
+    }
 }
+
+pub mod material;
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, schemars::JsonSchema)]
 pub struct DockItem {
@@ -146,8 +216,8 @@ pub struct Config {
     /// Make Firefox / Chromium-family browsers use window controls
     /// (Firefox: GTK titlebuttons styled by Aqua; Chromium: system title bar).
     pub theme_browsers: bool,
-    /// Appearance → "Style other apps like macOS": Aqua GTK 3 theme, libadwaita overrides,
-    /// qt6ct palette + stylesheet.
+    /// Retired: other apps are no longer restyled (only their window controls become
+    /// traffic lights on the left). Kept so old configuration files still load.
     pub style_apps: bool,
     /// Hot corners: top-left, top-right, bottom-left, bottom-right actions ("", "mission", "desktop", "launchpad", "lock", "notifications").
     pub hot_corners: [String; 4],
@@ -160,9 +230,14 @@ pub struct Config {
     /// (focus, or minimise when already frontmost), "cycle" (next window of the app),
     /// "expose" (Mission Control for the app's windows) or "new" (open a new window).
     pub dock_click: String,
-    /// Sidebar look of Finder, System Settings and the App Store: "floating" (an inset
-    /// rounded glass island) or "solid" (full-height, edge to edge).
+    /// Style of Finder, System Settings and the App Store: "aqua" (full-height glass
+    /// sidebar, glass selection pills, 3D folders), "floating" (an inset rounded glass island
+    /// sidebar) or "solid" (full-height, edge to edge). The style only changes the sidebar;
+    /// a translucent (blurred) window body is the separate `window_glass` switch.
     pub sidebar_style: String,
+    /// Translucent glass behind the whole window body of Finder, System Settings and the
+    /// App Store (not just the sidebar). Off by default.
+    pub window_glass: bool,
     /// Toolbar buttons of Finder, System Settings and the App Store (navigation arrows,
     /// view and action capsules) drawn as raised liquid glass; false = flat.
     pub glass_controls: bool,
@@ -372,7 +447,7 @@ impl Default for Config {
             minimize_effect: "genie".into(),
             dark: false,
             language: "en".into(),
-            terminal: "foot|kitty|alacritty|gnome-terminal|konsole|xterm|weston-terminal".into(),
+            terminal: "foot|kitty|alacritty|ghostty|ptyxis|kgx|gnome-terminal|konsole|xfce4-terminal|tilix|xterm|weston-terminal".into(),
             dock: vec![
                 item(
                     "Finder",
@@ -426,14 +501,18 @@ impl Default for Config {
                 item(
                     "Terminal",
                     "terminal",
-                    "foot|kitty|alacritty|gnome-terminal|konsole|xterm|weston-terminal",
+                    "foot|kitty|alacritty|ghostty|ptyxis|kgx|gnome-terminal|konsole|xfce4-terminal|tilix|xterm|weston-terminal",
                     "builtin:terminal",
                     &[
                         "foot",
                         "kitty",
                         "alacritty",
                         "org.gnome.terminal",
+                        "org.gnome.Console",
+                        "org.gnome.Ptyxis",
+                        "com.mitchellh.ghostty",
                         "org.kde.konsole",
+                        "xfce4-terminal",
                         "xterm",
                         "wayland-terminal",
                         "org.freedesktop.weston.wayland-terminal",
@@ -481,7 +560,8 @@ impl Default for Config {
             autostart: vec![],
             shortcuts: Default::default(),
             dock_click: "focus".into(),
-            sidebar_style: "floating".into(),
+            sidebar_style: "aqua".into(),
+            window_glass: false,
             glass_controls: true,
             glass_traffic_lights: true,
             dock_bounce: true,
@@ -529,7 +609,11 @@ impl Config {
     /// Write the configuration atomically (used by System Settings).
     /// Full-height sidebars instead of floating islands.
     pub fn solid_sidebar(&self) -> bool {
-        self.sidebar_style == "solid"
+        self.sidebar_style != "floating"
+    }
+    /// The "Aqua" app style (see `sidebar_style`).
+    pub fn aqua_style(&self) -> bool {
+        self.sidebar_style == "aqua"
     }
     pub fn save(&self) -> std::io::Result<()> {
         let p = Self::file();
@@ -592,6 +676,50 @@ impl Config {
         }
     }
 
+    /// Read the file again after it changed on disk. `Err(None)`: nothing usable right now
+    /// (the file is missing or empty — an editor is replacing it); `Err(Some(issue))`: it
+    /// cannot be read or has a syntax error. Either way the caller keeps the configuration
+    /// it already has instead of falling back to the defaults: a half-written file or a
+    /// typo must not reset the Dock, shortcuts and wallpaper of a running session.
+    pub fn reload_checked() -> Result<(Self, Vec<schema::Issue>), Option<schema::Issue>> {
+        let p = Self::file();
+        let s = match std::fs::read_to_string(&p) {
+            Ok(s) => s,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(None),
+            Err(e) => {
+                return Err(Some(schema::Issue { path: String::new(), message: format!("cannot be read: {e}") }))
+            }
+        };
+        if s.trim().is_empty() {
+            return Err(None);
+        }
+        Self::from_toml_lenient(&s).map_err(|e| {
+            Some(schema::Issue {
+                path: String::new(),
+                message: format!("syntax error, the previous settings stay in effect: {e}"),
+            })
+        })
+    }
+
+    /// The current file for a read-modify-write update (`None` when it cannot be parsed
+    /// right now: callers then start from their in-memory copy, so a broken or half-written
+    /// file is never silently replaced by the defaults). A missing file means defaults.
+    pub fn load_for_update() -> Option<Self> {
+        if !Self::file().exists() {
+            return Some(Self::default());
+        }
+        match Self::reload_checked() {
+            Ok((c, _)) => Some(c),
+            Err(_) => {
+                let p = Self::file();
+                if std::fs::metadata(&p).map(|m| m.len() > 0).unwrap_or(false) {
+                    let _ = std::fs::copy(&p, p.with_extension("toml.bad"));
+                }
+                None
+            }
+        }
+    }
+
     pub fn load() -> Self {
         let (c, issues) = Self::load_checked();
         for i in &issues {
@@ -639,9 +767,6 @@ pub mod metrics {
     pub const ICON_BODY: f32 = 824.0 / 1024.0;
 }
 
-fn one() -> f32 {
-    1.0
-}
 
 pub fn accent_rgb(name: &str) -> (f32, f32, f32) {
     match name {
@@ -674,13 +799,40 @@ pub fn auto_dark_now() -> bool {
 pub fn anim_slow() -> f32 {
     static SLOW: std::sync::OnceLock<f32> = std::sync::OnceLock::new();
     *SLOW.get_or_init(|| {
-        std::env::var("AQUA_ANIM_SLOW").ok().and_then(|v| v.parse::<f32>().ok()).unwrap_or(1.0).max(0.05)
+        std::env::var("AQUA_ANIM_SLOW").ok().and_then(|v| v.parse::<f32>().ok()).filter(|v| v.is_finite()).unwrap_or(1.0).clamp(0.05, 100.0)
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Live reload and read-modify-write never fall back to the defaults while the file is
+    /// broken, empty (being rewritten) or missing.
+    #[test]
+    fn reload_keeps_settings_of_a_broken_file() {
+        let d = std::env::temp_dir().join(format!("aqua-cfg-reload-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let f = d.join("config.toml");
+        std::env::set_var("AQUA_CONFIG", &f);
+        assert!(matches!(Config::reload_checked(), Err(None)), "missing file");
+        assert_eq!(Config::load_for_update().map(|c| c.dock_icon_size), Some(Config::default().dock_icon_size));
+        std::fs::write(&f, "").unwrap();
+        assert!(matches!(Config::reload_checked(), Err(None)), "empty file");
+        assert!(Config::load_for_update().is_none());
+        std::fs::write(&f, "dock_icon_size = 40.0\nclock_24h = [\n").unwrap();
+        assert!(matches!(Config::reload_checked(), Err(Some(_))), "syntax error");
+        assert!(Config::load_for_update().is_none());
+        assert!(f.with_extension("toml.bad").exists(), "broken file is backed up");
+        std::fs::write(&f, "dock_icon_size = 40.0\n").unwrap();
+        let (c, issues) = Config::reload_checked().unwrap();
+        assert_eq!(c.dock_icon_size, 40.0);
+        assert!(issues.is_empty());
+        assert_eq!(Config::load_for_update().unwrap().dock_icon_size, 40.0);
+        std::env::remove_var("AQUA_CONFIG");
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     #[test]
     fn empty_file_gives_defaults() {
@@ -733,6 +885,17 @@ mod tests {
         let f = c.dock.iter().find(|d| d.icon == "builtin:finder").unwrap();
         assert!(f.exec.starts_with("aqua-finder|"));
         assert_eq!(&f.ids[..2], &["org.aqua.finder".to_string(), "aqua-finder".to_string()]);
+    }
+
+    #[test]
+    fn aqua_style_becomes_the_default() {
+        assert!(Config::default().aqua_style() && Config::default().solid_sidebar());
+        let old = |style: &str| Config::from_toml(&format!("version = 2\nsidebar_style = \"{style}\"\n")).unwrap();
+        assert_eq!(old("floating").sidebar_style, "aqua");
+        assert_eq!(old("solid").sidebar_style, "aqua");
+        // once migrated, an explicit choice of the island sidebar sticks
+        let c = Config::from_toml("version = 3\nsidebar_style = \"floating\"\n").unwrap();
+        assert!(!c.aqua_style() && !c.solid_sidebar());
     }
 
     #[test]

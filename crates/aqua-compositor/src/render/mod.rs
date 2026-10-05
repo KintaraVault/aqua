@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::state::{is_ssd, meta, title_of, Aqua};
-use aqua_config::{metrics, GlassStyle, Rgba};
+use aqua_config::{material::Material, metrics, GlassStyle, Rgba};
 use aqua_gfx::Pixmap;
 use aqua_render::{aqua_style::GlassStyleLike, GlassElement, GlassParams, RoundedElement, Shaders};
 use aqua_shell::LayerId;
@@ -70,7 +70,7 @@ pub struct Ghost {
     pub buffer_scale: i32,
     pub transform: Transform,
     pub frame: Rectangle<i32, Logical>,
-    pub titlebar: Option<MemoryRenderBuffer>,
+    pub titlebar: Option<(MemoryRenderBuffer, (u32, u32))>,
     pub start: Instant,
 }
 
@@ -91,6 +91,8 @@ enum GlassKey {
     Layer(LayerId, usize),
     Window(u64),
     Client(u64, u8),
+    /// `aqua_glass_v1` shape of a window.
+    App(u64, u8),
     Mission,
     TilePreview,
 }
@@ -131,7 +133,7 @@ pub struct RenderCache {
     layers: HashMap<LayerId, (u64, MemoryRenderBuffer, Instant)>,
     /// Bytes released by cache pruning since the last `malloc_trim`.
     pub freed: usize,
-    titlebars: HashMap<u64, (u64, MemoryRenderBuffer)>,
+    titlebars: HashMap<u64, (u64, MemoryRenderBuffer, (u32, u32))>,
     shadows: HashMap<u64, (u64, PixelShaderElement)>,
     glass: HashMap<GlassKey, GlassSlot>,
     pub cursor: HashMap<(crate::input::cursors::Shape, u64), MemoryRenderBuffer>,
@@ -153,6 +155,9 @@ pub struct RenderCache {
     /// Whole-surface-tree renders of windows whose content lives in subsurfaces
     /// (Firefox, Zen, other Gecko/GTK browsers): used for thumbnails, genie, close fade.
     pub composites: HashMap<u64, (Instant, Snap)>,
+    /// The whole window as drawn on screen (shadow, frame, title bar, content), frozen
+    /// when a minimise/restore starts, for the genie effect: (animation start, card).
+    pub genie_cards: HashMap<u64, (Instant, GenieCard)>,
     /// Offscreen capture targets by output name (dropped a few seconds after the last use).
     offscreen: HashMap<String, OffscreenTarget>,
     /// Where a dragged window will tile when released (drawn behind it).
@@ -163,6 +168,8 @@ pub struct RenderCache {
 
 pub struct FileDragImage {
     pub buf: MemoryRenderBuffer,
+    /// Pixel size of `buf`.
+    pub px: (u32, u32),
     pub alive: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
@@ -176,6 +183,18 @@ pub struct Snap {
     pub dst: Size<i32, Logical>,
     pub buffer_scale: i32,
     pub transform: Transform,
+}
+
+/// A window rendered offscreen with its decorations and shadow (see `genie_card`).
+#[derive(Clone)]
+pub struct GenieCard {
+    pub tex: GlesTexture,
+    /// Logical rect the texture covers (the frame plus the shadow margin).
+    pub rect: Rectangle<f64, Logical>,
+    /// The window frame (title bar + surface) inside `rect`.
+    pub frame: Rectangle<f64, Logical>,
+    /// Texture size in pixels.
+    pub px: Size<i32, Physical>,
 }
 
 fn has_subsurfaces(s: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface) -> bool {
@@ -210,6 +229,7 @@ impl Default for RenderCache {
             ghosts: vec![],
             ctx: None,
             composites: HashMap::new(),
+            genie_cards: HashMap::new(),
             offscreen: HashMap::new(),
             tile_preview: None,
             zoom_hover: None,
@@ -234,7 +254,7 @@ impl Aqua {
             // give the thumbnail the same frame material the window has on stage
             if is_ssd(&w) {
                 let id = meta(&w).borrow().id;
-                let p = glass_params(&window_glass(radius, false, self.shell.style.dark), scale as f32);
+                let p = glass_params(&self.window_glass(radius, false), scale as f32);
                 if let Some(e) = self.render_cache.glass_el(GlassKey::Window(id), to_phys(r, scale), p, alpha) {
                     out.push(AquaElement::Glass(e));
                 }
@@ -249,23 +269,25 @@ impl Aqua {
         if p.animating() {
             self.needs_redraw = true;
         }
-        let dark = self.cfg.dark;
-        let g = GlassStyle {
-            blur: 18.0,
-            tint: if dark { Rgba(0.55, 0.58, 0.66, 0.22) } else { Rgba(1.0, 1.0, 1.0, 0.30) },
-            saturation: 1.25,
-            refraction: 0.0,
-            bevel: 0.0,
-            rim: 0.9,
-            radius: 16.0,
-            shadow: 0.0,
-            max_luma: 1.0,
-        };
+        let g = self.cfg.glass.material(Material::TilePreview, self.shell.style.dark);
         let params = glass_params(&g, scale as f32);
         if let Some(e) = self.render_cache.glass_el(GlassKey::TilePreview, to_phys(r, scale), params, alpha) {
             out.push(AquaElement::Glass(e));
         }
     }
+}
+
+/// Source rect covering a whole `w`×`h` pixel buffer created by [`buffer_from_pixmap`].
+///
+/// smithay defaults the source to the *destination* size, i.e. it assumes one buffer pixel
+/// per logical pixel. Our pixmaps are drawn at physical resolution, so at scale 2 only the
+/// top-left quarter was shown (blown up), and below 1 the edges were smeared.
+pub fn full_src(w: impl Into<f64>, h: impl Into<f64>) -> Option<Rectangle<f64, Logical>> {
+    Some(Rectangle::from_size((w.into(), h.into()).into()))
+}
+
+pub fn pixmap_src(pm: &Pixmap) -> Option<Rectangle<f64, Logical>> {
+    full_src(pm.width(), pm.height())
 }
 
 pub fn buffer_from_pixmap(pm: &Pixmap, opaque: bool) -> MemoryRenderBuffer {
@@ -279,13 +301,26 @@ pub fn glass_params(g: &GlassStyle, scale: f32) -> GlassParams {
     GlassParams::from_style(
         &GlassStyleLike {
             radius: g.radius,
+            roundness: g.roundness,
             blur: g.blur,
             tint: [r, gg, b, a],
             saturation: g.saturation,
-            refraction: g.refraction,
-            bevel: g.bevel,
-            rim: g.rim,
             max_luma: g.max_luma,
+            thickness: g.thickness,
+            refraction: g.refraction,
+            ior: g.ior,
+            dispersion: g.dispersion,
+            blur_edge: g.blur_edge,
+            rim: g.rim,
+            fresnel: g.fresnel,
+            fresnel_range: g.fresnel_range,
+            fresnel_hardness: g.fresnel_hardness,
+            glare: g.glare,
+            glare_range: g.glare_range,
+            glare_hardness: g.glare_hardness,
+            glare_convergence: g.glare_convergence,
+            glare_opposite: g.glare_opposite,
+            glare_angle: g.glare_angle,
         },
         scale,
     )
@@ -299,44 +334,16 @@ fn to_phys(r: Rectangle<f64, Logical>, s: f64) -> Rectangle<i32, Physical> {
     Rectangle::new((x0, y0).into(), (x1 - x0, y1 - y0).into())
 }
 
-/// Material behind client-requested blur regions: no tint of its own (the app's pixels
-/// are the tint), strong blur + saturation.
-fn client_glass(radius: f32, dark: bool) -> GlassStyle {
-    GlassStyle {
-        blur: 40.0,
-        tint: if dark { Rgba(0.10, 0.10, 0.12, 0.10) } else { Rgba(1.0, 1.0, 1.0, 0.10) },
-        saturation: 1.9,
-        refraction: 0.0,
-        bevel: 0.0,
-        rim: 0.0,
-        radius,
-        shadow: 0.0,
-        max_luma: 1.0,
+impl Aqua {
+    /// Material behind client-requested blur regions (third-party apps): no tint of its own
+    /// (the app's pixels are the tint), strong blur + saturation, no lens.
+    pub(crate) fn client_glass(&self, radius: f32) -> GlassStyle {
+        self.cfg.glass.material(Material::Backdrop, self.shell.style.dark).with_radius(radius)
     }
-}
 
-/// Material used for window chrome (titlebar + frame behind translucent clients).
-fn window_glass(radius: f32, focused: bool, dark: bool) -> GlassStyle {
-    GlassStyle {
-        blur: 34.0,
-        tint: if dark {
-            if focused {
-                Rgba(0.16, 0.16, 0.18, 0.88)
-            } else {
-                Rgba(0.14, 0.14, 0.15, 0.92)
-            }
-        } else if focused {
-            Rgba(0.965, 0.965, 0.975, 0.86)
-        } else {
-            Rgba(0.94, 0.94, 0.95, 0.90)
-        },
-        saturation: 1.8,
-        refraction: 0.0,
-        bevel: 6.0,
-        rim: 0.35,
-        radius,
-        shadow: 0.0,
-        max_luma: 1.0,
+    /// Material used for window chrome (titlebar + frame behind server-side decorated clients).
+    pub(crate) fn window_glass(&self, radius: f32, focused: bool) -> GlassStyle {
+        self.cfg.glass.material(Material::WindowFrame { focused }, self.shell.style.dark).with_radius(radius)
     }
 }
 
@@ -479,17 +486,7 @@ impl Aqua {
         let mc = self.mission.progress();
         if mc > 0.0 {
             let (ow, oh) = self.output_size();
-            let g = GlassStyle {
-                blur: 30.0,
-                tint: Rgba(0.04, 0.05, 0.10, 0.38),
-                saturation: 1.3,
-                refraction: 0.0,
-                bevel: 0.0,
-                rim: 0.0,
-                radius: 0.0,
-                shadow: 0.0,
-                max_luma: 1.0,
-            };
+            let g = self.cfg.glass.material(Material::Overlay, self.shell.style.dark);
             let p = glass_params(&g, sf);
             let full = to_phys(Rectangle::<f64, Logical>::new((0.0, 0.0).into(), (ow as f64, oh as f64).into()), scale);
             if let Some(e) = self.render_cache.glass_el(GlassKey::Mission, full, p, mc) {
@@ -586,7 +583,15 @@ impl Aqua {
     pub fn prune_render_cache(&mut self) {
         let ids: std::collections::HashSet<u64> =
             self.space.elements().chain(self.minimized.iter()).chain(self.stage.staged.iter()).map(|w| meta(w).borrow().id).collect();
+        // genie cards live exactly as long as the minimise / restore they were made for
+        let anims: std::collections::HashMap<u64, Instant> = self
+            .space
+            .elements()
+            .chain(self.minimized.iter())
+            .filter_map(|w| meta(w).borrow().minimizing.map(|(t, _)| (meta(w).borrow().id, t)))
+            .collect();
         let rc = &mut self.render_cache;
+        rc.genie_cards.retain(|k, (t, _)| anims.get(k) == Some(t));
         rc.titlebars.retain(|k, _| ids.contains(k));
         rc.shadows.retain(|k, _| ids.contains(k));
         rc.glass.retain(|k, _| match k {

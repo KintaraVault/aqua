@@ -6,6 +6,8 @@ if [ "$1" = configure ]; then
             echo "warning: $f (from dist/install.sh) shadows /usr/bin — run: sudo ./dist/install.sh --uninstall"
         fi
     done
+    # NVIDIA < 560 (550 LTS in Debian 13 / Ubuntu 24.04) does not enable modesetting
+    [ -x /usr/bin/aqua-nvidia-setup ] && /usr/bin/aqua-nvidia-setup --quiet || true
 fi
 #DEBHELPER#
 exit 0

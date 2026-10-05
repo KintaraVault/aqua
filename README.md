@@ -14,7 +14,7 @@ Aqua is its own Wayland compositor and shell, built on [Smithay](https://github.
 | `aqua-notify` | notification daemon (`org.freedesktop.Notifications`) and XDG settings portal |
 | `aqua-tray` | system tray: `StatusNotifierWatcher`/host, `StatusNotifierItem` + `com.canonical.dbusmenu` |
 | `aqua-shell` | menu bar (`bar/`), dock, panels (`panels/`), shared drawing helpers (`kit/`) — pure 2D layers |
-| `aqua-render` | GLES shaders: glass (blur + refraction + rim + legibility), rounded clip, shadows, genie |
+| `aqua-render` | GLES shaders: Liquid Glass (port of liquid-glass-studio: superellipse lens, Snell refraction, dispersion, Fresnel + glare), rounded clip, shadows, genie |
 | `aqua-i18n` | UI translations (gettext `.po` catalogs compiled in, plural forms, `AQUA_LANG`) |
 | `aqua-wm` | window-management rules as plain, unit-tested data: Spaces, placement, zoom, Mission Control grid |
 | `aqua-screencast` | PipeWire video sources for the ScreenCast portal (optional `screencast` feature, on by default) |
@@ -141,8 +141,19 @@ dock_icon_size = 54.0
 [glass]
 blur = 22.0
 tint = [1.0, 1.0, 1.0, 0.18]
-refraction = 9.0
+refraction = 44.0   # rim displacement in px
+thickness = 16.0    # width of the refracting rim band
+ior = 1.4
+dispersion = 7.0    # colour split at the rim
+fresnel = 0.2
+glare = 0.9
+glare_angle = -45.0
 ```
+One Liquid Glass material is used everywhere: shell surfaces (menu bar, Dock, Control
+Center, menus, widgets…) and Aqua's own apps. Finder, System Settings and the App Store
+hand their sidebars, toolbar capsules and menu windows to the compositor through the
+`aqua_glass_v1` protocol (`protocols/aqua-glass-v1.xml`), so they get exactly the same glass.
+Per-surface variants live in `aqua_config::material`; `[glass]` is the master knob set.
 On first start Aqua installs SF Pro to `~/.local/share/fonts/aqua` and writes GTK/GSettings settings (traffic lights on the left, SF Pro font). It never overwrites files it did not write.
 
 ### Windows, Dock and pointer

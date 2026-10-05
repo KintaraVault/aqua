@@ -1,15 +1,24 @@
 //! Aqua system apps (Rust + Slint): System Settings, file chooser, polkit agent, greeter.
 slint::include_modules!();
 pub mod finder;
+pub mod glass;
 pub mod sysdata;
 
 pub use aqua_i18n::{ntr, plural, tr, trf};
 
-/// Switch every app's sidebar between the floating island and the full-height solid style
-/// (saved to aqua.toml; open windows follow within a second via `apply_theme!`).
-pub fn set_sidebar_style(solid: bool) {
-    let mut cfg = aqua_config::Config::load();
-    let v = if solid { "solid" } else { "floating" };
+/// Switch every app between the Aqua style (0), the floating island sidebar (1) and the
+/// full-height solid sidebar (2) (saved to aqua.toml; open windows follow within a second
+/// via `apply_theme!`).
+pub fn set_sidebar_style(style: i32) {
+    let Some(mut cfg) = aqua_config::Config::load_for_update() else {
+        eprintln!("cannot save sidebar style: config.toml has errors (aqua check-config)");
+        return;
+    };
+    let v = match style {
+        1 => "floating",
+        2 => "solid",
+        _ => "aqua",
+    };
     if cfg.sidebar_style != v {
         cfg.sidebar_style = v.into();
         if let Err(e) = cfg.save() {
@@ -27,6 +36,8 @@ macro_rules! apply_theme {
         t.set_dark($crate::is_dark(&cfg));
         t.set_accent($crate::accent_color(&cfg.accent));
         t.set_solid_sidebar(cfg.solid_sidebar());
+        t.set_aqua(cfg.aqua_style());
+        t.set_window_glass(cfg.window_glass);
         t.set_glass_controls(cfg.glass_controls);
         t.set_glass_lights(cfg.glass_traffic_lights);
         t.set_motion(!cfg.reduce_motion);
@@ -43,7 +54,8 @@ macro_rules! apply_theme {
                 }
                 last.set(mt);
                 let Some(u) = weak.upgrade() else { return };
-                let cfg = aqua_config::Config::load();
+                // A broken or half-written file keeps the current look.
+                let Ok((cfg, _)) = aqua_config::Config::reload_checked() else { return };
                 let t = u.global::<$crate::Theme>();
                 let d = $crate::is_dark(&cfg);
                 if t.get_dark() != d {
@@ -55,6 +67,12 @@ macro_rules! apply_theme {
                 }
                 if t.get_solid_sidebar() != cfg.solid_sidebar() {
                     t.set_solid_sidebar(cfg.solid_sidebar());
+                }
+                if t.get_aqua() != cfg.aqua_style() {
+                    t.set_aqua(cfg.aqua_style());
+                }
+                if t.get_window_glass() != cfg.window_glass {
+                    t.set_window_glass(cfg.window_glass);
                 }
                 if t.get_glass_controls() != cfg.glass_controls {
                     t.set_glass_controls(cfg.glass_controls);

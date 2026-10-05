@@ -4,6 +4,20 @@ use crate::state::Aqua;
 use smithay::reexports::calloop::EventLoop;
 use std::time::Duration;
 
+/// The oldest representable `Instant` before `now` (binary search on checked_sub).
+fn earliest(now: std::time::Instant) -> std::time::Instant {
+    let (mut lo, mut hi) = (0u64, u64::MAX / 2);
+    while lo < hi {
+        let mid = lo + (hi - lo).div_ceil(2);
+        if now.checked_sub(Duration::from_secs(mid)).is_some() {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    now - Duration::from_secs(lo)
+}
+
 pub fn schedule_test_hooks(event_loop: &mut EventLoop<'static, Aqua>, args: &Args) {
     use smithay::reexports::calloop::timer::{TimeoutAction, Timer};
     if let Some((path, after)) = args.screenshot.clone() {
@@ -74,6 +88,8 @@ impl Aqua {
                 crate::state::meta(w).borrow().tiled.map(|t| t.name()),
                 crate::wayland::appmenu::window_address(w)
             );
+            let blur = w.toplevel().and_then(|t| crate::wayland::blur::region(t.wl_surface()));
+            let _ = writeln!(o, "  surface geo={:?} blur={blur:?}", w.geometry());
         }
         let addr = focused.as_ref().and_then(|w| self.app_menu_address(w));
         let menus = aqua_tray::appmenu::current()
@@ -94,6 +110,18 @@ impl Aqua {
             self.stage_slots().iter().map(|(a, _)| a.clone()).collect::<Vec<_>>(),
             self.stage.staged.len()
         );
+        for it in aqua_shell::dock::visible_items(&self.shell) {
+            let wins: Vec<u64> =
+                self.shell.windows.iter().filter(|w| it.matches(&w.app_id)).map(|w| w.id).collect();
+            let _ = writeln!(
+                o,
+                "dock kind={:?} name={:?} app={:?} pinned={} icon_id={:?} icon={:?} windows={wins:?}",
+                it.kind, it.name, it.app, it.pinned, it.icon.id, it.icon.icon
+            );
+        }
+        for w in &self.shell.windows {
+            let _ = writeln!(o, "shellwin id={} app={:?} title={:?} min={}", w.id, w.app_id, w.title, w.minimized);
+        }
         let _ = writeln!(o, "clipboard_entries={}", self.clip.entries.len());
         for e in self.clip.entries.iter().take(5) {
             let _ = writeln!(
@@ -113,7 +141,9 @@ impl Aqua {
         let mut p = line.splitn(2, ' ');
         let cmd = p.next().unwrap_or("");
         let rest = p.next().unwrap_or("").trim();
-        let nums: Vec<f64> = rest.split_whitespace().filter_map(|s| s.parse().ok()).collect();
+        // NaN/inf would put the pointer nowhere (every later clamp keeps NaN)
+        let nums: Vec<f64> =
+            rest.split_whitespace().filter_map(|s| s.parse::<f64>().ok()).filter(|v| v.is_finite()).collect();
         let t = smithay::backend::input::InputTime::now();
         match cmd {
             "move" if nums.len() >= 2 => self.on_motion((nums[0], nums[1]).into(), t),
@@ -255,6 +285,8 @@ impl Aqua {
                         if let (Some(o), Ok(v)) =
                             (self.outputs.list.iter().find(|o| o.name() == *name).cloned(), sc.parse::<f64>())
                         {
+                            // 0, negative or NaN scales turned every logical size into garbage
+                            let v = if v.is_finite() { v.clamp(0.5, 4.0) } else { 1.0 };
                             o.change_current_state(None, None, Some(smithay::output::Scale::Fractional(v)), None);
                             self.arrange_outputs();
                         }
@@ -264,7 +296,9 @@ impl Aqua {
             }
             "idle" => {
                 if let Ok(n) = rest.parse::<u64>() {
-                    self.idle.last = std::time::Instant::now() - std::time::Duration::from_secs(n);
+                    // `Instant - huge` panics; the boot time is as idle as it gets
+                    let now = std::time::Instant::now();
+                    self.idle.last = now.checked_sub(Duration::from_secs(n)).unwrap_or_else(|| earliest(now));
                     self.tick_idle();
                 }
             }
@@ -279,5 +313,15 @@ impl Aqua {
             _ => tracing::warn!("unknown control command: {line}"),
         }
         self.needs_redraw = true;
+    }
+}
+
+#[cfg(test)]
+mod earliest_tests {
+    #[test]
+    fn earliest_instant_does_not_panic() {
+        let now = std::time::Instant::now();
+        let e = super::earliest(now);
+        assert!(e <= now && now.duration_since(e).as_secs() > 1_000_000_000);
     }
 }

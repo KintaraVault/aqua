@@ -255,20 +255,36 @@ impl Fonts {
         font.as_scaled(Self::px_scale(font, size)).ascent()
     }
 
+    /// `s` shortened with "…" to fit `max` px. Binary search over the prefix length: window
+    /// titles can be thousands of characters long (a browser tab with a data: URL), and
+    /// re-measuring after every dropped character froze the compositor for seconds.
     pub fn ellipsize(&self, s: &str, size: f32, w: Weight, max: f32) -> String {
         let s = translate(s);
-        if self.measure(s, size, w) <= max {
+        // No glyph is narrower than ~1 px, so longer prefixes can never fit.
+        let cap = (max.max(0.0) as usize).saturating_add(2);
+        let head: &str = match s.char_indices().nth(cap) {
+            Some((i, _)) => &s[..i],
+            None => s,
+        };
+        if head.len() == s.len() && self.measure(s, size, w) <= max {
             return s.to_string();
         }
-        let mut chars: Vec<char> = s.chars().collect();
-        while !chars.is_empty() {
-            chars.pop();
-            let t: String = chars.iter().collect::<String>().trim_end().to_string() + "…";
-            if self.measure(&t, size, w) <= max {
-                return t;
+        let chars: Vec<char> = head.chars().collect();
+        let cand = |k: usize| chars[..k].iter().collect::<String>().trim_end().to_string() + "…";
+        let (mut lo, mut hi) = (0usize, chars.len().saturating_sub(1));
+        if hi == 0 || self.measure(&cand(1), size, w) > max {
+            return "…".into();
+        }
+        lo = lo.max(1);
+        while lo < hi {
+            let mid = (lo + hi).div_ceil(2);
+            if self.measure(&cand(mid), size, w) <= max {
+                lo = mid;
+            } else {
+                hi = mid - 1;
             }
         }
-        "…".into()
+        cand(lo)
     }
 
     /// Decoded colour glyph (PNG strike) of a fallback font.
@@ -529,4 +545,35 @@ fn fc_font_for(c: char) -> Option<PathBuf> {
         }
     }
     best.map(|(_, p)| p)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fonts() -> Fonts {
+        Fonts::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/fonts"))
+    }
+
+    #[test]
+    fn ellipsize_fits_and_keeps_short_text() {
+        let f = fonts();
+        assert_eq!(f.ellipsize("Finder", 13.0, Weight::Regular, 500.0), "Finder");
+        let long = "Очень длинный заголовок окна ".repeat(20);
+        let e = f.ellipsize(&long, 13.0, Weight::Regular, 200.0);
+        assert!(e.ends_with('…') && e.chars().count() > 5, "{e}");
+        assert!(f.measure(&e, 13.0, Weight::Regular) <= 200.0);
+        assert_eq!(f.ellipsize("abc", 13.0, Weight::Regular, 1.0), "…");
+        assert_eq!(f.ellipsize("", 13.0, Weight::Regular, 0.0), "");
+    }
+
+    #[test]
+    fn ellipsize_huge_titles_quickly() {
+        let f = fonts();
+        let title = "data:text/html;base64,".to_string() + &"QUFB".repeat(50_000);
+        let t0 = std::time::Instant::now();
+        let e = f.ellipsize(&title, 13.0, Weight::Semibold, 600.0);
+        assert!(e.ends_with('…'));
+        assert!(t0.elapsed() < std::time::Duration::from_millis(500), "{:?}", t0.elapsed());
+    }
 }

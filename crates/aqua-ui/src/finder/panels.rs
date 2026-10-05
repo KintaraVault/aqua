@@ -6,7 +6,7 @@ fn opt(id: &str, label: &str, on: bool) -> FOpt {
 }
 
 fn load_large(p: &Path) -> Option<Image> {
-    let img = image::open(p).ok()?;
+    let img = aqua_gfx::decode_limited(&aqua_gfx::read_regular(p, 512 << 20)?)?;
     let img = if img.width() > 1600 || img.height() > 1600 { img.thumbnail(1600, 1600) } else { img };
     let rgba = img.to_rgba8();
     let (w, h) = rgba.dimensions();
@@ -24,7 +24,7 @@ fn rgba_image(w: u32, h: u32, data: &[u8]) -> Image {
 
 fn read_text(p: &Path) -> Option<String> {
     use std::io::Read;
-    let mut f = std::fs::File::open(p).ok()?;
+    let mut f = super::thumbs::open_regular(p)?;
     let mut buf = vec![0u8; 96 * 1024];
     let n = f.read(&mut buf).ok()?;
     buf.truncate(n);
@@ -329,7 +329,7 @@ impl App {
             "defaults" => {}
             "new-window" => self.st.new_window = v.clamp(0, 4),
             "scope" => self.st.scope = v.clamp(0, 2),
-            "side-style" => crate::set_sidebar_style(v == 1),
+            "side-style" => crate::set_sidebar_style(v),
             "general:open-tabs" => self.st.open_tabs = on,
             "adv:show-ext" => {
                 self.st.show_ext = on;

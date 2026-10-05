@@ -211,7 +211,7 @@ impl App {
         }
         let (owner, group, uid, _) = fs::owner_group(&e.path);
         let me = unsafe { libc::getuid() };
-        let owner = if uid == me { crate::trf("{name} (Me)", &[("name", &owner)]) } else { owner };
+        let (owner, group) = share_names(&owner, &group, uid == me);
         w.set_perms(model(vec![
             FInfo { who: "owner".into(), name: owner.into(), level: fs::access_level(e.mode, 0) },
             FInfo { who: "group".into(), name: group.into(), level: fs::access_level(e.mode, 1) },
@@ -391,5 +391,26 @@ impl App {
                 );
             }
         }
+    }
+}
+
+/// Names of the owner and group rows of "Sharing & Permissions". On most Linux systems a
+/// user's files belong to a private group of the same name; label it as the group so the
+/// two rows do not read as the same person twice ("valance (Me)", "valance").
+pub fn share_names(owner: &str, group: &str, mine: bool) -> (String, String) {
+    let o = if mine { crate::trf("{name} (Me)", &[("name", &owner)]) } else { owner.to_string() };
+    let g = if group == owner { crate::trf("{name} (group)", &[("name", &group)]) } else { group.to_string() };
+    (o, g)
+}
+
+#[cfg(test)]
+mod share_tests {
+    #[test]
+    fn private_group_is_not_shown_as_a_second_user() {
+        let (o, g) = super::share_names("valance", "valance", true);
+        assert_eq!(o, "valance (Me)");
+        assert_eq!(g, "valance (group)");
+        assert_ne!(o.replace(" (Me)", ""), g);
+        assert_eq!(super::share_names("root", "wheel", false), ("root".into(), "wheel".into()));
     }
 }

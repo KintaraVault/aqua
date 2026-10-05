@@ -113,13 +113,14 @@ impl Aqua {
         size: (i32, i32),
     ) {
         let dk = self.ensure_wallpapers();
+        let src = crate::render::pixmap_src(&self.wallpaper);
         if let Some((_, nb)) = self.render_cache.wallpaper_night.as_ref().filter(|_| dk > 0.0) {
             if let Ok(e) = MemoryRenderBufferRenderElement::from_buffer(
                 renderer,
                 (0.0, 0.0),
                 nb,
                 Some(dk),
-                None,
+                src,
                 Some(size.into()),
                 Kind::Unspecified,
             ) {
@@ -132,7 +133,7 @@ impl Aqua {
                 (0.0, 0.0),
                 buf,
                 None,
-                None,
+                src,
                 Some(size.into()),
                 Kind::Unspecified,
             ) {
@@ -176,7 +177,7 @@ impl Aqua {
             loc,
             &buf,
             Some(l.opacity),
-            None,
+            crate::render::pixmap_src(&l.content),
             Some(size),
             Kind::Unspecified,
         ) {

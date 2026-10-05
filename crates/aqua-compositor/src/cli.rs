@@ -125,10 +125,10 @@ pub fn parse_from(args: impl IntoIterator<Item = String>, tty: bool) -> Result<A
                     a.size = size;
                 }
             }
-            "--scale" => a.scale = it.next().and_then(|s| s.parse().ok()).unwrap_or(1.0),
+            "--scale" => a.scale = it.next().and_then(|s| secs(&s)).filter(|v| *v > 0.0).unwrap_or(1.0).clamp(0.5, 4.0),
             "--screenshot" => shot_path = it.next(),
-            "--after" => after = it.next().and_then(|s| s.parse().ok()).unwrap_or(3.0),
-            "--quit-after" => a.quit_after = it.next().and_then(|s| s.parse().ok()),
+            "--after" => after = it.next().and_then(|s| secs(&s)).unwrap_or(3.0),
+            "--quit-after" => a.quit_after = it.next().and_then(|s| secs(&s)),
             "-h" | "--help" => return Err(Help),
             _ => eprintln!("unknown argument {arg}"),
         }
@@ -139,11 +139,16 @@ pub fn parse_from(args: impl IntoIterator<Item = String>, tty: bool) -> Result<A
     Ok(a)
 }
 
+/// A finite, non-negative number (`Duration::from_secs_f64` panics on NaN, ∞ and negatives).
+fn secs(s: &str) -> Option<f64> {
+    s.parse::<f64>().ok().filter(|v| v.is_finite() && *v >= 0.0).map(|v| v.min(1e7))
+}
+
 /// "1280x800" → (1280, 800); both sides must be positive.
 fn parse_size(s: &str) -> Option<(i32, i32)> {
     let (w, h) = s.split_once(['x', 'X'])?;
     let (w, h) = (w.trim().parse().ok()?, h.trim().parse().ok()?);
-    (w > 0 && h > 0).then_some((w, h))
+    (w > 0 && h > 0 && w <= 16384 && h <= 16384).then_some((w, h))
 }
 
 #[cfg(test)]
@@ -185,6 +190,21 @@ mod tests {
         assert_eq!(a.scale, 1.0);
         assert_eq!(args("--size 800X600").unwrap().size, (800, 600));
         assert_eq!(args("--screenshot x.png").unwrap().screenshot, Some(("x.png".to_string(), 3.0)));
+    }
+
+    #[test]
+    fn hostile_numbers_never_reach_the_timers() {
+        let a = args("--scale NaN --after -1 --quit-after inf --screenshot s.png --size 99999x1").unwrap();
+        assert_eq!(a.scale, 1.0);
+        assert_eq!(a.screenshot, Some(("s.png".to_string(), 3.0)));
+        assert_eq!(a.quit_after, None);
+        assert_eq!(a.size, (1440, 900));
+        assert_eq!(args("--scale 0").unwrap().scale, 1.0);
+        assert_eq!(args("--scale 100").unwrap().scale, 4.0);
+        assert_eq!(args("--quit-after 1e300").unwrap().quit_after, Some(1e7));
+        if let Some((_, after)) = args("--screenshot a --after 0").unwrap().screenshot {
+            let _ = std::time::Duration::from_secs_f64(after);
+        }
     }
 
     #[test]

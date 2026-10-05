@@ -1,5 +1,6 @@
 //! Config ⇄ UI: loading the settings into the window and storing them back.
 use super::*;
+use aqua_config::GlassStyle;
 
 /// Set while System Settings is joining a Wi-Fi network (see `on_wifi_connect`).
 pub static WIFI_CONNECTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -36,8 +37,53 @@ pub fn lerp(t: f32, a: f64, b: f64) -> f64 {
     a + (b - a) * t.clamp(0.0, 1.0) as f64
 }
 
+/// Liquid Glass sliders: (slider value of the style, apply a slider value to the style), in
+/// the order clear, blur, refraction, edges, dispersion, vibrancy.
+pub type GlassKnob = (fn(&GlassStyle) -> f32, fn(&mut GlassStyle, f32));
+pub const GLASS_KNOBS: [GlassKnob; 6] = [
+    (|g| 1.0 - lerp_inv(g.tint.3 as f64, 0.0, 0.35), |g, v| g.tint.3 = lerp(1.0 - v, 0.0, 0.35) as f32),
+    (|g| lerp_inv(g.blur as f64, 0.0, 30.0), |g, v| g.blur = lerp(v, 0.0, 30.0) as f32),
+    (|g| lerp_inv(g.refraction as f64, 0.0, 90.0), |g, v| g.refraction = lerp(v, 0.0, 90.0) as f32),
+    (|g| lerp_inv(g.rim as f64, 0.0, 2.0), |g, v| g.rim = lerp(v, 0.0, 2.0) as f32),
+    (|g| lerp_inv(g.dispersion as f64, 0.0, 20.0), |g, v| g.dispersion = lerp(v, 0.0, 20.0) as f32),
+    (|g| lerp_inv(g.saturation as f64, 0.8, 2.0), |g, v| g.saturation = lerp(v, 0.8, 2.0) as f32),
+];
+
+fn glass_sliders(s: &S<'_>) -> [f32; 6] {
+    [
+        s.get_glass_clear(),
+        s.get_glass_blur(),
+        s.get_glass_refraction(),
+        s.get_glass_edges(),
+        s.get_glass_dispersion(),
+        s.get_glass_vibrancy(),
+    ]
+}
+
+/// Show `g` on the Liquid Glass sliders.
+pub fn load_glass(s: &S<'_>, g: &GlassStyle) {
+    let v: Vec<f32> = GLASS_KNOBS.iter().map(|(get, _)| get(g)).collect();
+    s.set_glass_clear(v[0]);
+    s.set_glass_blur(v[1]);
+    s.set_glass_refraction(v[2]);
+    s.set_glass_edges(v[3]);
+    s.set_glass_dispersion(v[4]);
+    s.set_glass_vibrancy(v[5]);
+}
+
+/// Write the sliders the user moved into `g` (untouched ones keep their exact value, also
+/// one set beyond a slider's range in the file).
+pub fn store_glass(s: &S<'_>, g: &mut GlassStyle) {
+    for ((get, set), v) in GLASS_KNOBS.iter().zip(glass_sliders(s)) {
+        if (get(g) - v).abs() > 1e-3 {
+            set(g, v);
+        }
+    }
+}
+
 pub fn load_into(ui: &SettingsWindow, cfg: &Config) {
     let s = ui.global::<S>();
+    load_glass(&s, &cfg.glass);
     s.set_appearance(match cfg.appearance.as_str() {
         "auto" => 0,
         "dark" => 2,
@@ -62,9 +108,10 @@ pub fn load_into(ui: &SettingsWindow, cfg: &Config) {
     s.set_mb_search(!hid("search"));
     s.set_alert_sound(cfg.alert_sound);
     s.set_window_radius(lerp_inv(cfg.window_radius as f64, 0.0, 30.0));
-    s.set_sidebar_style(if cfg.solid_sidebar() { 1 } else { 0 });
+    s.set_sidebar_style(match cfg.sidebar_style.as_str() { "floating" => 1, "solid" => 2, _ => 0 });
     s.set_glass_controls(cfg.glass_controls);
     s.set_glass_lights(cfg.glass_traffic_lights);
+    s.set_window_glass(cfg.window_glass);
     s.set_dock_size(lerp_inv(cfg.dock_icon_size as f64, 32.0, 96.0));
     s.set_dock_magnify(cfg.dock_magnify);
     s.set_dock_mag(lerp_inv(cfg.dock_magnification as f64, 1.0, 2.5));
@@ -150,9 +197,11 @@ pub fn store_from(ui: &SettingsWindow, cfg: &mut Config) {
     .collect();
     cfg.alert_sound = s.get_alert_sound();
     cfg.window_radius = lerp(s.get_window_radius(), 0.0, 30.0).round() as f32;
-    cfg.sidebar_style = if s.get_sidebar_style() == 1 { "solid" } else { "floating" }.into();
+    cfg.sidebar_style = match s.get_sidebar_style() { 1 => "floating", 2 => "solid", _ => "aqua" }.into();
     cfg.glass_controls = s.get_glass_controls();
     cfg.glass_traffic_lights = s.get_glass_lights();
+    cfg.window_glass = s.get_window_glass();
+    store_glass(&s, &mut cfg.glass);
     cfg.dock_icon_size = lerp(s.get_dock_size(), 32.0, 96.0).round() as f32;
     cfg.dock_magnify = s.get_dock_magnify();
     if s.get_dock_magnify() {
