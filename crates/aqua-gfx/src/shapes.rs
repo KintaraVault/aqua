@@ -20,6 +20,17 @@ pub fn rrect(r: Rect, radius: f32) -> Option<Path> {
     pb.finish()
 }
 
+/// Apple-style corner: the G2 continuous squircle when the shape is long enough for its
+/// 1.528 r extent, otherwise the circular arc (capsules, circles) - the same fallback
+/// QuartzCore's continuous-corner SDF applies.
+pub fn continuous(r: Rect, radius: f32) -> Option<Path> {
+    if radius > 0.0 && 1.528 * radius <= r.w.min(r.h) / 2.0 + 1e-3 {
+        squircle(r, radius)
+    } else {
+        rrect(r, radius)
+    }
+}
+
 /// "continuous corner" squircle (the curvature-continuous rounded rect used for app
 /// icons, windows and the dock).
 pub fn squircle(r: Rect, radius: f32) -> Option<Path> {

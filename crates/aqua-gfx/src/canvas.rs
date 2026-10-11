@@ -50,6 +50,17 @@ impl Canvas {
             self.fill_path(&p, paint);
         }
     }
+    /// Rounded rect with Apple's continuous (squircle) corners, see [`shapes::continuous`].
+    pub fn fill_continuous(&mut self, r: Rect, radius: f32, color: Color) {
+        if let Some(p) = shapes::continuous(r, radius) {
+            self.fill_path(&p, &solid(color));
+        }
+    }
+    pub fn stroke_continuous(&mut self, r: Rect, radius: f32, color: Color, width: f32) {
+        if let Some(p) = shapes::continuous(r, radius) {
+            self.stroke_path(&p, &solid(color), width);
+        }
+    }
     pub fn stroke_rrect(&mut self, r: Rect, radius: f32, color: Color, width: f32) {
         if let Some(p) = shapes::rrect(r, radius) {
             self.stroke_path(&p, &solid(color), width);

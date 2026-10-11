@@ -93,6 +93,20 @@ pub struct Highlight {
     /// Band height in points.
     pub height: f32,
     pub curvature: f32,
+    /// Rim model (linuxtosh reconstruction, see `glass_background_sdf.frag` wrapper):
+    /// `Additive` = key/fill light added on top (Dock, menus, windows);
+    /// `SoftLight` = Control Center modules: a 1 pt top-left bevel blended in soft light so
+    /// the backdrop shows through, a dim penumbra bottom-right.
+    pub rim: Rim,
+}
+
+/// How [`Highlight`] is composited onto the glass.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Rim {
+    Additive,
+    /// `white`: straight white mixed over the soft-light result (0.15–0.30);
+    /// `shade`: darkening of the edge facing away from the light.
+    SoftLight { white: f32, shade: f32 },
 }
 
 impl Highlight {
@@ -103,8 +117,12 @@ impl Highlight {
         fill_angle: 3.0 * std::f32::consts::FRAC_PI_4,
         height: 1.0,
         curvature: 0.7,
+        rim: Rim::Additive,
     };
     pub const NONE: Self = Self { key_amount: 0.0, fill_amount: 0.0, ..Self::MAC };
+    /// Control Center modules (fitted to the macOS 26 Control Center capture).
+    pub const CONTROL_CENTER: Self =
+        Self { fill_amount: 1.0, key_amount: 0.5, rim: Rim::SoftLight { white: 0.22, shade: 0.35 }, ..Self::MAC };
 }
 
 /// `glassBackground` filter inputs, lengths in points.
@@ -218,6 +236,9 @@ impl GlassInputs {
                 dock_class(&mut g);
                 g.inner_refraction_height = (0.36 * m).min(20.0);
                 g.inner_refraction_amount = -m.min(60.0);
+                if variant == Variant::ControlCenter {
+                    g.highlight = Highlight::CONTROL_CENTER;
+                }
             }
             Variant::Inspector => {
                 dock_class(&mut g);
@@ -305,7 +326,13 @@ pub fn pack(g: &GlassInputs, f: &Frame) -> [u8; UBO_SIZE] {
     let mut b = [0u8; UBO_SIZE];
     let s = f.scale.max(0.01);
     // SdfFragmentUniforms: mode 4 = supercircle (continuous corners), identity normal transform.
-    for (i, v) in [f.half[0], f.half[1], 4.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, f.radius, 0.0].iter().enumerate() {
+    // Words 8/9 blend each axis from the continuous corner (0) to a circular arc (1) when the
+    // shape is too short for the 1.528 r continuous extent - QuartzCore's own rule (mode 5 code
+    // path: clamp((1.528665 - half / r) * 1.8915572)). Leaving them 0 squashed circles and
+    // capsules into lumpy squircles with a kinked SDF.
+    let t = |h: f32| if f.radius > 0.0 { ((1.528665 - h / f.radius) * 1.891_557_2).clamp(0.0, 1.0) } else { 0.0 };
+    let (tx, ty) = (t(f.half[0]), t(f.half[1]));
+    for (i, v) in [f.half[0], f.half[1], 4.0, 0.0, 1.0, 0.0, 0.0, 1.0, tx, ty, f.radius, 0.0].iter().enumerate() {
         put_f(&mut b, i * 4, *v);
     }
     let o = 48;
@@ -391,6 +418,7 @@ pub struct Programs {
     u_alpha: i32,
     u_hl: i32,
     u_hl2: i32,
+    u_hl3: i32,
     tex: i32,
     a_pos: i32,
     ubo: u32,
@@ -479,6 +507,7 @@ impl Programs {
                 u_alpha: uloc(gl, glass, "u_alpha"),
                 u_hl: uloc(gl, glass, "u_hl"),
                 u_hl2: uloc(gl, glass, "u_hl2"),
+                u_hl3: uloc(gl, glass, "u_hl3"),
                 tex: uloc(gl, glass, "tex3"),
                 a_pos: aloc(gl, glass, "a_pos"),
                 ubo: bufs[0],
@@ -625,6 +654,11 @@ pub unsafe fn draw(gl: &ffi::Gles2, pr: &Programs, pyr: &Pyramid, a: &DrawArgs<'
     gl.Uniform4f(pr.u_hl, h.key_amount, h.fill_amount, h.height * a.scale, h.curvature);
     // CoreAnimation angles are y-up; the shape space here is y-down.
     gl.Uniform4f(pr.u_hl2, h.key_angle.cos(), -h.key_angle.sin(), h.fill_angle.cos(), -h.fill_angle.sin());
+    let (mode, white, shade) = match h.rim {
+        Rim::Additive => (0.0, 0.0, 0.0),
+        Rim::SoftLight { white, shade } => (1.0, white, shade),
+    };
+    gl.Uniform4f(pr.u_hl3, mode, white, shade, 0.0);
     gl.Enable(ffi::BLEND);
     gl.BlendFunc(ffi::ONE, ffi::ONE_MINUS_SRC_ALPHA);
 

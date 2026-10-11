@@ -2024,6 +2024,7 @@ void ltx_apple_main() {
 uniform float u_alpha;
 uniform vec4 u_hl;   // key amount, fill amount, band height px, curvature
 uniform vec4 u_hl2;  // key dir (x, y), fill dir (x, y) in sdf space (y down)
+uniform vec4 u_hl3;  // rim mode (0 additive, 1 soft light), white mix, shade, unused
 void main() {
     ltx_apple_main();
     if (u_hl.x + u_hl.y > 0.0) {
@@ -2033,17 +2034,34 @@ void main() {
         float d = s.x;
         float aa = max(fwidth(d), 1e-4);
         float cov = clamp(0.5 - d / aa, 0.0, 1.0);
-        // Fitted to the macOS 26 Control Center / Dock captures (1x): the rim is ~0.3 brighter on
-        // the outermost pixel and ~0.11 on the next one, on every side (each side is 45 degrees
-        // from one of the two lights), i.e. a band of 2.5 x height with a soft 1.7 power falloff.
-        float band = clamp(1.0 + d / max(2.5 * u_hl.z, 1e-3), 0.0, 1.0);
-        band = pow(band, 1.0 + u_hl.w) * 2.4;
         vec2 n = normalize(s.yz + vec2(1e-6));
-        float spreadk = max(dot(n, u_hl2.xy), 0.0);
-        float spreadf = max(dot(n, u_hl2.zw), 0.0);
-        float light = (u_hl.x * spreadk + u_hl.y * spreadf) * band * cov;
-        out_rt0.rgb += vec3(light) * (1.0 - out_rt0.a * 0.5);
-        out_rt0.a = max(out_rt0.a, light);
+        if (u_hl3.x < 0.5) {
+            // Dock / menus / windows: thin additive key + fill rim.
+            float band = clamp(1.0 + d / max(u_hl.z, 1e-3), 0.0, 1.0);
+            band = pow(band, 1.0 + 4.0 * u_hl.w);
+            float spreadk = max(dot(n, u_hl2.xy), 0.0);
+            float spreadf = max(dot(n, u_hl2.zw), 0.0);
+            float light = (u_hl.x * spreadk + u_hl.y * spreadf) * band * cov;
+            out_rt0.rgb += vec3(light) * (1.0 - out_rt0.a * 0.5);
+            out_rt0.a = max(out_rt0.a, light);
+        } else if (out_rt0.a > 1e-4) {
+            // Control Center modules: a 1 pt bevel lit from the top-left. The band fades to 0
+            // over ~1 px inwards (smoothstep) and is limited to the shape's own coverage, so
+            // the outline is antialiased on both sides and never adds alpha of its own.
+            float w = max(u_hl.z, 1e-3);
+            float band = 1.0 - smoothstep(0.35 * w, 1.6 * w, -d);
+            float t = dot(n, u_hl2.zw);                       // +1 facing the fill light (top-left)
+            float lit = pow(clamp(0.5 + 0.5 * t, 0.0, 1.0), 1.5) * u_hl.y * band;
+            float shade = pow(clamp(-t, 0.0, 1.0), 1.5) * u_hl.x * u_hl3.z * band;
+            vec3 c = clamp(out_rt0.rgb / out_rt0.a, 0.0, 1.0);
+            // W3C soft-light with a white source: lifts dark backdrops more than light ones,
+            // so the backdrop colour keeps showing through the rim.
+            vec3 dd = mix(((16.0 * c - 12.0) * c + 4.0) * c, sqrt(c), step(0.25, c));
+            vec3 r = mix(c, dd, lit);
+            r = mix(r, vec3(1.0), lit * u_hl3.y);
+            r *= 1.0 - shade;
+            out_rt0.rgb = r * out_rt0.a;
+        }
     }
     out_rt0 *= u_alpha;
 }

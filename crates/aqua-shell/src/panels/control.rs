@@ -160,7 +160,7 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
         for (i, (t, r, _round)) in ts.iter().enumerate() {
             let r = r.translate(-p.x, -p.y);
             if cc.hover == Some(i) {
-                c.fill_rrect(r, if r.w == r.h { r.w / 2.0 } else { 22.0 }, rgba(255, 255, 255, 0.10));
+                c.fill_continuous(r, if r.w == r.h { r.w / 2.0 } else { 24.0 }, rgba(255, 255, 255, 0.10));
             }
             let toggle_circle = |c: &mut Canvas, cx: f32, cy: f32, on: bool| {
                 if on {
@@ -203,7 +203,7 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
                 }
                 T::Playing => {
                     let art = Rect::new(r.x + 16.0, r.y + 16.0, 52.0, 52.0);
-                    c.fill_rrect(art, 12.0, rgba(255, 255, 255, 0.22));
+                    c.fill_continuous(art, 12.0, rgba(255, 255, 255, 0.22));
                     if !media.app.is_empty() {
                         let initial: String = media.app.chars().take(1).collect();
                         c.text_in(&f, art, 0.5, 24.0, Weight::Bold, fg, &initial);
@@ -249,8 +249,8 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
                     symbols::skip(c, Rect::new(r.x + 22.0, r.bottom() - 26.0, 20.0, 14.0), dim(media.can_prev), false);
                     if media.playing {
                         let pr = Rect::new(r.cx() - 7.0, r.bottom() - 28.0, 14.0, 17.0);
-                        c.fill_rrect(Rect::new(pr.x, pr.y, 4.5, pr.h), 1.5, fg);
-                        c.fill_rrect(Rect::new(pr.right() - 4.5, pr.y, 4.5, pr.h), 1.5, fg);
+                        c.fill_continuous(Rect::new(pr.x, pr.y, 4.5, pr.h), 1.5, fg);
+                        c.fill_continuous(Rect::new(pr.right() - 4.5, pr.y, 4.5, pr.h), 1.5, fg);
                     } else {
                         symbols::play(
                             c,
@@ -271,7 +271,7 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
                     }
                     let x = r.cx() - 12.0;
                     for k in 0..3 {
-                        c.fill_rrect(Rect::new(x, r.cy() - 10.0 + k as f32 * 7.5, 5.0, 5.0), 1.5, fg);
+                        c.fill_continuous(Rect::new(x, r.cy() - 10.0 + k as f32 * 7.5, 5.0, 5.0), 1.5, fg);
                     }
                     c.stroke_rrect(Rect::new(x + 8.0, r.cy() - 10.0, 16.0, 20.0), 3.0, fg, 1.8);
                 }
@@ -288,9 +288,9 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
                         if *t == T::Display { "Display" } else { "Sound" },
                     );
                     let tr = Rect::new(r.x + 16.0, r.y + 34.0, r.w - 32.0, 22.0);
-                    c.fill_rrect(tr, 11.0, rgba(255, 255, 255, 0.22));
+                    c.fill_continuous(tr, 11.0, rgba(255, 255, 255, 0.22));
                     let fill = Rect::new(tr.x, tr.y, (tr.w * v).max(22.0), tr.h);
-                    c.fill_rrect(fill, 11.0, rgba(255, 255, 255, 0.95));
+                    c.fill_continuous(fill, 11.0, rgba(255, 255, 255, 0.95));
                     let ic = Rect::new(tr.x + 5.0, tr.y + 4.0, 14.0, 14.0);
                     let icol = rgba(90, 90, 96, 0.9);
                     if *t == T::Display {
@@ -339,8 +339,8 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
         let lbl = "Edit Controls";
         let w = f.measure(lbl, 12.5, Weight::Medium) + 22.0;
         let pr = Rect::new((p.w - w) / 2.0, p.h - 30.0, w, 22.0);
-        c.fill_rrect(pr, 11.0, rgba(40, 40, 48, 0.42));
-        c.stroke_rrect(pr, 11.0, rgba(255, 255, 255, 0.35), 1.0);
+        c.fill_continuous(pr, 11.0, rgba(40, 40, 48, 0.42));
+        c.stroke_continuous(pr, 11.0, rgba(255, 255, 255, 0.35), 1.0);
         c.text_in(&f, pr, 0.5, 12.5, Weight::Medium, rgba(255, 255, 255, 0.95), lbl);
     });
     let base = sh.cfg.glass;
