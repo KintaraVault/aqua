@@ -6,7 +6,9 @@ impl Aqua {
     /// both while cross-fading) and drop the other one: a 4K buffer is ~33 MB.
     pub(super) fn ensure_wallpapers(&mut self) -> f32 {
         let wp_serial = self.wallpaper_serial;
-        let dk = self.dark_progress();
+        // macOS shows a user-chosen still image unchanged in Dark Mode; only the built-in
+        // generated wallpaper has a night variant.
+        let dk = if self.cfg.wallpaper.is_some() { 0.0 } else { self.dark_progress() };
         let rc = &mut self.render_cache;
         if dk < 1.0 {
             if rc.wallpaper.as_ref().map(|(s, _)| *s != wp_serial).unwrap_or(true) {
@@ -152,6 +154,8 @@ impl Aqua {
         if l.opacity <= 0.002 {
             return;
         }
+        let out_size = self.output_size();
+        let wallpaper = self.wallpaper.clone();
         let rc = &mut self.render_cache;
         let now = Instant::now();
         let entry = rc.layers.get_mut(&l.id);
@@ -191,6 +195,7 @@ impl Aqua {
         for (i, (r, g)) in l.tiles.iter().enumerate().rev() {
             let mut p = glass_params(g, (scale * zoom) as f32);
             p.blur = g.blur * scale as f32;
+            adapt_to_backdrop(&mut p, &wallpaper, r, out_size);
             if let Some(e) = rc.glass_el(GlassKey::Layer(l.id, i + 1), to_phys(zr(r), scale), p, l.opacity) {
                 out.push(AquaElement::Glass(e));
             }
@@ -198,9 +203,41 @@ impl Aqua {
         if let Some(g) = &l.glass {
             let mut p = glass_params(g, (scale * zoom) as f32);
             p.blur = g.blur * scale as f32;
+            adapt_to_backdrop(&mut p, &wallpaper, &l.rect, out_size);
             if let Some(e) = rc.glass_el(GlassKey::Layer(l.id, 0), to_phys(zr(&l.rect), scale), p, l.opacity) {
                 out.push(AquaElement::Glass(e));
             }
         }
+    }
+}
+
+/// macOS 26 Dock / Control Center glass adapts to what is behind it: over a dark backdrop the
+/// light appearance switches to the dark filter set (verified against the captures: the Dock
+/// over a dark wallpaper in Light Mode matches the dark face matrix within 2 %).
+fn adapt_to_backdrop(p: &mut GlassParams, wp: &Pixmap, r: &aqua_gfx::Rect, out: (i32, i32)) {
+    if p.dark || !matches!(p.variant, 2 | 3 | 7 | 8) {
+        return;
+    }
+    let (ww, wh) = (wp.width() as f32, wp.height() as f32);
+    if ww < 1.0 || out.0 <= 0 || out.1 <= 0 {
+        return;
+    }
+    let (sx, sy) = (ww / out.0 as f32, wh / out.1 as f32);
+    let (mut sum, mut n) = (0.0f32, 0.0f32);
+    for j in 0..6 {
+        for i in 0..24 {
+            let x = ((r.x + r.w * (i as f32 + 0.5) / 24.0) * sx).clamp(0.0, ww - 1.0) as u32;
+            let y = ((r.y + r.h * (j as f32 + 0.5) / 6.0) * sy).clamp(0.0, wh - 1.0) as u32;
+            if let Some(c) = wp.pixel(x, y) {
+                let f = |v: u8| (v as f32 / 255.0).powf(2.2);
+                sum += 0.2126 * f(c.red()) + 0.7152 * f(c.green()) + 0.0722 * f(c.blue());
+                n += 1.0;
+            }
+        }
+    }
+    // The captured Light Mode Dock sat on a backdrop of mean relative luminance 0.27 and still
+    // used the dark face; 0.35 (≈ sRGB 63 % grey) keeps light glass for genuinely light backdrops.
+    if n > 0.0 && sum / n < 0.35 {
+        p.dark = true;
     }
 }

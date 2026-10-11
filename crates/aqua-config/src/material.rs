@@ -70,10 +70,10 @@ impl Material {
 pub fn darken(g: &GlassStyle) -> GlassStyle {
     if g.tint.3 <= 0.001 && g.blur <= 0.5 {
         // clear lenses over app content keep their (absent) tint
-        return GlassStyle { rim: g.rim * 0.8, ..*g };
+        return GlassStyle { rim: g.rim * 0.8, dark: true, ..*g };
     }
     let a = (g.tint.3 * 1.2 + 0.24).min(0.74);
-    GlassStyle { tint: Rgba(0.09, 0.09, 0.11, a), max_luma: g.max_luma.min(0.45), rim: g.rim * 0.75, ..*g }
+    GlassStyle { tint: Rgba(0.09, 0.09, 0.11, a), max_luma: g.max_luma.min(0.45), rim: g.rim * 0.75, dark: true, ..*g }
 }
 
 /// Surface type `m` of the master style `base` (light appearance unless `dark`).

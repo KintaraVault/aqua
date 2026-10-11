@@ -2033,8 +2033,11 @@ void main() {
         float d = s.x;
         float aa = max(fwidth(d), 1e-4);
         float cov = clamp(0.5 - d / aa, 0.0, 1.0);
-        float band = clamp(1.0 + d / max(u_hl.z, 1e-3), 0.0, 1.0);
-        band = pow(band, 1.0 + 4.0 * u_hl.w);
+        // Fitted to the macOS 26 Control Center / Dock captures (1x): the rim is ~0.3 brighter on
+        // the outermost pixel and ~0.11 on the next one, on every side (each side is 45 degrees
+        // from one of the two lights), i.e. a band of 2.5 x height with a soft 1.7 power falloff.
+        float band = clamp(1.0 + d / max(2.5 * u_hl.z, 1e-3), 0.0, 1.0);
+        band = pow(band, 1.0 + u_hl.w) * 2.4;
         vec2 n = normalize(s.yz + vec2(1e-6));
         float spreadk = max(dot(n, u_hl2.xy), 0.0);
         float spreadf = max(dot(n, u_hl2.zw), 0.0);
