@@ -39,6 +39,11 @@ pub struct GlassParams {
     pub glare_opposite: f32,
     /// Light angle in radians.
     pub glare_angle: f32,
+    /// AppKit glass variant code (see [`crate::apple::Variant::from_code`]).
+    pub variant: u8,
+    pub dark: bool,
+    /// Points → physical px of this element.
+    pub scale: f32,
 }
 
 /// Highlights scale with the length of the shape normal like the reference renderer does on a
@@ -75,7 +80,24 @@ impl GlassParams {
             glare_convergence: g.glare_convergence,
             glare_opposite: g.glare_opposite,
             glare_angle: g.glare_angle.to_radians(),
+            variant: g.variant,
+            dark: g.dark,
+            scale: s,
         }
+    }
+
+    /// Apple `glassBackground` inputs for a `w`×`h` px element.
+    pub fn apple_inputs(&self, w: f32, h: f32) -> crate::apple::GlassInputs {
+        use crate::apple::{ColorMatrix, GlassInputs, Variant};
+        let s = self.scale.max(0.01);
+        let v = Variant::from_code(self.variant);
+        let mut g = GlassInputs::mac(v, self.dark, w / s, h / s);
+        if v == Variant::Flat {
+            // window / HUD backdrop: blur of the material, its saturation and tint as fill
+            g.blur_radius = self.blur / s;
+            g.face = ColorMatrix { black: 0.0, white: 1.0, saturation: self.saturation, fill: self.tint };
+        }
+        g
     }
 
     /// No refraction, no lights: the rim band can be skipped entirely.
@@ -108,6 +130,9 @@ pub mod aqua_style {
         pub glare_convergence: f32,
         pub glare_opposite: f32,
         pub glare_angle: f32,
+        /// AppKit glass variant code.
+        pub variant: u8,
+        pub dark: bool,
     }
 }
 
@@ -251,6 +276,57 @@ fn passes_for(blur: f32) -> (usize, f32) {
     }
 }
 
+impl GlassElement {
+    fn draw_apple(
+        &self,
+        frame: &mut GlesFrame<'_, '_>,
+        apple: &crate::apple::Programs,
+        c: &BlurCache,
+        dst: Rectangle<i32, Physical>,
+        damage: &[Rectangle<i32, Physical>],
+    ) -> Result<(), GlesError> {
+        let p = &self.params;
+        let (w, h) = (self.geo.size.w.max(1) as f32, self.geo.size.h.max(1) as f32);
+        let g = p.apple_inputs(w, h);
+        // shape units = unscaled element px; dst may be rescaled (zoom animations)
+        let (kx, ky) = (dst.size.w as f32 / w, dst.size.h as f32 / h);
+        let ax = c.axes;
+        let (fw, fh) = (c.fb_rect[2].max(1.0), c.fb_rect[3].max(1.0));
+        let displacement = [ax[0] * kx / fw, ax[2] * ky / fw, ax[1] * kx / fh, ax[3] * ky / fh];
+        let radius = p.radius.clamp(0.0, w.min(h) * 0.5);
+        let ubo = crate::apple::pack(
+            &g,
+            &crate::apple::Frame { half: [w * 0.5, h * 0.5], radius, displacement, scale: p.scale },
+        );
+        let proj = *frame.projection();
+        let dmg: Vec<[f32; 4]> =
+            damage.iter().map(|d| [d.loc.x as f32, d.loc.y as f32, d.size.w as f32, d.size.h as f32]).collect();
+        let alpha = self.alpha;
+        let fb_rect = c.fb_rect;
+        frame.with_context(|gl| unsafe {
+            let mut vp = [0i32; 4];
+            gl.GetIntegerv(ffi::VIEWPORT, vp.as_mut_ptr());
+            crate::apple::draw(
+                gl,
+                apple,
+                &c.pyramid,
+                &crate::apple::DrawArgs {
+                    proj,
+                    viewport: vp,
+                    fb_rect,
+                    dst: [dst.loc.x as f32, dst.loc.y as f32, dst.size.w as f32, dst.size.h as f32],
+                    sdf_size: [w, h],
+                    alpha,
+                    ubo: &ubo,
+                    highlight: g.highlight,
+                    scale: p.scale * kx.min(ky),
+                    damage: &dmg,
+                },
+            );
+        })
+    }
+}
+
 impl RenderElement<GlesRenderer> for GlassElement {
     fn draw(
         &self,
@@ -265,6 +341,9 @@ impl RenderElement<GlesRenderer> for GlassElement {
         let c = c.borrow();
         if !c.valid {
             return Ok(());
+        }
+        if let (Some(apple), true) = (self.shaders.apple.clone(), c.pyramid.tex != 0) {
+            return self.draw_apple(frame, &apple, &c, dst, damage);
         }
         let (tex, sharp) = (c.result, c.levels.first().map(|l| l.tex).unwrap_or(c.result));
         frame.with_context(|gl| unsafe {
@@ -329,6 +408,13 @@ impl RenderElement<GlesRenderer> for GlassElement {
         let proj = *frame.projection();
         let blur = self.shaders.blur.clone();
         let (passes, offset) = passes_for(self.params.blur);
+        let apple = self.shaders.apple.clone();
+        let (passes, offset) = if apple.is_some() { (0, 1.0) } else { (passes, offset) };
+        let levels = {
+            let g = self.params.apple_inputs(self.geo.size.w as f32, self.geo.size.h as f32);
+            let s = self.params.scale.max(0.01);
+            crate::apple::levels_for(g.blur_radius.max(g.bleed_blur_radius).max(g.shadow_blur_radius) * s)
+        };
         frame.with_context(|gl| unsafe {
             let mut vp = [0i32; 4];
             gl.GetIntegerv(ffi::VIEWPORT, vp.as_mut_ptr());
@@ -346,6 +432,12 @@ impl RenderElement<GlesRenderer> for GlassElement {
             c.fb_rect = [rect[0] as f32, rect[1] as f32, rect[2] as f32, rect[3] as f32];
             c.axes = axes;
             capture_and_blur(gl, &blur, &mut c, rect, passes, offset);
+            if let Some(a) = &apple {
+                let l0 = c.levels[0];
+                crate::blur::with_saved_state(gl, |gl| {
+                    crate::apple::build_pyramid(gl, a, &mut c.pyramid, l0.tex, l0.w, l0.h, levels)
+                });
+            }
         })
     }
 }

@@ -261,30 +261,21 @@ pub fn specular(m: &Cov, width: f32, lit: f32, back: f32, amb: f32) -> Cov {
 }
 
 fn specular_full(m: &Cov, width: f32, lit: f32, back: f32, amb: f32) -> Cov {
-    let sigma = (width * 0.5).max(0.45);
-    let g = m.blur(sigma);
-    let norm = sigma * 2.5066;
-    let mut out = Cov::empty(m.w, m.h);
+    let sdf = crate::apple_fx::Sdf::from_cov(m);
+    let p = crate::apple_fx::Highlight { width, ..crate::apple_fx::Highlight::ICON };
     let (lx, ly) = LIGHT;
-    for y in 0..m.h as isize {
-        for x in 0..m.w as isize {
-            let i = y as usize * m.w + x as usize;
-            let mv = m.a[i];
-            if mv <= 0.0 {
+    let mut out = Cov::empty(m.w, m.h);
+    for y in 0..m.h {
+        for x in 0..m.w {
+            let i = y * m.w + x;
+            if m.a[i] <= 0.0 {
                 continue;
             }
-            let gx = (g.at(x + 1, y) - g.at(x - 1, y)) * 0.5;
-            let gy = (g.at(x, y + 1) - g.at(x, y - 1)) * 0.5;
-            let mag = (gx * gx + gy * gy).sqrt();
-            if mag < 1e-5 {
-                continue;
-            }
-            let e = (mag * norm).min(1.0);
-            let (nx, ny) = (-gx / mag, -gy / mag);
-            let d = nx * lx + ny * ly;
-            let l = d.max(0.0).powf(1.4);
-            let bk = (-d).max(0.0).powf(1.4);
-            out.a[i] = (mv * e * e * (amb + lit * l + back * bk)).min(1.0);
+            let (d, n) = sdf.inside(x, y);
+            let v = lit * p.eval(d, n, (lx, ly))
+                + back * p.eval(d, n, (-lx, -ly))
+                + amb * p.band(d);
+            out.a[i] = (m.a[i] * v).min(1.0);
         }
     }
     out

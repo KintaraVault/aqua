@@ -83,7 +83,8 @@ pub fn style(base: &GlassStyle, m: Material, dark: bool) -> GlassStyle {
         Material::Regular => b,
         Material::Dock => GlassStyle { radius: metrics::DOCK_RADIUS, tint: Rgba(1.0, 1.0, 1.0, b.tint.3 * 0.9), ..b },
         // Shell menus are the same glass as the apps' menu windows (plus their own shadow).
-        Material::Menu => GlassStyle { radius: 13.0, shadow: 0.28, ..style(base, Material::AppMenu, dark) },
+        // NSPopupMenuWindow corner radius (captured): 12
+        Material::Menu => GlassStyle { radius: 12.0, shadow: 0.28, ..style(base, Material::AppMenu, dark) },
         Material::Tile => GlassStyle {
             tint: Rgba(1.0, 1.0, 1.0, 0.07),
             saturation: b.saturation * 1.2,
@@ -215,6 +216,7 @@ pub fn style(base: &GlassStyle, m: Material, dark: bool) -> GlassStyle {
             .with_thickness(b.thickness * 0.6)
         }
     };
+    let g = GlassStyle { variant: variant(m), dark, ..g };
     if dark
         && !matches!(
             m,
@@ -235,6 +237,19 @@ pub fn style(base: &GlassStyle, m: Material, dark: bool) -> GlassStyle {
 }
 
 /// Lens strength of the master style relative to the standard (refraction per thickness).
+/// AppKit `_variant` of each surface (captured on macOS 26.7.1, see linuxtosh
+/// `shaders/liquid-glass/parameters.md`).
+pub fn variant(m: Material) -> u8 {
+    match m {
+        Material::Regular | Material::Pill | Material::Clear | Material::Control | Material::TilePreview => 0,
+        Material::Dock | Material::Icon(_) => 2,
+        Material::Tile => 8,
+        Material::Sidebar => 16,
+        Material::Menu | Material::AppMenu => 100,
+        Material::WindowFrame { .. } | Material::Backdrop | Material::Overlay => 200,
+    }
+}
+
 fn ratio(b: &GlassStyle) -> f32 {
     let d = GlassStyle::default();
     if b.thickness > 0.0 {

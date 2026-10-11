@@ -16,6 +16,7 @@
 pub mod builtin;
 pub mod equiv;
 mod fetch;
+pub mod apple_fx;
 pub mod glass;
 pub mod glyph;
 pub mod icns;

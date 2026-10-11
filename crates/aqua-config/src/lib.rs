@@ -71,6 +71,16 @@ pub struct GlassStyle {
     pub shadow: f32,
     /// Legibility cap for the backdrop luminance (1.0 = off).
     pub max_luma: f32,
+    /// AppKit glass variant this surface uses (set by [`material`], not configurable):
+    /// 0 Regular, 2 Dock, 8 Control Center, 16 Sidebar, 18 Inspector, 20 Popover,
+    /// 100 menu, 101 alert, 200 flat window/HUD backdrop.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub variant: u8,
+    /// Dark appearance (set by [`material`]).
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub dark: bool,
 }
 
 impl Default for GlassStyle {
@@ -101,6 +111,8 @@ impl Default for GlassStyle {
             blur_edge: true,
             shadow: 0.18,
             max_luma: 1.0,
+            variant: 0,
+            dark: false,
         }
     }
 }
@@ -760,9 +772,11 @@ pub mod metrics {
     pub const DOCK_GAP: f32 = 6.0;
     pub const DOCK_BOTTOM_MARGIN: f32 = 6.0;
     pub const DOCK_RADIUS: f32 = 26.0;
-    pub const TITLEBAR_HEIGHT: f32 = 38.0;
-    pub const TRAFFIC_LIGHT: f32 = 13.0;
-    pub const TRAFFIC_GAP: f32 = 8.5;
+    /// macOS 26 titled window (no toolbar): AX close button frame y=8, 16 pt → 32 pt bar.
+    pub const TITLEBAR_HEIGHT: f32 = 32.0;
+    /// Visible traffic-light disc (AX hit frame is 16 pt, pitch 23 pt).
+    pub const TRAFFIC_LIGHT: f32 = 14.0;
+    pub const TRAFFIC_GAP: f32 = 9.0;
     /// App-icon grid: icon body occupies 824/1024 of the canvas.
     pub const ICON_BODY: f32 = 824.0 / 1024.0;
 }

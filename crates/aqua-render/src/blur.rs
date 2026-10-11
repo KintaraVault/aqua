@@ -158,6 +158,8 @@ pub struct BlurCache {
     pub axes: [f32; 4],
     pub result: u32,
     pub valid: bool,
+    /// Mip pyramid for Apple's glass shader.
+    pub pyramid: crate::apple::Pyramid,
 }
 
 /// GL objects of blur caches that were dropped (an element vanished, an offscreen
@@ -167,7 +169,13 @@ static DROPPED: Mutex<Vec<(u32, u32)>> = Mutex::new(Vec::new());
 
 impl Drop for BlurCache {
     fn drop(&mut self) {
-        let objs: Vec<(u32, u32)> = self.levels.iter().filter(|l| l.tex != 0).map(|l| (l.tex, l.fbo)).collect();
+        let mut objs: Vec<(u32, u32)> =
+            self.levels.iter().filter(|l| l.tex != 0).map(|l| (l.tex, l.fbo)).collect();
+        let (ptex, pfbos) = self.pyramid.gl_objects();
+        if ptex != 0 {
+            objs.push((ptex, 0));
+            objs.extend(pfbos.into_iter().map(|f| (0, f)));
+        }
         if !objs.is_empty() {
             DROPPED.lock().unwrap_or_else(|e| e.into_inner()).extend(objs);
         }
@@ -182,8 +190,12 @@ pub fn dropped_blurs() -> usize {
 unsafe fn delete_dropped(gl: &ffi::Gles2) {
     let objs = std::mem::take(&mut *DROPPED.lock().unwrap_or_else(|e| e.into_inner()));
     for (tex, fbo) in objs {
-        gl.DeleteFramebuffers(1, &fbo);
-        gl.DeleteTextures(1, &tex);
+        if fbo != 0 {
+            gl.DeleteFramebuffers(1, &fbo);
+        }
+        if tex != 0 {
+            gl.DeleteTextures(1, &tex);
+        }
     }
 }
 
@@ -216,6 +228,42 @@ unsafe fn set_params(gl: &ffi::Gles2) {
     gl.TexParameteri(ffi::TEXTURE_2D, ffi::TEXTURE_MAG_FILTER, ffi::LINEAR as i32);
     gl.TexParameteri(ffi::TEXTURE_2D, ffi::TEXTURE_WRAP_S, ffi::CLAMP_TO_EDGE as i32);
     gl.TexParameteri(ffi::TEXTURE_2D, ffi::TEXTURE_WRAP_T, ffi::CLAMP_TO_EDGE as i32);
+}
+
+/// Run `f` with framebuffer, viewport, program, texture unit 0, array buffer, blend and
+/// scissor state saved and restored around it.
+pub unsafe fn with_saved_state(gl: &ffi::Gles2, f: impl FnOnce(&ffi::Gles2)) {
+    let mut fbo = 0;
+    gl.GetIntegerv(ffi::FRAMEBUFFER_BINDING, &mut fbo);
+    let mut vp = [0i32; 4];
+    gl.GetIntegerv(ffi::VIEWPORT, vp.as_mut_ptr());
+    let mut prog = 0;
+    gl.GetIntegerv(ffi::CURRENT_PROGRAM, &mut prog);
+    let mut active = 0;
+    gl.GetIntegerv(ffi::ACTIVE_TEXTURE, &mut active);
+    gl.ActiveTexture(ffi::TEXTURE0);
+    let mut tex0 = 0;
+    gl.GetIntegerv(ffi::TEXTURE_BINDING_2D, &mut tex0);
+    let mut abuf = 0;
+    gl.GetIntegerv(ffi::ARRAY_BUFFER_BINDING, &mut abuf);
+    let blend = gl.IsEnabled(ffi::BLEND) != 0;
+    let scissor = gl.IsEnabled(ffi::SCISSOR_TEST) != 0;
+    gl.Disable(ffi::BLEND);
+    gl.Disable(ffi::SCISSOR_TEST);
+    gl.BindBuffer(ffi::ARRAY_BUFFER, 0);
+    f(gl);
+    gl.BindFramebuffer(ffi::FRAMEBUFFER, fbo as u32);
+    gl.Viewport(vp[0], vp[1], vp[2], vp[3]);
+    gl.UseProgram(prog as u32);
+    gl.BindTexture(ffi::TEXTURE_2D, tex0 as u32);
+    gl.ActiveTexture(active as u32);
+    gl.BindBuffer(ffi::ARRAY_BUFFER, abuf as u32);
+    if blend {
+        gl.Enable(ffi::BLEND);
+    }
+    if scissor {
+        gl.Enable(ffi::SCISSOR_TEST);
+    }
 }
 
 /// Capture `fb_rect` (GL coords) of the currently bound framebuffer and blur it.

@@ -321,6 +321,8 @@ pub fn glass_params(g: &GlassStyle, scale: f32) -> GlassParams {
             glare_convergence: g.glare_convergence,
             glare_opposite: g.glare_opposite,
             glare_angle: g.glare_angle,
+            variant: g.variant,
+            dark: g.dark,
         },
         scale,
     )

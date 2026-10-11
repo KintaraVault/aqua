@@ -1,5 +1,7 @@
 //! aqua-render: GPU effects for the Smithay GLES renderer.
 //!
+//! * [`apple`] – Apple's own Liquid Glass shader (QuartzCore `glass_background_sdf`, translated
+//!   from macOS 26.7.1) with the AppKit filter inputs; the default glass on GLES 3.
 //! * [`GlassElement`] – real-time Liquid Glass (a port of Liquid Glass Studio's
 //!   material): captures the framebuffer behind itself (Smithay framebuffer-effect
 //!   API, so it is only re-captured when the content behind changes), dual-kawase
@@ -10,6 +12,7 @@
 //! * [`shadow`] – SDF soft shadows for windows and panels.
 //! * [`stats`] – frame/damage/blur profiling counters.
 
+pub mod apple;
 mod blur;
 mod elements;
 pub mod stats;
@@ -34,6 +37,8 @@ pub struct Shaders {
     pub rounded: GlesTexProgram,
     pub genie: GlesTexProgram,
     pub blur: Rc<blur::BlurPrograms>,
+    /// Apple's Liquid Glass (GLES 3); `None` falls back to `glass` on GLES 2 contexts.
+    pub apple: Option<Rc<apple::Programs>>,
 }
 
 impl Shaders {
@@ -84,7 +89,14 @@ impl Shaders {
             ],
         )?;
         let blur = Rc::new(blur::BlurPrograms::new(renderer)?);
-        Ok(Self { glass, shadow, rounded, genie, blur })
+        let apple = match apple::Programs::new(renderer) {
+            Ok(p) => Some(Rc::new(p)),
+            Err(e) => {
+                tracing::warn!("aqua: Apple Liquid Glass unavailable ({e:?}), using the fallback glass shader");
+                None
+            }
+        };
+        Ok(Self { glass, shadow, rounded, genie, blur, apple })
     }
 
     /// Drop shadow around a rounded logical rect `r`.

@@ -254,10 +254,8 @@ impl Aqua {
         if rc.shadows.get(&id).map(|(k, _)| *k != key).unwrap_or(true) {
             let (sigma, dy, strength) = if menu_popup {
                 (12.0, 6.0, 0.30)
-            } else if focused {
-                (26.0, 14.0, 0.42)
             } else {
-                (16.0, 8.0, 0.24)
+                mac_window_shadow(focused)
             };
             let el = shaders.shadow(shadow_rect, radius, sigma, dy, strength, scale);
             rc.shadows.insert(id, (key, el));
@@ -265,7 +263,7 @@ impl Aqua {
         if alpha >= 1.0 {
             out.push(WinElement::Shader(rc.shadows.get(&id).unwrap().1.clone()));
         } else {
-            let (sigma, dy, strength) = if focused { (26.0, 14.0, 0.42) } else { (16.0, 8.0, 0.24) };
+            let (sigma, dy, strength) = mac_window_shadow(focused);
             out.push(WinElement::Shader(shaders.shadow(
                 shadow_rect,
                 radius,
@@ -323,7 +321,7 @@ impl Aqua {
             );
             let re = RoundedElement::new(te, fp, radius * scale as f32, &shaders, scale);
             out.push(AquaElement::Ghost(RescaleRenderElement::from_element(re, origin, zoom)));
-            out.push(AquaElement::Shader(shaders.shadow(g.frame, radius, 26.0, 14.0, 0.42 * alpha * alpha, scale)));
+            out.push(AquaElement::Shader({ let (sg, dy, st) = mac_window_shadow(true); shaders.shadow(g.frame, radius, sg, dy, st * alpha * alpha, scale) }));
         }
     }
 
@@ -504,5 +502,16 @@ impl Aqua {
         let el = shaders.genie(te, [bw as f32 * s, bh as f32 * s], rel(&win), rel(&tgt), clip, 0.0, mp);
         out.push(AquaElement::Genie(el));
         true
+    }
+}
+
+/// Window drop shadow fitted (rms < 0.007 alpha) to macOS 26 `screencapture` window shots
+/// (`assets/mac/ui/apps/*/{light,dark}-win0.png` vs `-noshadow`): one blurred rounded rect,
+/// sigma 26.8 pt, offset 18.2 pt down; opacity 0.70 key window, 0.40 inactive.
+pub(crate) fn mac_window_shadow(focused: bool) -> (f32, f32, f32) {
+    if focused {
+        (26.8, 18.2, 0.70)
+    } else {
+        (26.8, 18.2, 0.40)
     }
 }
