@@ -32,6 +32,7 @@ fn provider() -> aqua_icons::IconProvider {
         dark: cfg.dark,
         tint: cfg.accent_rgb(),
         glass: cfg.icon_glass,
+        glass_plate: cfg.icon_plate == "glass",
     });
     p.set_policy(aqua_icons::equiv::Policy { mode: "off".into(), apps: vec![], owners: vec![] });
     p

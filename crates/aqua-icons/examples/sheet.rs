@@ -55,7 +55,7 @@ fn main() {
     );
     let dark = style == "dark" || style.ends_with("-dark");
     let st = Style::from_config(style.trim_end_matches("-dark"), dark);
-    let look = Look { style: st, dark, tint: (0.55, 0.45, 0.85), glass: true };
+    let look = Look { style: st, dark, tint: (0.55, 0.45, 0.85), glass: true, glass_plate: false };
     let t0 = std::time::Instant::now();
     for (i, n) in names.iter().enumerate() {
         let t = std::time::Instant::now();

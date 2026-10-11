@@ -184,9 +184,9 @@ pub struct Config {
     pub icon_style: String,
     /// Glass edge highlight on app icons.
     pub icon_glass: bool,
-    /// Third-party apps also installed on the Mac (Telegram, Spotify…) use the icon extracted
-    /// from the Mac; off: their App Store artwork on the glass plate, as before.
-    pub mac_app_icons: bool,
+    /// Plate of Clear-style icons: "filled" (tinted plate, translucent logo — macOS 26) or
+    /// "glass" (see-through glass plate, opaque logo).
+    pub icon_plate: String,
     pub menubar_height: f32,
     pub dock_icon_size: f32,
     pub dock_magnification: f32,
@@ -455,7 +455,7 @@ impl Default for Config {
             apple_icon_apps: vec![],
             icon_style: "default".into(),
             icon_glass: true,
-            mac_app_icons: true,
+            icon_plate: "filled".into(),
             menubar_height: 26.0,
             dock_icon_size: 54.0,
             dock_magnification: 1.5,

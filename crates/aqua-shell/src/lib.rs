@@ -128,8 +128,8 @@ impl Shell {
             dark: cfg.dark,
             tint: cfg.accent_rgb(),
             glass: cfg.icon_glass,
+            glass_plate: cfg.icon_plate == "glass",
         });
-        icons.set_mac_app_icons(cfg.mac_app_icons);
         let control = control::ControlCenter { dark: cfg.dark, ..Default::default() };
         Self {
             fonts,

@@ -2,7 +2,7 @@
 //!
 //! Lookup order for an app:
 //! 0. **Genuine Mac icons** extracted from a Mac ([`mac`]): our built-in keys, their Linux
-//!    counterparts and third-party apps installed on the Mac too.
+//!    counterparts (App Store apps keep their App Store icons), the Trash and folders.
 //! 0. **User-supplied genuine icons**: `~/.local/share/aqua/icons/<id>.icns|png`
 //!    (e.g. copied out of a Mac's `/Applications/X.app/Contents/Resources`).
 //! 1. **icon cache** (`~/.cache/aqua/icons/<id>.png`) – vendor versions
@@ -43,7 +43,6 @@ pub struct IconProvider {
     pub dirty: Arc<Mutex<bool>>,
     /// Which apps may be shown with their counterpart's icon.
     policy: equiv::Policy,
-    mac_apps: bool,
 }
 
 /// What to show for an app.
@@ -70,7 +69,6 @@ impl IconProvider {
             fetcher,
             dirty,
             policy: equiv::Policy { mode: "all".into(), apps: vec![], owners: vec![] },
-            mac_apps: true,
         }
     }
 
@@ -83,15 +81,6 @@ impl IconProvider {
     }
 
     /// Icon style (Default / Dark / Clear / Tinted, glass rim).
-    /// Use the Mac-extracted icons for third-party / App Store apps too (built-in apps like
-    /// Finder, the Trash and folders always use them when installed).
-    pub fn set_mac_app_icons(&mut self, on: bool) {
-        if on != self.mac_apps {
-            self.mac_apps = on;
-            self.memo.clear();
-        }
-    }
-
     pub fn set_look(&mut self, l: look::Look) {
         if l != self.look {
             self.look = l;
@@ -244,12 +233,9 @@ impl IconProvider {
         } else {
             let allowed = self.policy.allows(&req.id, &req.icon);
             match allowed.then(|| equiv::lookup(&req.id, &req.icon)).flatten() {
+                // App Store / third-party apps keep their own (App Store) icons
                 Some(equiv::Equiv::Builtin(b)) => mac::builtin_app(b)?,
-                _ if !self.mac_apps => return None,
-                Some(equiv::Equiv::Store(n)) => {
-                    mac::app_for("", n, "", true).or_else(|| mac::app_for(&req.id, &req.name, &req.icon, false))?
-                }
-                None => mac::app_for(&req.id, &req.name, &req.icon, allowed)?,
+                _ => return None,
             }
         };
         let l = &self.look;

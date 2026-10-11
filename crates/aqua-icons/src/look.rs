@@ -42,6 +42,9 @@ pub struct Look {
     pub tint: (f32, f32, f32),
     /// Glass specular rim on bitmap icons.
     pub glass: bool,
+    /// Clear style: transparent plate (only the glass behind it) with an opaque logo,
+    /// instead of the tinted, filled plate with a translucent logo.
+    pub glass_plate: bool,
 }
 
 impl Look {
@@ -53,6 +56,7 @@ impl Look {
             | t(self.tint.0) << 8
             | t(self.tint.1) << 16
             | t(self.tint.2) << 24
+            | (self.glass_plate as u64) << 5
     }
 }
 
@@ -253,6 +257,8 @@ fn restyle(pm: &mut Pixmap, look: &Look) -> Option<crate::glass::Cov> {
                 1.0,
             ),
             Style::Tinted => (mix(mix(tint, white, 0.30), mix(tint, [0.0; 3], 0.06), ty), 1.0),
+            Style::Clear if look.glass_plate && look.dark => ([0.10, 0.105, 0.12], 0.07 + 0.05 * ty),
+            Style::Clear if look.glass_plate => (white, 0.05 - 0.02 * ty),
             Style::Clear if look.dark => (mix([0.17, 0.18, 0.21], [0.06, 0.065, 0.08], ty), 0.52 + 0.14 * ty),
             Style::Clear => (white, 0.17 - 0.07 * ty),
             Style::Default => (white, 1.0),
@@ -461,7 +467,7 @@ mod tests {
         out.fill(aqua_gfx::rgba(50, 100, 135, 1.0));
         for (c, (src, builtin)) in srcs.iter().enumerate() {
             for (r, (st, dark)) in looks.iter().enumerate() {
-                let look = Look { style: *st, dark: *dark, tint: (0.55, 0.45, 0.85), glass: true };
+                let look = Look { style: *st, dark: *dark, tint: (0.55, 0.45, 0.85), glass: true, glass_plate: false };
                 let mut pm = if *builtin {
                     crate::builtin::draw_look(names[c], 108, &fonts, &look).unwrap()
                 } else {

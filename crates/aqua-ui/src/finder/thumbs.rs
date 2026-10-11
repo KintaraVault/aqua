@@ -55,13 +55,13 @@ impl Worker {
                                         dark: cfg.dark,
                                         tint: cfg.accent_rgb(),
                                         glass: cfg.icon_glass,
+                                        glass_plate: cfg.icon_plate == "glass",
                                     });
                                     p.set_policy(aqua_icons::equiv::Policy {
                                         mode: cfg.apple_icons.clone(),
                                         apps: cfg.apple_icon_apps.clone(),
                                         owners: vec![],
                                     });
-                                    p.set_mac_app_icons(cfg.mac_app_icons);
                                     p
                                 });
                                 let pm = prov.get(&aqua_icons::IconRequest { id, name, icon }, 128);

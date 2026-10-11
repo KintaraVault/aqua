@@ -105,6 +105,9 @@ pub fn composite(dst: &mut Pixmap, fg: &Pixmap, look: &Look, cx: &Ctx) {
     let white = [1.0f32; 3];
     let material = |t: f32| -> ([f32; 3], f32) {
         match (look.style, look.dark) {
+            // glass plate: the logo is solid, only its plate is see-through
+            (Style::Clear, false) if look.glass_plate => ([1.0, 1.0, 1.0], 0.94 + 0.06 * t),
+            (Style::Clear, true) if look.glass_plate => (mix([0.86, 0.87, 0.90], [0.98, 0.98, 0.99], t), 0.96 + 0.04 * t),
             (Style::Clear, false) => ([1.0, 1.0, 1.0], if cx.plate { 0.42 + 0.58 * t } else { 0.45 + 0.40 * t }),
             (Style::Clear, true) => (
                 mix([0.62, 0.64, 0.69], [0.95, 0.955, 0.97], t),

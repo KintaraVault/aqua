@@ -269,7 +269,7 @@ if [ -n "$MAC_ASSETS" ] && [ -d "$MAC_ASSETS" ]; then
     if [ -d "$MAC_ASSETS/icons-modes" ]; then
         mkdir -p "$tmpd/mac-icons/modes" "$tmpd/mac-icons/system"
         find "$MAC_ASSETS/icons-modes" -maxdepth 1 \( -name '*_a[01]_v0_none.png' -o -name '*_a[01]_v2_*.png' \
-            -o -name apps.txt \) -exec cp -t "$tmpd/mac-icons/modes/" {} +
+            \) -exec cp -t "$tmpd/mac-icons/modes/" {} +
         for f in TrashIcon FullTrashIcon DownloadsFolder GenericFolderIcon DocumentsFolderIcon DesktopFolderIcon \
             ApplicationsFolderIcon HomeFolderIcon; do
             if [ -f "$MAC_ASSETS/icons/$f.png" ]; then cp "$MAC_ASSETS/icons/$f.png" "$tmpd/mac-icons/system/"; fi

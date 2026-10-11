@@ -145,9 +145,9 @@ impl Shell {
             dark,
             tint: self.cfg.accent_rgb(),
             glass: self.cfg.icon_glass,
+            glass_plate: self.cfg.icon_plate == "glass",
         };
         self.icons.set_look(look);
-        self.icons.set_mac_app_icons(self.cfg.mac_app_icons);
     }
 
     /// Persist a changed `cfg.dock` and rebuild the Dock (animations carry over).

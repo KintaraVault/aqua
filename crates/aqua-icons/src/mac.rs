@@ -2,28 +2,20 @@
 //! by `dist/install.sh` into `share/aqua/mac-icons`:
 //!
 //! * `modes/<App>_a<appearance>_v<variant>_<tint>.png` — IconServices renders of every
-//!   app icon (512 px, icon grid). `a0_v0` (Default, light) is the source our icon look is
-//!   applied to, like App Store artwork; `a1_v0` is the Dark style as macOS draws it.
+//!   app icon (512 px, icon grid), used for our built-in apps (Finder, Apps, System Settings…;
+//!   App Store apps keep their App Store icons). `a0_v0` (Default, light) is the source our
+//!   icon look is applied to; `a1_v0` is the Dark style as macOS draws it.
 //! * `system/*.png` — CoreTypes icons (Trash, folders), shown unstyled like the Dock does.
 //!
 //! The development layout (`icons-modes/`, `icons/`) is accepted too.
 
 use aqua_gfx::Pixmap;
-use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 struct Index {
     modes: PathBuf,
     system: PathBuf,
-    /// Normalised app name → file prefix ("systemsettings" → "System Settings").
-    apps: HashMap<String, String>,
-    /// Apps from `/Applications` (third-party, matched by name without the counterpart policy).
-    third_party: HashSet<String>,
-}
-
-fn norm(s: &str) -> String {
-    s.chars().filter(|c| c.is_alphanumeric()).flat_map(|c| c.to_lowercase()).collect()
 }
 
 fn roots() -> Vec<(PathBuf, PathBuf)> {
@@ -50,19 +42,7 @@ fn index() -> Option<&'static Index> {
     static IX: OnceLock<Option<Index>> = OnceLock::new();
     IX.get_or_init(|| {
         let (modes, system) = roots().into_iter().find(|(m, _)| m.is_dir())?;
-        let mut apps = HashMap::new();
-        for e in std::fs::read_dir(&modes).ok()?.flatten() {
-            let n = e.file_name().to_string_lossy().into_owned();
-            if let Some(app) = n.strip_suffix("_a0_v0_none.png") {
-                apps.insert(norm(app), app.to_string());
-            }
-        }
-        let third_party = std::fs::read_to_string(modes.join("apps.txt"))
-            .unwrap_or_default()
-            .lines()
-            .filter_map(|l| l.strip_prefix("/Applications/")?.strip_suffix(".app").map(norm))
-            .collect();
-        Some(Index { modes, system, apps, third_party })
+        Some(Index { modes, system })
     })
     .as_ref()
 }
@@ -112,35 +92,6 @@ pub fn system_icon(key: &str) -> Option<Pixmap> {
         _ => return None,
     };
     aqua_gfx::load_image(&index()?.system.join(format!("{f}.png")))
-}
-
-/// Mac app whose icon a Linux app (desktop id, `Name=`, `Icon=`) genuinely is: a
-/// third-party app installed on the Mac too ("org.telegram.desktop" → Telegram), or —
-/// when `counterparts` is allowed — an app with exactly the Mac app's name ("Chess").
-pub fn app_for(id: &str, name: &str, icon: &str, counterparts: bool) -> Option<&'static str> {
-    let ix = index()?;
-    let get = |k: &str| -> Option<&'static str> { ix.apps.get(k).map(|s| s.as_str()) };
-    let full = norm(name);
-    if !full.is_empty() && (counterparts || ix.third_party.contains(&full)) {
-        if let Some(a) = get(&full) {
-            return Some(a);
-        }
-    }
-    const GENERIC: &[&str] =
-        &["org", "com", "io", "net", "dev", "app", "desktop", "github", "gitlab", "gnome", "kde", "ai", "me", "www"];
-    let first = name.split_whitespace().next().map(norm).unwrap_or_default();
-    let toks = std::iter::once(first)
-        .chain(id.split(['.', '-', '_']).map(norm))
-        .chain(icon.rsplit('/').next().unwrap_or("").split(['.', '-', '_']).map(norm));
-    for t in toks {
-        if t.len() < 3 || GENERIC.contains(&t.as_str()) || !ix.third_party.contains(&t) {
-            continue;
-        }
-        if let Some(a) = get(&t) {
-            return Some(a);
-        }
-    }
-    None
 }
 
 /// The icon of Mac app `app`: appearance 0/1, variant (0 Default/Dark, 2 Tinted, 3 Clear).

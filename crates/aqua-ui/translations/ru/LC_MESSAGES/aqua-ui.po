@@ -1625,8 +1625,14 @@ msgstr "Сбросить"
 msgid "See-through"
 msgstr "Прозрачное"
 
-msgid "Icons from the Mac"
-msgstr "Иконки с Mac"
+msgid "Clear icon plate"
+msgstr "Подложка прозрачных иконок"
 
-msgid "Apps also installed on the Mac use its icons; off: App Store icons on a glass plate"
-msgstr "Приложения, которые есть и на Mac, берут его иконки; выкл. — иконки App Store на стеклянной подложке"
+msgid "Filled: tinted plate and translucent logo, as in macOS 26; Glass: see-through glass plate with an opaque logo"
+msgstr "С заливкой — тонированная подложка и полупрозрачный логотип, как в macOS 26; стеклянная — прозрачная стеклянная подложка и непрозрачный логотип"
+
+msgid "Filled"
+msgstr "С заливкой"
+
+msgid "Glass"
+msgstr "Стеклянная"

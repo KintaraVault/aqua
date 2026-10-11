@@ -68,7 +68,7 @@ fn main() {
         None,
     );
     for (r, (st, dark)) in looks.iter().enumerate() {
-        let look = Look { style: Style::from_config(st, *dark), dark: *dark, tint: (0.55, 0.45, 0.85), glass: true };
+        let look = Look { style: Style::from_config(st, *dark), dark: *dark, tint: (0.55, 0.45, 0.85), glass: true, glass_plate: false };
         let mut row: Vec<aqua_gfx::Pixmap> = vec![];
         row.push(if look.style == Style::Default {
             aqua_icons::normalize::plate(&glyph, px)

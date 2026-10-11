@@ -16,6 +16,7 @@ fn main() {
             })
             .unwrap_or((0.55, 0.45, 0.85)),
         glass: true,
+        glass_plate: false,
     };
     let fonts = aqua_gfx::Fonts::load(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets/fonts")));
     aqua_icons::builtin::draw_look(&a[1], px, &fonts, &look).unwrap().save_png(&a[4]).unwrap();
