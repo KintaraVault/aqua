@@ -34,7 +34,14 @@ pub enum Variant {
     Alert,
     /// Window / HUD background: `gaussianBlur 30` backdrop, no lens.
     Flat,
+    /// Progressive backdrop blur around menu-bar popovers (Control Center, Notification
+    /// Center, menu-bar menus): full blur inside, fading to the sharp backdrop over
+    /// [`VEIL_FADE`] points at the edge, no tint, no lens, no rim (linuxtosh code 210).
+    Veil,
 }
+
+/// Width of the [`Variant::Veil`] fade, points.
+pub const VEIL_FADE: f32 = 52.0;
 
 impl Variant {
     pub fn from_code(c: u8) -> Self {
@@ -47,6 +54,7 @@ impl Variant {
             100 => Variant::Menu,
             101 => Variant::Alert,
             200 => Variant::Flat,
+            210 => Variant::Veil,
             _ => Variant::Regular,
         }
     }
@@ -266,6 +274,21 @@ impl GlassInputs {
                 g.face = ColorMatrix::IDENTITY;
                 g.highlight = Highlight::NONE;
             }
+            Variant::Veil => {
+                g.blur_radius = 10.0;
+                // blur radius as a piecewise-linear ramp of the distance to the outline: the
+                // pyramid level is log2(radius), so a roughly exponential ramp reads as an even
+                // fade instead of a blurred block with a sharp rim.
+                g.blur_opacity = [1.0, 0.45, 0.15, 0.0];
+                g.blur_distance = [-VEIL_FADE, -0.6 * VEIL_FADE, -0.3 * VEIL_FADE, 0.0];
+                g.inner_refraction_amount = 0.0;
+                g.bleed_amount = 0.0;
+                g.bleed_height = 0.0;
+                g.shadow_amount = 0.0;
+                g.shadow_height = 0.0;
+                g.face = ColorMatrix::IDENTITY;
+                g.highlight = Highlight::NONE;
+            }
         }
         g
     }
@@ -397,7 +420,10 @@ pub fn pack(g: &GlassInputs, f: &Frame) -> [u8; UBO_SIZE] {
     put_f(&mut b, o + 244, if g.clamp_preserve_hue { 1.0 } else { 0.0 });
     put_f(&mut b, o + 248, 1.0);
     put_f(&mut b, o + 252, 0.0);
-    let refracts = g.inner_refraction_amount != 0.0 || g.outer_refraction_amount != 0.0;
+    // Apple's shader evaluates the blur ramp only on its refraction path, so a progressive
+    // blur (Veil) must take that path even with zero displacement.
+    let ramp = g.blur_opacity.iter().any(|a| (a - g.blur_opacity[0]).abs() > 1e-4);
+    let refracts = g.inner_refraction_amount != 0.0 || g.outer_refraction_amount != 0.0 || ramp;
     put_f(&mut b, o + 256, if refracts { 1.0 } else { 0.0 });
     b
 }

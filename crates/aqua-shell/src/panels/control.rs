@@ -58,8 +58,23 @@ impl ControlCenter {
     }
 }
 
-const U: f32 = 70.0;
-const G: f32 = 14.0;
+// macOS 26 Control Center grid (measured on the capture): 64 pt modules, 12 pt gaps,
+// so a 2-wide module is 140 pt and a 4-wide slider 292 pt.
+const U: f32 = 64.0;
+const G: f32 = 12.0;
+
+/// Corner radius of a module, fitted to the capture with QuartzCore's continuous-corner
+/// SDF (error < 0.2 px): 1-high and 2×2 modules 31 pt (an almost-capsule), 4-wide sliders
+/// 26.5 pt, single modules are circles.
+fn module_radius(r: &Rect, round: bool) -> f32 {
+    if round {
+        r.w.min(r.h) / 2.0
+    } else if r.w > 3.0 * U {
+        26.5
+    } else {
+        31.0
+    }
+}
 
 #[derive(Clone, Copy, PartialEq)]
 enum T {
@@ -83,8 +98,8 @@ fn tiles(origin: (f32, f32)) -> Vec<(T, Rect, bool)> {
     let cell = |c: f32, r: f32, w: f32, h: f32| {
         Rect::new(ox + c * (U + G), oy + r * (U + G), w * U + (w - 1.0) * G, h * U + (h - 1.0) * G)
     };
-    let row_s = |r: f32| oy + 3.0 * (U + G) + (r - 3.0) * (U * 0.82 + G);
-    let slider = |r: f32| Rect::new(ox, row_s(r), 4.0 * U + 3.0 * G, U * 0.82);
+    let row_s = |r: f32| oy + 3.0 * (U + G) + (r - 3.0) * (U + G);
+    let slider = |r: f32| Rect::new(ox, row_s(r), 4.0 * U + 3.0 * G, U);
     let last_y = row_s(5.0);
     let circ = |c: f32| Rect::new(ox + c * (U + G), last_y, U, U);
     vec![
@@ -106,9 +121,10 @@ fn tiles(origin: (f32, f32)) -> Vec<(T, Rect, bool)> {
 
 fn panel(sh: &Shell) -> Rect {
     let w = 4.0 * U + 3.0 * G;
-    let h = 3.0 * (U + G) + 2.0 * (U * 0.82 + G) + U + 44.0;
+    let h = 3.0 * (U + G) + 2.0 * (U + G) + U + 44.0;
     let slide = (1.0 - sh.control.t) * 18.0;
-    Rect::new(sh.w - w - 18.0, sh.cfg.menubar_height + 14.0 - slide, w, h)
+    // right inset of the macOS Control Center modules: 30 pt
+    Rect::new(sh.w - w - 30.0, sh.cfg.menubar_height + 14.0 - slide, w, h)
 }
 
 pub fn layer(sh: &mut Shell) -> Option<Layer> {
@@ -157,10 +173,10 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
     let (pm, serial) = sh.cached(LayerId::ControlCenter, key, p.w, p.h, |c, sh| {
         let f = sh.fonts.clone();
         let cc = &sh.control;
-        for (i, (t, r, _round)) in ts.iter().enumerate() {
+        for (i, (t, r, round)) in ts.iter().enumerate() {
             let r = r.translate(-p.x, -p.y);
             if cc.hover == Some(i) {
-                c.fill_continuous(r, if r.w == r.h { r.w / 2.0 } else { 24.0 }, rgba(255, 255, 255, 0.10));
+                c.fill_continuous(r, module_radius(&r, *round), rgba(255, 255, 255, 0.10));
             }
             let toggle_circle = |c: &mut Canvas, cx: f32, cy: f32, on: bool| {
                 if on {
@@ -345,7 +361,7 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
     });
     let base = sh.cfg.glass;
     let tile_glass: Vec<(Rect, aqua_config::GlassStyle)> =
-        ts.iter().map(|(_, r, round)| (*r, style::glass_tile(&base, if *round { r.w / 2.0 } else { 24.0 }))).collect();
+        ts.iter().map(|(_, r, round)| (*r, style::glass_tile(&base, module_radius(r, *round)))).collect();
     let t = sh.control.t;
     Some(Layer {
         id: LayerId::ControlCenter,

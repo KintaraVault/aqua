@@ -2037,8 +2037,12 @@ void main() {
         vec2 n = normalize(s.yz + vec2(1e-6));
         if (u_hl3.x < 0.5) {
             // Dock / menus / windows: thin additive key + fill rim.
-            float band = clamp(1.0 + d / max(u_hl.z, 1e-3), 0.0, 1.0);
-            band = pow(band, 1.0 + 4.0 * u_hl.w);
+            // Same thin rim as before, but integrated over the pixel: a hard 1 px band with a
+            // steep power curve lit only the pixels whose centre happened to sit on the
+            // outline, which drew curves as a dotted staircase. The smoothstep profile is
+            // at least 1.5 px wide so neighbouring pixels along an arc get similar light.
+            float w = max(u_hl.z, 1.0);
+            float band = (1.0 - smoothstep(0.0, 1.5 * w, -d)) * 0.5;
             float spreadk = max(dot(n, u_hl2.xy), 0.0);
             float spreadf = max(dot(n, u_hl2.zw), 0.0);
             float light = (u_hl.x * spreadk + u_hl.y * spreadf) * band * cov;

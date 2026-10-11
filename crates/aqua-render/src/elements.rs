@@ -97,6 +97,9 @@ impl GlassParams {
             g.blur_radius = self.blur / s;
             g.face = ColorMatrix { black: 0.0, white: 1.0, saturation: self.saturation, fill: self.tint };
         }
+        if v == Variant::Veil && self.blur > 0.0 {
+            g.blur_radius = self.blur / s;
+        }
         g
     }
 

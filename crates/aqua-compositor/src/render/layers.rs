@@ -156,6 +156,7 @@ impl Aqua {
         }
         let out_size = self.output_size();
         let wallpaper = self.wallpaper.clone();
+        let veil = self.veil_params(l, scale);
         let rc = &mut self.render_cache;
         let now = Instant::now();
         let entry = rc.layers.get_mut(&l.id);
@@ -208,8 +209,60 @@ impl Aqua {
                 out.push(AquaElement::Glass(e));
             }
         }
+        // behind everything of the layer (`out` is front to back)
+        if let Some((r, p)) = veil {
+            if let Some(e) = rc.glass_el(GlassKey::Layer(l.id, VEIL_KEY), to_phys(r, scale), p, l.opacity) {
+                out.push(AquaElement::Glass(e));
+            }
+        }
+    }
+
+    /// macOS blurs the desktop around popovers that drop from the menu bar (Control Center,
+    /// Notification Center, menu-bar menus): a progressive blur that is full near the panel
+    /// and fades to the sharp backdrop ~40 pt outside it (measured on the Control Center
+    /// capture). Context menus elsewhere do not get it.
+    fn veil_params(&self, l: &aqua_shell::Layer, scale: f64) -> Option<(Rectangle<f64, Logical>, GlassParams)> {
+        use aqua_shell::LayerId as L;
+        let mb = self.cfg.menubar_height;
+        let from_bar = match l.id {
+            L::ControlCenter | L::NotificationCenter => true,
+            L::Menu | L::MenuFade => l.rect.y <= mb + 12.0,
+            _ => false,
+        };
+        if !from_bar {
+            return None;
+        }
+        // the visible extent of the layer: its glass, else the union of its tiles
+        let mut b = l.glass.as_ref().map(|_| l.rect);
+        for (r, _) in &l.tiles {
+            b = Some(match b {
+                None => *r,
+                Some(u) => {
+                    let (x0, y0) = (u.x.min(r.x), u.y.min(r.y));
+                    aqua_gfx::Rect::new(x0, y0, u.right().max(r.right()) - x0, u.bottom().max(r.bottom()) - y0)
+                }
+            });
+        }
+        let b = b?;
+        let m = VEIL_MARGIN;
+        // stops at the menu bar (drawn below the popover, it must stay sharp)
+        let (x0, y0) = (b.x - m, (b.y - m).max(mb));
+        let (x1, y1) = (b.right() + m, b.bottom() + m);
+        let r = Rectangle::<f64, Logical>::new((x0 as f64, y0 as f64).into(), ((x1 - x0) as f64, (y1 - y0) as f64).into());
+        let g = self.cfg.glass.material(Material::Overlay, false).with_radius(m + 20.0);
+        let mut p = glass_params(&g, scale as f32);
+        p.variant = 210;
+        p.dark = false;
+        p.blur = VEIL_BLUR * scale as f32;
+        Some((r, p))
     }
 }
+
+/// Tile index of the popover veil in [`GlassKey::Layer`].
+const VEIL_KEY: usize = 10_000;
+/// How far the veil reaches outside the panel, and its blur radius (points).
+const VEIL_MARGIN: f32 = 56.0;
+const VEIL_BLUR: f32 = 10.0;
 
 /// macOS 26 Dock / Control Center glass adapts to what is behind it: over a dark backdrop the
 /// light appearance switches to the dark filter set (verified against the captures: the Dock
