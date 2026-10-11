@@ -127,6 +127,7 @@ pub fn load_into(ui: &SettingsWindow, cfg: &Config) {
     s.set_apple_icons_idx(APPLE_ICONS.iter().position(|x| *x == cfg.apple_icons).unwrap_or(0) as i32);
     s.set_icon_style_idx(ICON_STYLES.iter().position(|x| *x == cfg.icon_style).unwrap_or(0) as i32);
     s.set_icon_glass(cfg.icon_glass);
+    s.set_mac_app_icons(cfg.mac_app_icons);
     let hc: Vec<i32> =
         cfg.hot_corners.iter().map(|c| CORNERS.iter().position(|x| x == c).unwrap_or(0) as i32).collect();
     s.set_hc0(hc[0]);
@@ -213,6 +214,7 @@ pub fn store_from(ui: &SettingsWindow, cfg: &mut Config) {
     cfg.apple_icons = APPLE_ICONS[s.get_apple_icons_idx().clamp(0, 2) as usize].into();
     cfg.icon_style = ICON_STYLES[s.get_icon_style_idx().clamp(0, 4) as usize].into();
     cfg.icon_glass = s.get_icon_glass();
+    cfg.mac_app_icons = s.get_mac_app_icons();
     for (i, v) in [s.get_hc0(), s.get_hc1(), s.get_hc2(), s.get_hc3()].into_iter().enumerate() {
         cfg.hot_corners[i] = CORNERS[v.clamp(0, 5) as usize].into();
     }

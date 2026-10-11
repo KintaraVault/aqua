@@ -75,6 +75,7 @@ export global S {
     in-out property <int> apple-icons-idx: 0;
     in-out property <int> icon-style-idx: 0;
     in-out property <bool> icon-glass: true;
+    in-out property <bool> mac-app-icons: true;
     in property <[IconApp]> icon-apps;
     callback toggle-icon-app(string, bool);
     in-out property <int> hc0; in-out property <int> hc1; in-out property <int> hc2; in-out property <int> hc3;
@@ -376,6 +377,8 @@ component AppearancePane inherits VerticalLayout {
             PopupSelect { items: [@tr("Default"), @tr("Automatic"), @tr("Dark"), @tr("Clear"), @tr("Tinted")]; current <=> S.icon-style-idx; changed => { S.commit(); } } }
         Row { title: @tr("Liquid Glass edges"); subtitle: @tr("Add the glass highlight to the rims of app icons");
             Toggle { checked <=> S.icon-glass; toggled => { S.commit(); } } }
+        Row { title: @tr("Icons from the Mac"); subtitle: @tr("Apps also installed on the Mac use its icons; off: App Store icons on a glass plate");
+            Toggle { checked <=> S.mac-app-icons; toggled => { S.commit(); } } }
         Row { title: @tr("Use macOS app icons"); subtitle: @tr("Show Linux apps as their macOS counterparts, e.g. Firefox as Safari, Files as Finder"); last: S.apple-icons-idx != 1;
             PopupSelect { items: [@tr("For all apps"), @tr("For selected apps"), @tr("Off")]; current <=> S.apple-icons-idx; changed => { S.commit(); } } }
         if S.apple-icons-idx == 1: VerticalLayout {

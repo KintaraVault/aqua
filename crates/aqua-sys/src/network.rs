@@ -37,6 +37,12 @@ impl NetState {
     pub fn active(&self) -> Option<&Network> {
         self.networks.iter().find(|n| n.active)
     }
+
+    /// Show the network as Ethernet (menu bar / Control Center): no Wi-Fi hardware, or the
+    /// wired link is the connection.
+    pub fn ethernet(&self) -> bool {
+        self.backend != NetBackend::None && (!self.has_wifi || (self.wired.is_some() && self.active().is_none()))
+    }
 }
 
 const NM: &str = "org.freedesktop.NetworkManager";

@@ -147,6 +147,7 @@ impl Shell {
             glass: self.cfg.icon_glass,
         };
         self.icons.set_look(look);
+        self.icons.set_mac_app_icons(self.cfg.mac_app_icons);
     }
 
     /// Persist a changed `cfg.dock` and rebuild the Dock (animations carry over).

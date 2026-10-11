@@ -253,6 +253,30 @@ fi
 tmpd=$(mktemp -d)
 mkdir -p "$tmpd/fonts"
 cp -R assets/fonts/. "$tmpd/fonts/"
+# genuine macOS assets extracted from a Mac (linuxtosh-assets): the system font (SFNS, variable
+# with optical sizes) and the app/CoreTypes icons. Optional — without them Aqua uses SF Pro
+# Display and its own icons.
+MAC_ASSETS=${AQUA_MAC_ASSETS:-}
+if [ -z "$MAC_ASSETS" ]; then
+    for d in "$USER_HOME/linuxtosh-assets/assets/mac" "$SRC/../linuxtosh-assets/assets/mac"; do
+        if [ -d "$d" ]; then MAC_ASSETS=$d; break; fi
+    done
+fi
+if [ -n "$MAC_ASSETS" ] && [ -d "$MAC_ASSETS" ]; then
+    for f in SFNS.ttf SFNSItalic.ttf SFNSRounded.ttf SFNSMono.ttf; do
+        if [ -f "$MAC_ASSETS/fonts/$f" ]; then cp "$MAC_ASSETS/fonts/$f" "$tmpd/fonts/"; fi
+    done
+    if [ -d "$MAC_ASSETS/icons-modes" ]; then
+        mkdir -p "$tmpd/mac-icons/modes" "$tmpd/mac-icons/system"
+        find "$MAC_ASSETS/icons-modes" -maxdepth 1 \( -name '*_a[01]_v0_none.png' -o -name '*_a[01]_v2_*.png' \
+            -o -name apps.txt \) -exec cp -t "$tmpd/mac-icons/modes/" {} +
+        for f in TrashIcon FullTrashIcon DownloadsFolder GenericFolderIcon DocumentsFolderIcon DesktopFolderIcon \
+            ApplicationsFolderIcon HomeFolderIcon; do
+            if [ -f "$MAC_ASSETS/icons/$f.png" ]; then cp "$MAC_ASSETS/icons/$f.png" "$tmpd/mac-icons/system/"; fi
+        done
+    fi
+    ok "macOS font and icons from $MAC_ASSETS"
+fi
 cp dist/greetd/config.toml "$tmpd/greetd-config.toml"
 [ -f dist/arch/nvidia.conf ] && cp dist/arch/nvidia.conf "$tmpd/nvidia-modprobe.conf"
 # zenity / kdialog file dialogs → Aqua's open/save panel (the session puts shims/ first in PATH;

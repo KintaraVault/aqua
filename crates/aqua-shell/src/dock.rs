@@ -774,6 +774,7 @@ pub fn layer(sh: &mut Shell) -> Layer {
         sh.icons_serial(),
         dark,
         &draw,
+        trash_full_cached(),
     ));
     let s = sh.cfg.dock_icon_size;
     let (pm, serial) = sh.cached(LayerId::Dock, key, rect.w, rect.h, |c, sh| {
@@ -793,7 +794,12 @@ pub fn layer(sh: &mut Shell) -> Layer {
                 let ph = (t / 0.5).min(3.0);
                 dy = -((ph * std::f32::consts::PI).sin().abs()) * s * 0.4 * (1.0 - ph / 3.0);
             }
-            let icon = sh.icons.get(&it.icon, px);
+            let icon = if it.kind == Kind::Trash && trash_full_cached() {
+                let full = IconRequest { id: "trash-full".into(), name: it.name.clone(), icon: "builtin:trash-full".into() };
+                sh.icons.get(&full, px)
+            } else {
+                sh.icons.get(&it.icon, px)
+            };
             let d = slot.h * 1.16 * e;
             let cy = slot.bottom() - slot.h / 2.0 * e;
             c.draw_pixmap(&icon, Rect::new(slot.cx() - d / 2.0, cy - d / 2.0 + dy, d, d), e.min(1.0));
@@ -810,7 +816,9 @@ pub fn layer(sh: &mut Shell) -> Layer {
     if clear && sh.cfg.icon_glass {
         for (i, (it, slot)) in items.iter().zip(&geo.slots).enumerate() {
             let e = geo.pres[i];
-            if it.kind == Kind::Separator || matches!(it.kind, Kind::Minimized(_)) || !draw[i] || e <= 0.05 {
+            // the Dock never restyles the Trash and folder stacks (genuine Mac icons, no plate)
+            let unstyled = matches!(it.kind, Kind::Folder | Kind::Trash) && aqua_icons::mac::available();
+            if it.kind == Kind::Separator || matches!(it.kind, Kind::Minimized(_)) || unstyled || !draw[i] || e <= 0.05 {
                 continue;
             }
             let slot = slot.translate(geo.dx[i], 0.0);
@@ -1154,6 +1162,21 @@ pub fn open_cmd(path: &str) -> String {
 /// `XDG_DOWNLOAD_DIR` from user-dirs.dirs, else ~/Downloads.
 pub fn downloads_dir() -> String {
     crate::menu::xdg_dir("DOWNLOAD", "Downloads")
+}
+
+/// [`trash_full`], re-checked at most every 2 s (the Dock redraws often).
+pub fn trash_full_cached() -> bool {
+    use std::sync::Mutex;
+    static C: Mutex<Option<(std::time::Instant, bool)>> = Mutex::new(None);
+    let mut c = C.lock().unwrap_or_else(|e| e.into_inner());
+    match *c {
+        Some((t, v)) if t.elapsed().as_secs_f32() < 2.0 => v,
+        _ => {
+            let v = trash_full();
+            *c = Some((std::time::Instant::now(), v));
+            v
+        }
+    }
 }
 
 /// Is the freedesktop trash non-empty?

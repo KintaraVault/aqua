@@ -162,11 +162,12 @@ pub fn layer(sh: &mut Shell) -> Layer {
     let open = sh.menu.open.clone();
     let snap = aqua_sys::snapshot();
     let wifi_on = snap.net.wifi_enabled && snap.net.active().is_some();
+    let ethernet = snap.net.ethernet();
     let wifi_sig = snap.net.active().map(|n| n.signal).unwrap_or(0);
     let bat = snap.power.level;
     let badge = crate::sysinfo::layout_badge(sh.layouts.get(sh.layout_idx).map(|s| s.as_str()).unwrap_or("us"));
     let key = hash_of(&(
-        (badge.clone(), wifi_on, wifi_sig / 25, bat.map(|b| (b * 100.0) as i32), snap.power.charging),
+        (badge.clone(), (wifi_on, ethernet), wifi_sig / 25, bat.map(|b| (b * 100.0) as i32), snap.power.charging),
         sh.active_app_name(),
         (
             n.minute,
@@ -263,6 +264,9 @@ pub fn layer(sh: &mut Shell) -> Layer {
                         symbols::control_center(c, Rect::new(r.cx() - 8.0, h / 2.0 - 7.5, 16.0, 16.0), fg)
                     }
                     Status::Search => symbols::search(c, Rect::new(r.cx() - 7.5, h / 2.0 - 7.5, 15.0, 15.0), fg),
+                    Status::Wifi if ethernet => {
+                        symbols::ethernet(c, Rect::new(r.cx() - 9.0, h / 2.0 - 7.0, 18.0, 14.0), fg)
+                    }
                     Status::Wifi => {
                         let col = if wifi_on || snap.net.backend == aqua_sys::NetBackend::None {
                             fg

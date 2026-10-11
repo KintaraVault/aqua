@@ -33,6 +33,9 @@ pub fn translate(s: &str) -> &str {
 
 pub struct Fonts {
     faces: Vec<(Weight, FontArc)>,
+    /// The Mac system font (`SFNS.ttf`, variable: wght + opsz + `trak` table) when
+    /// present: instances per (weight, optical size) are created on demand like CoreText does.
+    var: Option<VarFace>,
     /// Fallback fonts for characters SF Pro does not have (arrows, math, ⌘⌥⇧⌃,
     /// emoji, CJK…): without them those characters rendered as empty boxes.
     fallback: Mutex<Fallback>,
@@ -50,6 +53,120 @@ struct Fallback {
     system: Option<HashMap<String, PathBuf>>,
     /// Decoded colour glyphs (font index, glyph id) at their strike resolution.
     color: HashMap<(usize, u16), Option<Arc<Pixmap>>>,
+}
+
+struct VarFace {
+    data: &'static [u8],
+    /// `trak` track 0: (point size, offset in em).
+    trak: Vec<(f32, f32)>,
+    inst: Mutex<HashMap<(Weight, u16), FontArc>>,
+}
+
+/// Optical sizes instantiated (CoreText uses opsz = point size; the axis is 17…96).
+const OPSZ: &[f32] = &[17.0, 20.0, 22.0, 24.0, 28.0, 32.0, 36.0, 48.0, 64.0, 96.0];
+
+impl VarFace {
+    fn open(path: &Path) -> Option<Self> {
+        // one copy per process (every Fonts instance shares it; instances only hold views)
+        static DATA: Mutex<Vec<(PathBuf, &'static [u8])>> = Mutex::new(Vec::new());
+        let mut loaded = DATA.lock().unwrap_or_else(|e| e.into_inner());
+        let data = match loaded.iter().find(|(p, _)| p == path) {
+            Some((_, d)) => *d,
+            None => {
+                let bytes = std::fs::read(path).ok()?;
+                let d: &'static [u8] = Box::leak(bytes.into_boxed_slice());
+                loaded.push((path.to_path_buf(), d));
+                d
+            }
+        };
+        drop(loaded);
+        let f = ab_glyph::FontRef::try_from_slice(data).ok()?;
+        f.glyph_id('a').0.ne(&0).then_some(())?;
+        Some(Self { data, trak: parse_trak(data).unwrap_or_default(), inst: Mutex::new(HashMap::new()) })
+    }
+
+    fn wght(w: Weight) -> f32 {
+        // SFNS named instances
+        match w {
+            Weight::Light => 274.315,
+            Weight::Regular => 400.0,
+            Weight::Medium => 510.0,
+            Weight::Semibold => 590.0,
+            Weight::Bold => 700.0,
+        }
+    }
+
+    fn face(&self, w: Weight, size: f32) -> FontArc {
+        let s = size.clamp(17.0, 96.0);
+        let opsz = OPSZ.iter().copied().min_by(|a, b| (a - s).abs().total_cmp(&(b - s).abs())).unwrap_or(17.0);
+        let key = (w, opsz as u16);
+        let mut m = self.inst.lock().unwrap_or_else(|e| e.into_inner());
+        m.entry(key)
+            .or_insert_with(|| {
+                use ab_glyph::VariableFont;
+                let mut f = ab_glyph::FontRef::try_from_slice(self.data).expect("validated");
+                f.set_variation(b"wght", Self::wght(w));
+                f.set_variation(b"opsz", opsz);
+                FontArc::new(f)
+            })
+            .clone()
+    }
+
+    /// CoreText's automatic tracking for `size` pt (px, logical).
+    fn tracking(&self, size: f32) -> f32 {
+        let t = &self.trak;
+        if t.is_empty() {
+            return 0.0;
+        }
+        let em = if size <= t[0].0 {
+            t[0].1
+        } else if size >= t[t.len() - 1].0 {
+            t[t.len() - 1].1
+        } else {
+            let i = t.iter().position(|e| e.0 >= size).unwrap_or(1).max(1);
+            let (a, b) = (t[i - 1], t[i]);
+            a.1 + (b.1 - a.1) * (size - a.0) / (b.0 - a.0)
+        };
+        em * size
+    }
+}
+
+/// Horizontal track 0 of a `trak` table as (size, em offset).
+fn parse_trak(d: &[u8]) -> Option<Vec<(f32, f32)>> {
+    let u16_at = |o: usize| d.get(o..o + 2).map(|b| u16::from_be_bytes([b[0], b[1]]));
+    let i16_at = |o: usize| u16_at(o).map(|v| v as i16);
+    let u32_at = |o: usize| d.get(o..o + 4).map(|b| u32::from_be_bytes([b[0], b[1], b[2], b[3]]));
+    let fixed = |o: usize| u32_at(o).map(|v| v as i32 as f32 / 65536.0);
+    let ntab = u16_at(4)? as usize;
+    let mut trak = None;
+    let mut upem = 2048.0;
+    for i in 0..ntab {
+        let r = 12 + i * 16;
+        let tag = d.get(r..r + 4)?;
+        let off = u32_at(r + 8)? as usize;
+        if tag == b"trak" {
+            trak = Some(off);
+        } else if tag == b"head" {
+            upem = u16_at(off + 18)? as f32;
+        }
+    }
+    let t = trak?;
+    let horiz = u16_at(t + 6)? as usize;
+    if horiz == 0 {
+        return None;
+    }
+    let h = t + horiz;
+    let (ntracks, nsizes) = (u16_at(h)? as usize, u16_at(h + 2)? as usize);
+    let size_off = u32_at(h + 4)? as usize;
+    let sizes: Vec<f32> = (0..nsizes).map(|k| fixed(t + size_off + 4 * k)).collect::<Option<_>>()?;
+    for k in 0..ntracks {
+        let e = h + 8 + k * 8;
+        if fixed(e)? == 0.0 {
+            let vo = u16_at(e + 6)? as usize;
+            return (0..nsizes).map(|j| Some((sizes[j], i16_at(t + vo + 2 * j)? as f32 / upem))).collect();
+        }
+    }
+    None
 }
 
 /// Font files tried (in this order) when SF Pro lacks a character.
@@ -108,8 +225,21 @@ struct Resolved {
 }
 
 impl Fonts {
-    /// Load SF Pro Display faces from `dir`.
+    /// Load the UI font from `dir`: the Mac system font `SFNS.ttf` (variable, optical
+    /// sizes) when present, else the SF Pro Display faces.
     pub fn load(dir: &Path) -> Self {
+        let mut cands = vec![dir.join("SFNS.ttf")];
+        // installed by dist/install.sh from the Mac assets (a development build's `dir` is the
+        // repository's assets/fonts, which only has SF Pro Display)
+        cands.extend(["/usr/local/share/aqua/fonts/SFNS.ttf", "/usr/share/aqua/fonts/SFNS.ttf"].map(PathBuf::from));
+        if let Some(h) = std::env::var_os("HOME") {
+            cands.push(PathBuf::from(h).join("linuxtosh-assets/assets/mac/fonts/SFNS.ttf"));
+        }
+        let var = if std::env::var_os("AQUA_NO_SYSTEM_FONT").is_some() {
+            None
+        } else {
+            cands.iter().find_map(|p| VarFace::open(p))
+        };
         let wanted = [
             (Weight::Light, "SF-Pro-Display-Light.otf"),
             (Weight::Regular, "SF-Pro-Display-Regular.otf"),
@@ -124,6 +254,9 @@ impl Fonts {
                     faces.push((w, font));
                 }
             }
+        }
+        if let Some(v) = &var {
+            faces.insert(0, (Weight::Regular, v.face(Weight::Regular, 13.0)));
         }
         if faces.is_empty() {
             for p in [
@@ -154,21 +287,29 @@ impl Fonts {
                 }
             }
         }
-        Self { faces, fallback: Mutex::new(fb) }
+        Self { faces, var, fallback: Mutex::new(fb) }
     }
 
-    fn face(&self, w: Weight) -> &FontArc {
+    fn face(&self, w: Weight) -> FontArc {
+        self.face_at(w, 13.0)
+    }
+
+    /// The face for weight `w` at `size` pt (optical size for the system font).
+    fn face_at(&self, w: Weight, size: f32) -> FontArc {
+        if let Some(v) = &self.var {
+            return v.face(w, size);
+        }
         self.faces
             .iter()
             .find(|(fw, _)| *fw == w)
             .or_else(|| self.faces.iter().find(|(fw, _)| *fw == Weight::Regular))
-            .map(|(_, f)| f)
-            .unwrap_or(&self.faces[0].1)
+            .map(|(_, f)| f.clone())
+            .unwrap_or_else(|| self.faces[0].1.clone())
     }
 
     /// The font (SF Pro, else a fallback) that has a glyph for `c`.
-    fn resolve(&self, c: char, w: Weight) -> Resolved {
-        let face = self.face(w);
+    fn resolve(&self, c: char, w: Weight, size: f32) -> Resolved {
+        let face = self.face_at(w, size);
         let id = face.glyph_id(c);
         let emoji = is_emoji(c);
         if (id.0 != 0 && !emoji) || c.is_whitespace() || c.is_control() || is_invisible(c) {
@@ -196,13 +337,16 @@ impl Fonts {
             return Self::px_scale(&r.font, size);
         }
         let em = |f: &FontArc| Self::px_scale(f, size).y * f.units_per_em().unwrap_or(1000.0) / f.height_unscaled();
-        let target_em = em(self.face(w));
+        let target_em = em(&self.face(w));
         let upem = r.font.units_per_em().unwrap_or(1000.0);
         PxScale::from(target_em * r.font.height_unscaled() / upem)
     }
 
     /// Optical tracking used by SF Pro (negative tracking at display sizes).
-    fn tracking(size: f32) -> f32 {
+    fn tracking(&self, size: f32) -> f32 {
+        if let Some(v) = &self.var {
+            return v.tracking(size);
+        }
         if size >= 20.0 {
             -0.012 * size
         } else if size >= 13.0 {
@@ -229,13 +373,13 @@ impl Fonts {
             if is_invisible(c) {
                 continue;
             }
-            let r = self.resolve(c, w);
+            let r = self.resolve(c, w, size);
             if let Some((pf, p)) = prev {
                 if pf == r.fb && r.fb.is_none() {
                     x += r.font.as_scaled(Self::px_scale(&r.font, size)).kern(p, r.id);
                 }
             }
-            x += self.advance(&r, w, size) + Self::tracking(size);
+            x += self.advance(&r, w, size) + self.tracking(size);
             prev = Some((r.fb, r.id));
         }
         x
@@ -243,7 +387,7 @@ impl Fonts {
 
     /// Does SF Pro or an installed fallback font have a glyph for `c`?
     pub fn has_glyph(&self, c: char) -> bool {
-        let r = self.resolve(c, Weight::Regular);
+        let r = self.resolve(c, Weight::Regular, 13.0);
         r.id.0 != 0
     }
 
@@ -251,8 +395,8 @@ impl Fonts {
         size * 0.70
     }
     pub fn ascent(&self, size: f32, w: Weight) -> f32 {
-        let font = self.face(w);
-        font.as_scaled(Self::px_scale(font, size)).ascent()
+        let font = self.face_at(w, size);
+        font.as_scaled(Self::px_scale(&font, size)).ascent()
     }
 
     /// `s` shortened with "…" to fit `max` px. Binary search over the prefix length: window
@@ -337,7 +481,7 @@ impl Fonts {
             if is_invisible(ch) {
                 continue;
             }
-            let r = self.resolve(ch, w);
+            let r = self.resolve(ch, w, size);
             let sc = self.px_scale_for(&r, w, psize);
             let sf = r.font.as_scaled(sc);
             if let Some((pf, p)) = prev {
@@ -389,7 +533,7 @@ impl Fonts {
                     });
                 }
             }
-            pen += adv + Self::tracking(size) * scale;
+            pen += adv + self.tracking(size) * scale;
             prev = Some((r.fb, r.id));
         }
         pen / scale - x

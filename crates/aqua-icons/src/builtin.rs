@@ -55,7 +55,7 @@ pub fn monogram_look(name: &str, px: u32, fonts: &Fonts, look: &crate::look::Loo
 
 pub fn draw(name: &str, px: u32, fonts: &Fonts) -> Option<Pixmap> {
     let px = px.max(16);
-    if name == "trash" {
+    if name == "trash" || name == "trash-full" {
         return Some(trash(px));
     }
     if name == "downloads" || name == "folder" {

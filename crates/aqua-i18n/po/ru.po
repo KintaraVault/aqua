@@ -411,7 +411,7 @@ msgid "Edit"
 msgstr "Правка"
 
 msgid "Edit Controls"
-msgstr "Изменить элементы"
+msgstr "Изменить настройки"
 
 msgid "Edit…"
 msgstr "Изменить…"
@@ -958,6 +958,9 @@ msgstr "окт."
 
 msgid "Off"
 msgstr "Выкл."
+
+msgid "On"
+msgstr "Вкл."
 
 msgid "Off: the app you used last moves next to the pinned apps"
 msgstr "Выкл.: последняя использованная программа перемещается к закреплённым"

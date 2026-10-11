@@ -49,6 +49,26 @@ pub fn wifi(c: &mut Canvas, r: Rect, color: Color) {
     }
 }
 
+/// Ethernet ("<···>", the macOS Network settings glyph).
+pub fn ethernet(c: &mut Canvas, r: Rect, color: Color) {
+    let s = r.w.min(r.h);
+    let (cx, cy) = (r.cx(), r.cy());
+    let th = s * 0.13;
+    let (hw, hh) = (s * 0.50, s * 0.36);
+    for dir in [-1.0f32, 1.0] {
+        let mut pb = PathBuilder::new();
+        pb.move_to(cx + dir * (hw - s * 0.26), cy - hh);
+        pb.line_to(cx + dir * hw, cy);
+        pb.line_to(cx + dir * (hw - s * 0.26), cy + hh);
+        if let Some(p) = pb.finish() {
+            c.stroke_path(&p, &solid(color), th);
+        }
+    }
+    for k in [-1.0f32, 0.0, 1.0] {
+        c.fill_circle(cx + k * s * 0.19, cy, s * 0.075, color);
+    }
+}
+
 pub fn battery(c: &mut Canvas, r: Rect, level: f32, color: Color) {
     let body = Rect::new(r.x, r.cy() - r.h * 0.5, r.w * 0.9, r.h);
     c.fill_rrect(

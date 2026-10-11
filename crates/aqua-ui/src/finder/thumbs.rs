@@ -61,6 +61,7 @@ impl Worker {
                                         apps: cfg.apple_icon_apps.clone(),
                                         owners: vec![],
                                     });
+                                    p.set_mac_app_icons(cfg.mac_app_icons);
                                     p
                                 });
                                 let pm = prov.get(&aqua_icons::IconRequest { id, name, icon }, 128);

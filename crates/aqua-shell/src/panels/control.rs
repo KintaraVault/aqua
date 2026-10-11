@@ -144,20 +144,33 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
             sh.control.volume = if snap.audio.muted { 0.0 } else { snap.audio.volume };
         }
     }
-    let wifi_name = snap.net.active().map(|n| n.ssid.clone()).or(snap.net.wired.clone()).unwrap_or_else(|| {
-        if snap.net.wifi_enabled {
-            "Not Connected".into()
-        } else {
-            "Off".into()
+    // the network module shows Ethernet when there is no Wi-Fi hardware or the wired link is
+    // the connection; NetworkManager's generic profile names ("Wired connection 1") are
+    // shown as macOS does: just the state
+    let ethernet = snap.net.ethernet();
+    let wifi_name = if ethernet {
+        match &snap.net.wired {
+            Some(n) if !generic_wired_name(n) => n.clone(),
+            Some(_) => "Connected".into(),
+            None => "Not Connected".into(),
         }
-    });
+    } else {
+        snap.net.active().map(|n| n.ssid.clone()).unwrap_or_else(|| {
+            if snap.net.wifi_enabled {
+                "Not Connected".into()
+            } else {
+                "Off".into()
+            }
+        })
+    };
+    let wired_on = snap.net.wired.is_some();
     let cc = &sh.control;
     let light_bg = !sh.style.dark && sh.style.lum(p) > 0.80;
     let media = snap.media.clone();
     let key = hash_of(&(
         (wifi_name.clone(), snap.bt.devices.iter().filter(|d| d.connected).count(), snap.audio.device.clone()),
         (media.title.clone(), media.artist.clone(), media.app.clone(), media.playing),
-        cc.wifi,
+        (cc.wifi, ethernet, wired_on),
         cc.bluetooth,
         cc.airdrop,
         (cc.focus, cc.stage),
@@ -187,22 +200,43 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
             };
             match t {
                 T::Wifi | T::Focus => {
-                    let on = if *t == T::Wifi { cc.wifi } else { cc.focus };
+                    let on = match t {
+                        T::Wifi if ethernet => wired_on,
+                        T::Wifi => cc.wifi,
+                        _ => cc.focus,
+                    };
                     let (cx, cy) = (r.x + 34.0, r.cy());
                     toggle_circle(c, cx, cy, on);
                     let ic = Rect::new(cx - 9.0, cy - 8.0, 18.0, 16.0);
-                    if *t == T::Wifi {
-                        symbols::wifi(c, ic, fg)
-                    } else {
-                        symbols::moon(c, ic, fg)
+                    match t {
+                        T::Wifi if ethernet => symbols::ethernet(c, ic, fg),
+                        T::Wifi => symbols::wifi(c, ic, fg),
+                        _ => symbols::moon(c, ic, fg),
                     }
-                    let (title, sub) = if *t == T::Wifi {
-                        ("Wi-Fi", wifi_name.as_str())
-                    } else {
-                        ("Focus", if on { "Do Not Disturb" } else { "" })
+                    let (title, sub) = match t {
+                        T::Wifi if ethernet => ("Ethernet", wifi_name.as_str()),
+                        T::Wifi => ("Wi-Fi", wifi_name.as_str()),
+                        _ => ("Focus", if on { "Do Not Disturb" } else { "" }),
                     };
-                    c.text(&f, r.x + 60.0, r.cy() - 1.0, 13.5, Weight::Semibold, fg, title);
-                    c.text(&f, r.x + 60.0, r.cy() + 15.0, 12.0, Weight::Regular, fg2, sub);
+                    // never past the module's right edge: shorten with "…"
+                    let tx = r.x + 60.0;
+                    let max = r.right() - tx - 8.0;
+                    let full = aqua_gfx::text::translate(title).to_string();
+                    if sub.is_empty() && f.measure(&full, 13.5, Weight::Semibold) > max {
+                        // like macOS: a long title without status wraps with a hyphen
+                        let (a, b) = hyphenate(&f, &full, 13.5, Weight::Semibold, max);
+                        let b = f.ellipsize(&b, 13.5, Weight::Semibold, max);
+                        c.text(&f, tx, r.cy() - 3.0, 13.5, Weight::Semibold, fg, &a);
+                        c.text(&f, tx, r.cy() + 13.0, 13.5, Weight::Semibold, fg, &b);
+                    } else {
+                        let title = f.ellipsize(&full, 13.5, Weight::Semibold, max);
+                        // too long: a shorter way to say it before cutting it ("Connected" → "On")
+                        let short = if sub == "Connected" { "On" } else { sub };
+                        let sub = if f.measure(sub, 12.0, Weight::Regular) > max { short } else { sub };
+                        let sub = f.ellipsize(sub, 12.0, Weight::Regular, max);
+                        c.text(&f, tx, r.cy() - 1.0, 13.5, Weight::Semibold, fg, &title);
+                        c.text(&f, tx, r.cy() + 15.0, 12.0, Weight::Regular, fg2, &sub);
+                    }
                 }
                 T::Bt | T::AirDrop => {
                     let on = if *t == T::Bt { cc.bluetooth } else { cc.airdrop };
@@ -352,12 +386,19 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
                 }
             }
         }
+        // macOS 26: a 24 pt capsule 17 pt below the last module, lighter than the backdrop,
+        // hairline rim, 12 pt Regular label with 11 pt side padding
         let lbl = "Edit Controls";
-        let w = f.measure(lbl, 12.5, Weight::Medium) + 22.0;
-        let pr = Rect::new((p.w - w) / 2.0, p.h - 30.0, w, 22.0);
-        c.fill_continuous(pr, 11.0, rgba(40, 40, 48, 0.42));
-        c.stroke_continuous(pr, 11.0, rgba(255, 255, 255, 0.35), 1.0);
-        c.text_in(&f, pr, 0.5, 12.5, Weight::Medium, rgba(255, 255, 255, 0.95), lbl);
+        let w = f.measure(lbl, 12.0, Weight::Regular) + 22.0;
+        let pr = Rect::new(((p.w - w) / 2.0).round(), p.h - 27.0, w.round(), 24.0);
+        let (fill, rim, ink) = if light_bg {
+            (rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.16), rgba(29, 29, 31, 0.85))
+        } else {
+            (rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.86))
+        };
+        c.fill_continuous(pr, 12.0, fill);
+        c.stroke_continuous(pr.inset(0.5), 11.5, rim, 1.0);
+        c.text_in(&f, pr, 0.5, 12.0, Weight::Regular, ink, lbl);
     });
     let base = sh.cfg.glass;
     let tile_glass: Vec<(Rect, aqua_config::GlassStyle)> =
@@ -403,7 +444,7 @@ pub fn click(sh: &mut Shell, x: f32, y: f32) -> Option<Vec<Action>> {
     let mut out = vec![Action::Redraw];
     match t {
         T::Wifi => {
-            if x - r.x > 60.0 {
+            if aqua_sys::snapshot().net.ethernet() || x - r.x > 60.0 {
                 cc.open = false;
                 out.push(Action::OpenSettings("wifi".into()));
             } else {
@@ -476,4 +517,41 @@ pub fn click(sh: &mut Shell, x: f32, y: f32) -> Option<Vec<Action>> {
         }
     }
     Some(out)
+}
+
+/// NetworkManager's automatic wired profile names ("Wired connection 1", localised).
+fn generic_wired_name(n: &str) -> bool {
+    let base = n.trim_end_matches(|c: char| c.is_ascii_digit() || c == ' ');
+    let l = base.to_lowercase();
+    l.is_empty()
+        || ["wired connection", "проводное подключение", "проводное соединение", "ethernet", "kabelgebundene verbindung"]
+            .iter()
+            .any(|g| l == *g)
+        || l.starts_with("enp")
+        || l.starts_with("eth")
+        || l.starts_with("eno")
+}
+
+/// Split `s` into a first line ending in "-" (or at a space) that fits `max` and the rest.
+fn hyphenate(f: &aqua_gfx::Fonts, s: &str, size: f32, w: Weight, max: f32) -> (String, String) {
+    let chars: Vec<char> = s.chars().collect();
+    let vowel = |c: char| "aeiouyаеёиоуыэюяAEIOUYАЕЁИОУЫЭЮЯ".contains(c);
+    for k in (2..chars.len().saturating_sub(1)).rev() {
+        let head: String = chars[..k].iter().collect();
+        let rest: String = chars[k..].iter().collect();
+        if chars[k - 1] == ' ' {
+            if f.measure(head.trim_end(), size, w) <= max {
+                return (head.trim_end().to_string(), rest);
+            }
+            continue;
+        }
+        // break after a vowel, never before one (Фокусиро-вание)
+        if !vowel(chars[k - 1]) || vowel(chars[k]) || chars[k].is_whitespace() {
+            continue;
+        }
+        if f.measure(&format!("{head}-"), size, w) <= max {
+            return (format!("{head}-"), rest);
+        }
+    }
+    (s.to_string(), String::new())
 }

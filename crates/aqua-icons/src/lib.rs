@@ -1,6 +1,8 @@
 //! aqua-icons: icon resolution pipeline.
 //!
 //! Lookup order for an app:
+//! 0. **Genuine Mac icons** extracted from a Mac ([`mac`]): our built-in keys, their Linux
+//!    counterparts and third-party apps installed on the Mac too.
 //! 0. **User-supplied genuine icons**: `~/.local/share/aqua/icons/<id>.icns|png`
 //!    (e.g. copied out of a Mac's `/Applications/X.app/Contents/Resources`).
 //! 1. **icon cache** (`~/.cache/aqua/icons/<id>.png`) – vendor versions
@@ -21,6 +23,7 @@ pub mod glass;
 pub mod glyph;
 pub mod icns;
 pub mod look;
+pub mod mac;
 pub mod normalize;
 pub mod theme;
 
@@ -40,6 +43,7 @@ pub struct IconProvider {
     pub dirty: Arc<Mutex<bool>>,
     /// Which apps may be shown with their counterpart's icon.
     policy: equiv::Policy,
+    mac_apps: bool,
 }
 
 /// What to show for an app.
@@ -66,6 +70,7 @@ impl IconProvider {
             fetcher,
             dirty,
             policy: equiv::Policy { mode: "all".into(), apps: vec![], owners: vec![] },
+            mac_apps: true,
         }
     }
 
@@ -78,6 +83,15 @@ impl IconProvider {
     }
 
     /// Icon style (Default / Dark / Clear / Tinted, glass rim).
+    /// Use the Mac-extracted icons for third-party / App Store apps too (built-in apps like
+    /// Finder, the Trash and folders always use them when installed).
+    pub fn set_mac_app_icons(&mut self, on: bool) {
+        if on != self.mac_apps {
+            self.mac_apps = on;
+            self.memo.clear();
+        }
+    }
+
     pub fn set_look(&mut self, l: look::Look) {
         if l != self.look {
             self.look = l;
@@ -161,6 +175,9 @@ impl IconProvider {
 
     /// Ok = foreign bitmap, Err = drawn by us.
     fn resolve_inner(&mut self, req: &IconRequest, px: u32) -> Result<Pixmap, Pixmap> {
+        if let Some(r) = self.resolve_mac(req, px) {
+            return r;
+        }
         let mut apple_store: Option<&str> = None;
         if !req.icon.starts_with("builtin:") && self.policy.allows(&req.id, &req.icon) {
             match equiv::lookup(&req.id, &req.icon) {
@@ -209,6 +226,55 @@ impl IconProvider {
         }
         Err(builtin::monogram_look(&req.name, px, &self.fonts, &self.look))
     }
+}
+
+impl IconProvider {
+    /// The icon extracted from a Mac, if there is one for this app. Ok = the Default render
+    /// (our look is applied to it like to App Store artwork), Err = final (Dark/Tinted as
+    /// macOS rendered them; Trash and folders, which the Dock never restyles).
+    fn resolve_mac(&self, req: &IconRequest, px: u32) -> Option<Result<Pixmap, Pixmap>> {
+        if !mac::available() {
+            return None;
+        }
+        let app = if let Some(key) = req.icon.strip_prefix("builtin:") {
+            if let Some(pm) = mac::system_icon(key) {
+                return Some(Err(aqua_gfx::resize(&pm, px, px)));
+            }
+            mac::builtin_app(key)?
+        } else {
+            let allowed = self.policy.allows(&req.id, &req.icon);
+            match allowed.then(|| equiv::lookup(&req.id, &req.icon)).flatten() {
+                Some(equiv::Equiv::Builtin(b)) => mac::builtin_app(b)?,
+                _ if !self.mac_apps => return None,
+                Some(equiv::Equiv::Store(n)) => {
+                    mac::app_for("", n, "", true).or_else(|| mac::app_for(&req.id, &req.name, &req.icon, false))?
+                }
+                None => mac::app_for(&req.id, &req.name, &req.icon, allowed)?,
+            }
+        };
+        let l = &self.look;
+        let direct = match l.style {
+            look::Style::Default => Some((false, 0, "none")),
+            look::Style::Dark => Some((true, 0, "none")),
+            look::Style::Tinted => mac_tint(l.tint).map(|t| (l.dark, 2, t)),
+            look::Style::Clear => None,
+        };
+        if let Some((dark, v, t)) = direct {
+            if let Some(pm) = mac::app_icon(app, dark, v, t) {
+                return Some(Err(aqua_gfx::resize(&pm, px, px)));
+            }
+        }
+        let pm = mac::app_icon(app, false, 0, "none")?;
+        Some(Ok(aqua_gfx::resize(&pm, px, px)))
+    }
+}
+
+/// The macOS tint render matching the accent colour (Tinted style), if it is one of them.
+fn mac_tint(c: (f32, f32, f32)) -> Option<&'static str> {
+    ["blue", "red", "green", "purple", "graphite", "orange"].into_iter().find(|n| {
+        let a = aqua_config::accent_rgb(n);
+        (a.0 - c.0).abs() + (a.1 - c.1).abs() + (a.2 - c.2).abs() < 0.06
+    })
 }
 
 /// Genuine icons the user put in `~/.local/share/aqua/icons` (`.icns` from a Mac app
