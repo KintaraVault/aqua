@@ -314,37 +314,6 @@ mod lch {
     }
 }
 
-#[cfg(test)]
-mod lens_tests {
-    use super::*;
-
-    #[test]
-    fn rim_refracts_and_lights_the_edge() {
-        let g = GlassStyle {
-            blur: 0.0,
-            tint: aqua_config::Rgba(1.0, 1.0, 1.0, 0.0),
-            saturation: 1.0,
-            ..Default::default()
-        };
-        let m = LensModel::new(&g, 200.0, 100.0, 1.0);
-        // flat top: the backdrop straight through
-        let (c, cov) = m.shade(100.5, 50.5, |dx, dy, _| [0.5 + dx * 0.0, 0.5 + dy * 0.0, 0.5]).unwrap();
-        assert_eq!(cov, 1.0);
-        assert!((c[0] - 0.5).abs() < 1e-3);
-        // just inside the left rim the backdrop is pulled from further in (+x)
-        let probe = std::cell::Cell::new(0.0f32);
-        m.shade(1.5, 50.5, |dx, _, _| {
-            probe.set(probe.get().max(dx));
-            [0.2, 0.2, 0.2]
-        });
-        assert!(probe.get() > 5.0, "displacement {}", probe.get());
-        // the top-left rim catches the light, the left rim gets the Fresnel band
-        let (lit, _) = m.shade(100.5, 0.6, |_, _, _| [0.2, 0.2, 0.2]).unwrap();
-        assert!(lit[1] > 0.25, "{lit:?}");
-        assert!(m.shade(-2.0, 50.0, |_, _, _| [0.0; 3]).is_none(), "outside");
-    }
-}
-
 /// Composite a full frame: wallpaper → windows → shell layers.
 pub fn compose(wallpaper: &Pixmap, windows: &[SoftWindow], layers: &[Layer], scale: f32) -> Pixmap {
     let mut out = wallpaper.clone();
@@ -392,4 +361,35 @@ pub fn draw_layer(out: &mut Pixmap, l: &Layer, scale: f32) {
         Transform::identity(),
         None,
     );
+}
+
+#[cfg(test)]
+mod lens_tests {
+    use super::*;
+
+    #[test]
+    fn rim_refracts_and_lights_the_edge() {
+        let g = GlassStyle {
+            blur: 0.0,
+            tint: aqua_config::Rgba(1.0, 1.0, 1.0, 0.0),
+            saturation: 1.0,
+            ..Default::default()
+        };
+        let m = LensModel::new(&g, 200.0, 100.0, 1.0);
+        // flat top: the backdrop straight through
+        let (c, cov) = m.shade(100.5, 50.5, |dx, dy, _| [0.5 + dx * 0.0, 0.5 + dy * 0.0, 0.5]).unwrap();
+        assert_eq!(cov, 1.0);
+        assert!((c[0] - 0.5).abs() < 1e-3);
+        // just inside the left rim the backdrop is pulled from further in (+x)
+        let probe = std::cell::Cell::new(0.0f32);
+        m.shade(1.5, 50.5, |dx, _, _| {
+            probe.set(probe.get().max(dx));
+            [0.2, 0.2, 0.2]
+        });
+        assert!(probe.get() > 5.0, "displacement {}", probe.get());
+        // the top-left rim catches the light, the left rim gets the Fresnel band
+        let (lit, _) = m.shade(100.5, 0.6, |_, _, _| [0.2, 0.2, 0.2]).unwrap();
+        assert!(lit[1] > 0.25, "{lit:?}");
+        assert!(m.shade(-2.0, 50.0, |_, _, _| [0.0; 3]).is_none(), "outside");
+    }
 }
