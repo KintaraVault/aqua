@@ -270,7 +270,7 @@ impl Aqua {
             && geo.loc.y > area.loc.y + mb;
         let loc = if wants_pos { (geo.loc.x, geo.loc.y.max(area.loc.y + mb + tb)) } else { centered };
         let rect = Rectangle::<i32, Logical>::new(loc.into(), size);
-        crate::wm::x11_configure(&window, rect);
+        crate::wm::x11_configure(window, rect);
         let from = self.take_launch_origin(&w);
         {
             let mut m = meta(&w).borrow_mut();

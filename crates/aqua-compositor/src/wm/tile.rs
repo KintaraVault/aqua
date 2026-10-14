@@ -38,7 +38,7 @@ impl Preview {
             (lerp(self.from.loc.x, to.loc.x), lerp(self.from.loc.y, to.loc.y)).into(),
             (lerp(self.from.size.w, to.size.w), lerp(self.from.size.h, to.size.h)).into(),
         );
-        (r, t.min(1.0).max(0.25))
+        (r, t.clamp(0.25, 1.0))
     }
 
     pub fn animating(&self) -> bool {
