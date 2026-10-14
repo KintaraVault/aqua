@@ -15,8 +15,8 @@ Field bounds and caret position are separate. AT-SPI provides a rectangular fiel
 - ↑ / ↓ selects; Tab or a click accepts; Escape dismisses.
 - Physical input, focus changes, locking and invalidated context cancel pending delivery.
 - Accepted text is sent one Unicode grapheme at a time, scheduled at 8 ms intervals. Plain native edits require an observed matching text state; missing acknowledgement stops delivery rather than allowing an unbounded queue. Protected browser fields may omit text-input updates and instead require a fresh focus/protection/origin permit for every grapheme. Scheduling and accessibility calls may increase actual intervals.
-- A bounded, zeroized acknowledgement history tolerates duplicate native acknowledgements without advancing the queue twice. Expected delivery text is not exposed as observed surrounding text while typing.
-- Corrections replace only the validated current prefix. Selection and mid-word insertion do not trigger suggestions.
+- A bounded, zeroized acknowledgement history tolerates duplicate native acknowledgements without advancing the queue twice. Field context is unavailable while an edit is in flight: expected text, selection and offsets are not exposed as independently observed metadata.
+- Corrections replace only the validated current prefix. Browser replacements verify and select that exact prefix through AT-SPI, then use native grapheme commits; they do not depend on Chromium honoring `delete_surrounding_text`. Other native clients receive a separate deletion transaction and must acknowledge its result before insertion begins. Selection and mid-word insertion do not trigger suggestions.
 
 `AQUA_T9=1` enables trailing 2–9 predictions in ordinary text fields. Latin and Russian mappings are supported; numeric and PIN fields are excluded.
 

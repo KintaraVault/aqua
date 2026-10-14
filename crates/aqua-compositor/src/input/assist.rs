@@ -181,6 +181,9 @@ pub struct Assist {
     bridge: aqua_text::accessibility::Bridge,
     bridge_window: Option<(u64, String, u32, bool)>,
     access_typing: bool,
+    selection_pending: bool,
+    selection_deadline: Option<std::time::Instant>,
+    selection_prefix: Option<Zeroizing<String>>,
     permit_pending: bool,
     native_waiting: bool,
     native_suspended: bool,
@@ -235,6 +238,9 @@ impl Default for Assist {
             bridge: aqua_text::accessibility::Bridge::new(),
             bridge_window: None,
             access_typing: false,
+            selection_pending: false,
+            selection_deadline: None,
+            selection_prefix: None,
             permit_pending: false,
             native_waiting: false,
             native_suspended: false,
@@ -266,6 +272,9 @@ impl Default for Assist {
 impl Assist {
     pub fn clear_focus(&mut self) {
         self.access_typing = false;
+        self.selection_pending = false;
+        self.selection_deadline = None;
+        self.selection_prefix = None;
         self.permit_pending = false;
         self.native_waiting = false;
         self.native_suspended = false;
@@ -420,7 +429,7 @@ impl Aqua {
                 text.as_str() == a.field.text.as_str() && *cursor == a.field.cursor && *anchor == a.field.anchor
             })
         });
-        let old_ack = self.assist.native_waiting
+        let old_ack = (self.assist.native_waiting || self.assist.selection_pending)
             && !exact
             && delta.surrounding.as_ref().is_some_and(|state| self.assist.acknowledgements.contains(state));
         if old_ack {
@@ -475,6 +484,9 @@ impl Aqua {
         if new_field || changed_type || unexpected_text && self.assist.queue.is_some() {
             self.assist.acknowledgements.clear();
             self.assist.queue = None;
+            self.assist.selection_pending = false;
+            self.assist.selection_deadline = None;
+            self.assist.selection_prefix = None;
             self.assist.password_rx = None;
             self.assist.generation = self.assist.generation.wrapping_add(1);
             self.assist.access_typing = false;
@@ -523,6 +535,9 @@ impl Aqua {
     pub fn assist_key(&mut self, raw: u32, ctrl: bool, alt: bool, logo: bool, shift: bool) -> bool {
         use smithay::input::keyboard::keysyms;
         self.assist.queue = None;
+        self.assist.selection_pending = false;
+        self.assist.selection_deadline = None;
+        self.assist.selection_prefix = None;
         self.assist.password_rx = None;
         self.assist.generation = self.assist.generation.wrapping_add(1);
         self.assist.access_typing = false;
@@ -610,6 +625,9 @@ impl Aqua {
             }
         }
         self.assist.queue = None;
+        self.assist.selection_pending = false;
+        self.assist.selection_deadline = None;
+        self.assist.selection_prefix = None;
         self.assist.password_rx = None;
         self.assist.generation = self.assist.generation.wrapping_add(1);
         self.assist.access_typing = false;
@@ -642,7 +660,15 @@ impl Aqua {
                     (self.assist.prefix_bytes, word)
                 };
                 let native = active.use_native_delivery();
-                if delete > 0 && native {
+                if delete > 0 && native && active.browser {
+                    let cursor = active.field.cursor.max(0) as usize;
+                    if cursor < delete || !active.field.text.is_char_boundary(cursor - delete) {
+                        return;
+                    }
+                    self.assist.selection_prefix =
+                        Some(Zeroizing::new(active.field.text[cursor - delete..cursor].to_owned()));
+                }
+                if delete > 0 && native && !active.browser {
                     self.assist.pending_delete = Some(delete as u32);
                     if let Some(a) = self.assist.active.as_mut() {
                         self.assist.acknowledgements.remember(&a.field);
@@ -726,6 +752,9 @@ impl Aqua {
         if changed {
             self.assist.password_rx = None;
             self.assist.queue = None;
+            self.assist.selection_pending = false;
+            self.assist.selection_deadline = None;
+            self.assist.selection_prefix = None;
             self.assist.access_typing = false;
             self.assist.permit_pending = false;
             self.assist.native_waiting = false;
@@ -777,6 +806,9 @@ impl Aqua {
             if pending {
                 self.assist.password_rx = None;
                 self.assist.queue = None;
+                self.assist.selection_pending = false;
+                self.assist.selection_deadline = None;
+                self.assist.selection_prefix = None;
                 self.assist.access_typing = false;
                 self.assist.permit_pending = false;
                 self.assist.native_waiting = false;
@@ -797,8 +829,20 @@ impl Aqua {
         });
         self.assist.bridge.focus(focus, self.assist.generation);
         let mut dirty = false;
-        if let Some((generation, _success)) = self.assist.bridge.take_done() {
+        if let Some((generation, success)) = self.assist.bridge.take_done() {
             if generation == self.assist.generation {
+                if self.assist.selection_pending && !success {
+                    self.assist.queue = None;
+                    self.assist.selection_pending = false;
+                    self.assist.selection_deadline = None;
+                    self.assist.selection_prefix = None;
+                }
+                // A verified selection is ready; keep filtering old acknowledgements
+                // until the typing tick consumes it and sends the first grapheme.
+                if !success {
+                    self.assist.selection_pending = false;
+                }
+                self.assist.selection_deadline = None;
                 self.assist.access_typing = false;
                 self.assist.permit_pending = false;
                 self.assist.native_waiting = false;
@@ -851,6 +895,9 @@ impl Aqua {
         });
         if target_changed {
             self.assist.queue = None;
+            self.assist.selection_pending = false;
+            self.assist.selection_deadline = None;
+            self.assist.selection_prefix = None;
             self.assist.password_rx = None;
             self.assist.access_typing = false;
             self.assist.permit_pending = false;
@@ -970,6 +1017,7 @@ impl Aqua {
         dirty
     }
     pub fn queue_assist_text(&mut self, text: Zeroizing<String>) -> bool {
+        let selection_prefix = self.assist.selection_prefix.take();
         if !self.assist_available() {
             return false;
         }
@@ -1018,6 +1066,39 @@ impl Aqua {
         }
         self.assist.permit_pending = false;
         self.assist.queue = Typing::new(text, self.assist.generation);
+        self.assist.selection_pending = false;
+        self.assist.selection_deadline = None;
+        if let Some(prefix) = selection_prefix {
+            let field = self.assist.active.as_mut().unwrap();
+            let Some(mut target) = field.accessible.clone() else {
+                self.assist.queue = None;
+                self.assist.selection_pending = false;
+                self.assist.selection_deadline = None;
+                self.assist.selection_prefix = None;
+                return false;
+            };
+            let cursor = field.field.cursor.max(0) as usize;
+            if !field.field.text.is_char_boundary(cursor) || cursor < prefix.len() {
+                self.assist.queue = None;
+                self.assist.selection_pending = false;
+                self.assist.selection_deadline = None;
+                self.assist.selection_prefix = None;
+                return false;
+            }
+            target.caret = target.text_start + field.field.text[..cursor].chars().count() as i32;
+            target.anchor = target.caret;
+            self.assist.acknowledgements.remember(&field.field);
+            field.field.anchor = field.field.cursor - prefix.len() as i32;
+            self.assist.selection_pending = self.assist.bridge.select_prefix(self.assist.generation, target, prefix);
+            if !self.assist.selection_pending {
+                self.assist.queue = None;
+                self.assist.selection_pending = false;
+                self.assist.selection_deadline = None;
+                self.assist.selection_prefix = None;
+                return false;
+            }
+            self.assist.selection_deadline = Some(std::time::Instant::now() + Duration::from_secs(2));
+        }
         self.assist.dismiss();
         if self.assist.queue.is_some() && !self.assist.timer_running {
             self.assist.timer_running = true;
@@ -1034,6 +1115,9 @@ impl Aqua {
                 .is_err()
             {
                 self.assist.queue = None;
+                self.assist.selection_pending = false;
+                self.assist.selection_deadline = None;
+                self.assist.selection_prefix = None;
                 self.assist.timer_running = false;
             }
         }
@@ -1043,10 +1127,23 @@ impl Aqua {
     fn tick_assist_typing(&mut self) -> bool {
         if !self.assist_available() {
             self.assist.queue = None;
+            self.assist.selection_pending = false;
+            self.assist.selection_deadline = None;
+            self.assist.selection_prefix = None;
             return false;
         }
         if self.assist.queue.is_none() {
             return false;
+        }
+        if self.assist.selection_pending {
+            if let Some(deadline) = self.assist.selection_deadline {
+                if std::time::Instant::now() >= deadline {
+                    self.assist.clear_focus();
+                    return false;
+                }
+                return true;
+            }
+            self.assist.selection_pending = false;
         }
         if self.assist.native_suspended {
             if self.assist.native_deadline.is_none_or(|deadline| std::time::Instant::now() >= deadline) {
@@ -1058,6 +1155,9 @@ impl Aqua {
         if self.assist.native_waiting {
             if self.assist.native_deadline.is_none_or(|deadline| std::time::Instant::now() >= deadline) {
                 self.assist.queue = None;
+                self.assist.selection_pending = false;
+                self.assist.selection_deadline = None;
+                self.assist.selection_prefix = None;
                 self.assist.native_waiting = false;
                 self.assist.native_suspended = false;
                 self.assist.native_deadline = None;
@@ -1071,6 +1171,9 @@ impl Aqua {
                 let Some((generation, ok)) = self.assist.bridge.take_permit() else {
                     if self.assist.native_deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline) {
                         self.assist.queue = None;
+                        self.assist.selection_pending = false;
+                        self.assist.selection_deadline = None;
+                        self.assist.selection_prefix = None;
                         self.assist.permit_pending = false;
                         self.assist.native_deadline = None;
                         return false;
@@ -1086,53 +1189,103 @@ impl Aqua {
                 }
                 if !ok {
                     self.assist.queue = None;
+                    self.assist.selection_pending = false;
+                    self.assist.selection_deadline = None;
+                    self.assist.selection_prefix = None;
                     return false;
                 }
             } else {
                 let field = self.assist.active.as_ref().unwrap();
                 let (Some(target), Some(origin)) = (&field.accessible, &field.origin) else {
                     self.assist.queue = None;
+                    self.assist.selection_pending = false;
+                    self.assist.selection_deadline = None;
+                    self.assist.selection_prefix = None;
                     return false;
                 };
                 self.assist.permit_pending =
                     self.assist.bridge.request_permit(self.assist.generation, target.object.clone(), origin.clone());
                 if !self.assist.permit_pending {
                     self.assist.queue = None;
+                    self.assist.selection_pending = false;
+                    self.assist.selection_deadline = None;
+                    self.assist.selection_prefix = None;
                     return false;
                 }
                 self.assist.native_deadline = Some(std::time::Instant::now() + Duration::from_secs(2));
                 return true;
             }
         }
+        // Deletion and insertion need separate done transactions: Chromium can discard
+        // delete_surrounding_text when commit_string is present in the same transaction.
+        // Observe the resulting empty-prefix state before consuming the first grapheme.
+        if let Some(bytes) = self.assist.pending_delete.take() {
+            let Some(active) = self.assist.active.as_ref() else {
+                self.assist.queue = None;
+                self.assist.selection_pending = false;
+                self.assist.selection_deadline = None;
+                self.assist.selection_prefix = None;
+                return false;
+            };
+            let (id, surface) = (active.id.clone(), active.surface.clone());
+            let ti = self.seat.text_input().clone();
+            let mut sent = false;
+            ti.with_active_text_input(|input, current| {
+                if input.id() == id && *current == surface && input.is_alive() {
+                    input.delete_surrounding_text(bytes, 0);
+                    sent = true;
+                }
+            });
+            if !sent {
+                self.assist.queue = None;
+                self.assist.selection_pending = false;
+                self.assist.selection_deadline = None;
+                self.assist.selection_prefix = None;
+                return false;
+            }
+            ti.done(false);
+            self.assist.native_waiting = true;
+            self.assist.native_deadline = Some(std::time::Instant::now() + Duration::from_millis(500));
+            self.assist.bridge.refresh();
+            return true;
+        }
         let Some(queue) = self.assist.queue.as_mut() else { return false };
         if queue.generation != self.assist.generation {
             self.assist.queue = None;
+            self.assist.selection_pending = false;
+            self.assist.selection_deadline = None;
+            self.assist.selection_prefix = None;
             return false;
         }
         let Some(part) = queue.next_grapheme() else {
             self.assist.queue = None;
+            self.assist.selection_pending = false;
+            self.assist.selection_deadline = None;
+            self.assist.selection_prefix = None;
             return false;
         };
         let Some(active) = &mut self.assist.active else {
             self.assist.queue = None;
+            self.assist.selection_pending = false;
+            self.assist.selection_deadline = None;
+            self.assist.selection_prefix = None;
             return false;
         };
         let id = active.id.clone();
         let surface = active.surface.clone();
         let ti = self.seat.text_input().clone();
         let mut sent = false;
-        let delete = self.assist.pending_delete.take();
         ti.with_active_text_input(|input, current_surface| {
             if input.id() == id && *current_surface == surface && input.is_alive() {
-                if let Some(bytes) = delete {
-                    input.delete_surrounding_text(bytes, 0);
-                }
                 input.commit_string(Some(part.to_string()));
                 sent = true;
             }
         });
         if !sent {
             self.assist.queue = None;
+            self.assist.selection_pending = false;
+            self.assist.selection_deadline = None;
+            self.assist.selection_prefix = None;
             return false;
         }
         ti.done(false);
@@ -1147,6 +1300,9 @@ impl Aqua {
         self.needs_redraw = true;
         if self.assist.queue.as_ref().is_some_and(Typing::finished) {
             self.assist.queue = None;
+            self.assist.selection_pending = false;
+            self.assist.selection_deadline = None;
+            self.assist.selection_prefix = None;
             return false;
         }
         true
@@ -1178,7 +1334,13 @@ impl Aqua {
     }
     #[allow(dead_code)] // Shared internal contract for future native overlay consumers.
     pub fn text_context(&self) -> Option<TextContext<'_>> {
-        if self.assist.native_suspended {
+        // In-flight offsets are predictions, not independently observed field metadata.
+        if self.assist.native_suspended
+            || self.assist.native_waiting
+            || self.assist.selection_pending
+            || self.assist.queue.is_some()
+            || self.assist.access_typing
+        {
             return None;
         }
         if self.lock.is_locked() {

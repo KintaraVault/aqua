@@ -7,6 +7,7 @@ out=${2:-/tmp/aqua-input-assist}
 mode=${3:-plain}
 mkdir -p "$out"
 out=$(realpath "$out")
+rm -f -- "$out/before-$mode.png" "$out/after-$mode.png" "$out/choices-$mode.png" "$out/state-$mode.txt"
 rt=$(mktemp -d /tmp/aqua-input-assist.XXXXXX)
 chmod 700 "$rt"
 mkdir -p "$rt/home" "$rt/config" "$rt/data" "$rt/cache" "$rt/state"
@@ -61,7 +62,12 @@ fi
 # A seed-only dictionary makes acceptance assertions deterministic.
 cp "$root/crates/aqua-text/src/seed.txt" "$rt/dictionary"
 (
-    for _ in $(seq 1 120); do grep -q INPUT_ENABLED "$rt/cache/aqua/logs/client.log" 2>/dev/null && break; sleep 0.1; done
+    for _ in $(seq 1 300); do grep -q INPUT_ENABLED "$rt/cache/aqua/logs/client.log" 2>/dev/null && break; sleep 0.1; done
+    if ! grep -q INPUT_ENABLED "$rt/cache/aqua/logs/client.log" 2>/dev/null; then
+        echo "Fixture did not become ready: $mode" >&2
+        printf 'quit\n' >> "$rt/control"
+        exit 1
+    fi
     sleep 2
     if [[ $mode == finder* ]]; then
         key=ctrl+k; [[ $mode != finder-goto ]] || key=ctrl+shift+g
@@ -81,13 +87,17 @@ cp "$root/crates/aqua-text/src/seed.txt" "$rt/dictionary"
     fi
     sleep 1
     printf 'shot %s/after-%s.png\n' "$out" "$mode" >> "$rt/control"
+    for _ in $(seq 1 100); do [[ ! -s "$out/after-$mode.png" ]] || break; sleep 0.1; done
+    printf 'quit\n' >> "$rt/control"
 ) & controller=$!
 env -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS -u AQUA_SOCKET -u AQUA_NESTED_DBUS HOME="$rt/home" \
     XDG_CONFIG_HOME="$rt/config" XDG_DATA_HOME="$rt/data" XDG_CACHE_HOME="$rt/cache" XDG_STATE_HOME="$rt/state" XDG_RUNTIME_DIR="$rt" \
     DISPLAY=":$(cat "$rt/display")" LIBGL_ALWAYS_SOFTWARE=1 AQUA_CTL="$rt/control" \
     AQUA_DICTIONARY="$rt/dictionary" AQUA_T9=1 AQUA_TEXT_ASSIST=1 AQUA_NO_AUTOSTART=1 AQUA_NO_POLKIT=1 \
-    timeout 25 dbus-run-session -- "$bin" --winit --size 1280x800 --quit-after 12 \
+    timeout 60 dbus-run-session -- "$bin" --winit --size 1280x800 --quit-after 50 \
     -c "$client_command" > "$out/session-$mode.log" 2>&1
+wait "$controller"
+controller=
 cp "$rt/cache/aqua/logs/client.log" "$out/client-$mode.log"
 cp "$rt/cache/aqua/logs/compositor.log" "$out/compositor-$mode.log"
 [[ -s "$out/before-$mode.png" && -s "$out/after-$mode.png" ]]

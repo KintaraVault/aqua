@@ -71,6 +71,7 @@ pub struct Job {
 enum Command {
     Wake(Option<Object>),
     Type(Job),
+    SelectPrefix { generation: u64, target: Target, prefix: Zeroizing<String> },
     Permit { generation: u64, object: Object, origin: String },
 }
 enum Completion {
@@ -162,6 +163,9 @@ impl Bridge {
     }
     pub fn request_permit(&self, generation: u64, object: Object, origin: String) -> bool {
         self.tx.try_send(Command::Permit { generation, object, origin }).is_ok()
+    }
+    pub fn select_prefix(&self, generation: u64, target: Target, prefix: Zeroizing<String>) -> bool {
+        self.tx.try_send(Command::SelectPrefix { generation, target, prefix }).is_ok()
     }
     pub fn type_text(&self, job: Job) -> bool {
         self.tx.try_send(Command::Type(job)).is_ok()
@@ -513,7 +517,7 @@ fn read_snapshot(conn: &Connection, obj: &Object, focus: &Focus) -> Option<Snaps
             return None;
         }
         let lo = (caret.min(anchor) - 512).max(0);
-        let hi = (caret.max(anchor) + 512).min(count);
+        let hi = caret.max(anchor).saturating_add(512).min(count);
         if hi - lo > 1024 {
             return None;
         }
@@ -573,6 +577,10 @@ fn run(
             discover_after = Instant::now();
         }
         match command {
+            Command::SelectPrefix { generation, target, prefix } => {
+                let ok = select_prefix(&conn, generation, &target, &prefix, &expected, &guard).unwrap_or(false);
+                *done.lock().unwrap() = Some(Completion::Typing(generation, ok));
+            }
             Command::Type(job) => {
                 let ok = edit_job(&conn, &job, &expected, &guard).unwrap_or(false);
                 *done.lock().unwrap() = Some(Completion::Typing(job.generation, ok));
@@ -607,6 +615,63 @@ fn run(
             *snapshot.lock().unwrap() = Some(Update { generation: expected.generation, snapshot: value });
         }
     }
+}
+fn prefix_begin(caret: i32, anchor: i32, prefix: &str) -> Option<i32> {
+    if caret != anchor || prefix.is_empty() || prefix.len() > MAX_TEXT {
+        return None;
+    }
+    caret.checked_sub(i32::try_from(prefix.chars().count()).ok()?).filter(|begin| *begin >= 0)
+}
+fn select_prefix(
+    conn: &Connection,
+    generation: u64,
+    target: &Target,
+    prefix: &str,
+    focus: &Focus,
+    guard: &AtomicU64,
+) -> zbus::Result<bool> {
+    let valid = || {
+        generation == focus.generation
+            && guard.load(Ordering::Acquire) == generation
+            && !focus.protected
+            && focused_editor(conn, &target.object, focus).unwrap_or(false)
+            && protected(conn, &target.object) == Some(false)
+    };
+    let Some(begin) = prefix_begin(target.caret, target.anchor, prefix) else {
+        return Ok(false);
+    };
+    if !valid() {
+        return Ok(false);
+    }
+    let t = text(conn, &target.object)?;
+    if t.caret_offset()? != target.caret {
+        return Ok(false);
+    }
+    let selections = t.get_n_selections()?;
+    if selections > 1 || selections == 1 && t.get_selection(0)? != (target.caret, target.caret) {
+        return Ok(false);
+    }
+    let actual = Zeroizing::new(t.get_text(begin, target.caret)?);
+    if actual.as_str() != prefix || !valid() {
+        return Ok(false);
+    }
+    let selected =
+        if selections == 0 { t.add_selection(begin, target.caret)? } else { t.set_selection(0, begin, target.caret)? };
+    if !selected {
+        return Ok(false);
+    }
+    let deadline = Instant::now() + Duration::from_millis(300);
+    while valid() && Instant::now() < deadline {
+        if t.get_n_selections()? == 1 {
+            let (lo, hi) = t.get_selection(0)?;
+            if lo.min(hi) == begin && lo.max(hi) == target.caret {
+                let actual = Zeroizing::new(t.get_text(begin, target.caret)?);
+                return Ok(actual.as_str() == prefix && valid());
+            }
+        }
+        std::thread::sleep(Duration::from_millis(8));
+    }
+    Ok(false)
 }
 fn edit_job(conn: &Connection, job: &Job, focus: &Focus, guard: &AtomicU64) -> zbus::Result<bool> {
     let valid = || {
@@ -780,5 +845,15 @@ mod tests {
         assert!(consistent_origins(["https://example.org", "https://other.org"]).is_none());
         assert!(consistent_origins(["https://example.org", "https://example.org:8443"]).is_none());
         assert!(consistent_origins(["https://example.org", "http://example.org"]).is_none());
+    }
+    #[test]
+    fn replacement_prefix_uses_codepoints_and_rejects_invalid_ranges() {
+        assert_eq!(prefix_begin(6, 6, "привет"), Some(0));
+        assert_eq!(prefix_begin(8, 8, "👩‍💻"), Some(5));
+        assert_eq!(prefix_begin(3, 3, "hello"), None);
+        assert_eq!(prefix_begin(5, 2, "hello"), None);
+        assert_eq!(prefix_begin(i32::MIN, i32::MIN, "a"), None);
+        assert_eq!(prefix_begin(1, 1, ""), None);
+        assert_eq!(prefix_begin(5000, 5000, &"a".repeat(MAX_TEXT + 1)), None);
     }
 }
