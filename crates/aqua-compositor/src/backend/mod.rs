@@ -73,6 +73,7 @@ pub fn schedule_frames(
     event_loop.handle().insert_source(Timer::from_duration(FRAME_INTERVAL), move |_, _, state| {
         state.render_cache.frames += 1;
         state.update_app_menu();
+        if state.poll_assist() { state.needs_redraw = true; }
         if state.shell.tick() | state.windows_animating() | state.poll_notifications() | state.check_zoom_hover() | state.stage_tick() {
             state.needs_redraw = true;
         }

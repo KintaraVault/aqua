@@ -332,6 +332,7 @@ pub struct Aqua {
     pub xdg_activation_state: XdgActivationState,
     pub seat: Seat<Self>,
     pub p: crate::wayland::protocols::Protocols,
+    pub assist: crate::input::assist::Assist,
     pub xwm: Option<smithay::xwayland::X11Wm>,
     pub xdisplay: Option<u32>,
     pub xwayland_failures: u32,
@@ -413,11 +414,14 @@ impl Aqua {
             tracing::warn!("invalid XKB configuration {:?}, falling back to defaults", input_cfg.layouts);
             seat.add_keyboard(Default::default(), 300, 30).expect("default keymap");
         }
+        use smithay::wayland::text_input::TextInputSeat;
+        seat.text_input().set_compositor_input_method(true);
         seat.add_pointer();
         seat.add_touch();
         let p = crate::wayland::protocols::Protocols::new(&dh, &event_loop.handle(), &primary_selection_state);
         crate::wayland::blur::init(&dh);
         crate::wayland::glass::init(&dh);
+        crate::wayland::text_field::init(&dh);
         crate::wayland::appmenu::init(&dh);
 
         let socket_name = Self::init_wayland_listener(display, event_loop);
@@ -452,6 +456,7 @@ impl Aqua {
             xdg_activation_state,
             seat,
             p,
+            assist: Default::default(),
             xwm: None,
             xdisplay: None,
             xwayland_failures: 0,

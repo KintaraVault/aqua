@@ -763,20 +763,14 @@ impl Aqua {
         }
     }
 
-    /// Type text into the focused client: text-input-v3 when the client uses it,
-    /// otherwise through the clipboard (+ paste chord).
+    /// Pace native text-input; manual insertion into unsupported apps uses paste.
     pub fn type_text(&mut self, text: &str) {
+        if self.queue_assist_text(zeroize::Zeroizing::new(text.to_owned())) { return; }
         use smithay::wayland::text_input::TextInputSeat;
-        let mut done = false;
-        let ti = self.seat.text_input().clone();
-        ti.with_active_text_input(|t, _| {
-            t.commit_string(Some(text.to_string()));
-            done = true;
-        });
-        if done {
-            ti.done(false);
-            return;
-        }
+        let mut active = false;
+        self.seat.text_input().with_active_text_input(|_, _| active = true);
+        // Never bypass a focus-bound queue or put text-input content on the clipboard.
+        if active { return; }
         self.clipboard_put_text(text);
         let term = self.focused_window().map(|w| {
             let (id, _) = title_of(&w);

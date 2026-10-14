@@ -81,8 +81,11 @@ pub struct Protocols {
 impl Protocols {
     pub fn new(dh: &DisplayHandle, lh: &LoopHandle<'static, Aqua>, primary: &PrimarySelectionState) -> Self {
         TextInputManagerState::new::<Aqua>(dh);
-        InputMethodManagerState::new::<Aqua, _>(dh, |_| true);
-        VirtualKeyboardManagerState::new::<Aqua, _>(dh, |_| true);
+        let trusted_input = |c: &smithay::reexports::wayland_server::Client| {
+            c.get_data::<crate::state::ClientState>().is_some_and(|d| !d.sandboxed)
+        };
+        InputMethodManagerState::new::<Aqua, _>(dh, trusted_input);
+        VirtualKeyboardManagerState::new::<Aqua, _>(dh, trusted_input);
         RelativePointerManagerState::new::<Aqua>(dh);
         PointerConstraintsState::new::<Aqua>(dh);
         PointerGesturesState::new::<Aqua>(dh);

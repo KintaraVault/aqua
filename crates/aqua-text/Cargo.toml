@@ -1,0 +1,16 @@
+[package]
+name = "aqua-text"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+fst = "0.4.7"
+symspell = "0.5.2"
+unicode-segmentation = "1.12"
+zeroize = "1.8"
+secret-service = { version = "5.2", features = ["rt-async-io-crypto-rust"] }
+
+[lints]
+workspace = true

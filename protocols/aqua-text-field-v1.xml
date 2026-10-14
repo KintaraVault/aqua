@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="aqua_text_field_v1">
+  <copyright>Copyright 2026 Aqua contributors. SPDX-License-Identifier: MIT</copyright>
+  <interface name="aqua_text_field_manager_v1" version="1">
+    <description summary="Precise focused text-field geometry">
+      Optional geometry alongside text-input-v3. No text or secrets are exposed to other clients.
+      Coordinates are surface-local logical units. State is applied on wl_surface.commit.
+      Only one field object may exist per surface. Describe the focused field only, clearing
+      the geometry on blur. Compositors must not infer field bounds from cursor rectangles.
+    </description>
+    <request name="destroy" type="destructor"/>
+    <request name="get_field">
+      <arg name="id" type="new_id" interface="aqua_text_field_v1"/>
+      <arg name="surface" type="object" interface="wl_surface"/>
+    </request>
+    <enum name="error"><entry name="already_exists" value="0" summary="surface already has a field object"/></enum>
+  </interface>
+  <interface name="aqua_text_field_v1" version="1">
+    <description summary="Geometry of the focused input">
+      Rounded-rectangle bounds, not caret bounds. Radius is clamped to half the smaller
+      dimension. Invalid geometry is discarded. This object never grants text-input access.
+    </description>
+    <request name="destroy" type="destructor"/>
+    <request name="set_geometry">
+      <arg name="x" type="fixed"/><arg name="y" type="fixed"/>
+      <arg name="width" type="fixed"/><arg name="height" type="fixed"/>
+      <arg name="radius" type="fixed"/>
+    </request>
+    <request name="clear"/>
+  </interface>
+</protocol>

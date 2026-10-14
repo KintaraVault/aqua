@@ -1,4 +1,4 @@
-//! Wayland protocol handlers (adapted from Smithay's smallvil/anvil).
+//! Wayland surface, shell and seat handlers.
 use crate::state::{meta, Aqua, ClientState};
 use crate::wm::grabs::{resize_grab, MoveSurfaceGrab, ResizeSurfaceGrab};
 use smithay::{
@@ -104,6 +104,7 @@ impl CompositorHandler for Aqua {
 
     fn commit(&mut self, surface: &WlSurface) {
         on_commit_buffer_handler::<Self>(surface);
+        crate::wayland::text_field::commit(surface);
         if !is_sync_subsurface(surface) {
             let mut root = surface.clone();
             while let Some(parent) = get_parent(&root) {
@@ -582,6 +583,8 @@ impl SeatHandler for Aqua {
         let client = wl.as_ref().and_then(|s| dh.get_client(s.id()).ok());
         set_data_device_focus(dh, seat, client.clone());
         set_primary_focus(dh, seat, client);
+        self.assist.clear_focus();
+        self.needs_redraw = true;
         self.update_activation_for(focused.cloned());
     }
 }
@@ -729,7 +732,7 @@ impl XdgActivationHandler for Aqua {
     }
 }
 
-smithay::delegate_dispatch2!(Aqua);
+// Protocol delegation lives in wayland::dispatch so text-input commits can be observed.
 
 impl smithay::wayland::drm_syncobj::DrmSyncobjHandler for Aqua {
     fn drm_syncobj_state(&mut self) -> Option<&mut smithay::wayland::drm_syncobj::DrmSyncobjState> {

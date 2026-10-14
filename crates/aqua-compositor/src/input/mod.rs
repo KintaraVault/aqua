@@ -1,4 +1,5 @@
 //! Input routing: shell UI first, then window chrome, then clients.
+pub mod assist;
 pub mod config;
 pub mod cursors;
 pub mod focus;
@@ -233,6 +234,10 @@ impl Aqua {
                     return FilterResult::Intercept(KeyAction::Nothing);
                 }
                 return FilterResult::Forward;
+            }
+            if st.assist_key(raw, m.ctrl, m.alt, m.logo) {
+                st.render_cache.suppressed.push(code);
+                return FilterResult::Intercept(KeyAction::Nothing);
             }
             let plain = crate::input::config::KeySyms {
                 current: h.raw_syms().first().copied().unwrap_or(sym),
@@ -565,6 +570,7 @@ impl Aqua {
         let (x, y) = (pos.x as f32, pos.y as f32);
         self.needs_redraw = true;
 
+        if button == BTN_LEFT && self.assist_button(x, y, state == ButtonState::Pressed) { return; }
         let others_held = self.render_cache.held_buttons.iter().any(|b| *b != button);
         match state {
             ButtonState::Pressed => {

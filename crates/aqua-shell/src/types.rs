@@ -28,6 +28,7 @@ pub enum LayerId {
     DockBadges,
     Lock,
     Clipboard,
+    TextAssist,
     Alert,
     Hud,
     CharViewer,

@@ -430,7 +430,8 @@ impl Aqua {
         }
         let fs_front = !self.mission_visible() && self.front_is_fullscreen();
         self.shell.fullscreen = fs_front;
-        let layers = if self.lock.mode == LockMode::Internal { vec![] } else { self.shell.layers() };
+        let mut layers = if self.lock.mode == LockMode::Internal { vec![] } else { self.shell.layers() };
+        if let Some(layer) = self.assist_layer() { layers.push(layer); }
         {
             let rc = &mut self.render_cache;
             let mut freed = 0;
