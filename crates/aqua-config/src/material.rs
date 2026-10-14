@@ -175,14 +175,14 @@ pub fn style(base: &GlassStyle, m: Material, dark: bool) -> GlassStyle {
             ..b
         }
         .with_thickness(b.thickness * 0.85),
-        // A 36 px toolbar lens: a gentler bend and almost no colour split, so glyphs and the
-        // selection pill under the rim stay crisp.
+        // Toolbar capsules: the lens lies over the app's own glyphs and selection pill, so it
+        // must not bend or split them (that smeared them under the rim); only a thin edge light.
         Material::Control => GlassStyle {
-            refraction: b.refraction * 0.5,
-            dispersion: b.dispersion * 0.3,
-            fresnel: b.fresnel * 0.45,
+            refraction: 0.0,
+            dispersion: 0.0,
+            fresnel: b.fresnel * 0.3,
             fresnel_range: b.fresnel_range * 1.6,
-            glare: b.glare * 0.4,
+            glare: b.glare * 0.25,
             glare_range: b.glare_range * 1.6,
             blur: 0.0,
             tint: Rgba(1.0, 1.0, 1.0, 0.0),
@@ -194,7 +194,7 @@ pub fn style(base: &GlassStyle, m: Material, dark: bool) -> GlassStyle {
             rim: b.rim,
             ..b
         }
-        .with_thickness(b.thickness * 0.5),
+        .with_thickness(b.thickness * 0.35),
         // Menu windows of Aqua's apps: heavily frosted, a soft 2 px edge light. Dark: a light
         // grey veil over a luminance-capped backdrop (macOS 26 dark menus are lighter than the
         // content under them, yet stay legible over white).
