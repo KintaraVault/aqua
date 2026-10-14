@@ -79,6 +79,10 @@ pub struct Spotlight {
     pub scroll: Smooth,
     /// Width of the search field (animated between compact and full width).
     pub field_w: f32,
+    /// First pointer position seen since opening, and whether the pointer has really moved
+    /// since: the filter buttons only come out once it has.
+    pointer_seen: Option<(f32, f32)>,
+    pub pointer_moved: bool,
     closed_at: Option<Instant>,
 }
 
@@ -96,6 +100,8 @@ impl Spotlight {
             self.filter = None;
             self.scroll.reset();
             self.closed_at = None;
+            self.pointer_seen = None;
+            self.pointer_moved = false;
             if self.t <= 0.001 {
                 self.h = 0.0;
                 self.sel_y = 0.0;
@@ -164,13 +170,41 @@ impl Spotlight {
             self.t = target;
             return true;
         }
-        let rate = if self.open { 10.0 } else { 13.0 };
-        self.t += (target - self.t) * (1.0 - (-rate * dt).exp());
-        if (self.t - target).abs() < 0.005 {
+        // Same curve as the Applications panel.
+        self.t += (target - self.t) * (1.0 - (-OPEN_RATE * dt).exp());
+        if (self.t - target).abs() < 0.01 {
             self.t = target;
         }
         true
     }
+
+    /// Pointer at (x, y) while open: anchors on the first event, then counts as movement once
+    /// it travels a few px (opening under a still pointer reveals nothing).
+    pub fn pointer_at(&mut self, x: f32, y: f32) {
+        match self.pointer_seen {
+            None => self.pointer_seen = Some((x, y)),
+            Some((px, py)) if (x - px).hypot(y - py) > 3.0 => self.pointer_moved = true,
+            _ => {}
+        }
+    }
+
+    /// Typing tucks the buttons away until the pointer moves again.
+    fn typed(&mut self) {
+        self.pointer_seen = None;
+        self.pointer_moved = false;
+    }
+}
+
+/// Open / close rate and easing shared with the Applications panel.
+const OPEN_RATE: f32 = 7.5;
+fn open_ease(t: f32) -> f32 {
+    1.0 - (1.0 - t).powi(3)
+}
+
+/// Shift `r` so that the compositor's zoom about the layer centre equals a zoom `z` about `c`
+/// (keeps the glass, the content and the buttons scaling as one piece).
+fn zoom_about(r: Rect, c: (f32, f32), z: f32) -> Rect {
+    r.translate((c.0 - r.cx()) * (1.0 - z), (c.1 - r.cy()) * (1.0 - z))
 }
 
 const BAR_H: f32 = 56.0;
@@ -191,7 +225,7 @@ fn compact_field_w(sh: &Shell) -> f32 {
 
 /// Do the filter buttons belong next to the field right now?
 fn buttons_wanted(sh: &Shell) -> bool {
-    sh.spotlight.query.is_empty() && sh.spotlight.filter.is_none()
+    sh.spotlight.pointer_moved && sh.spotlight.query.is_empty() && sh.spotlight.filter.is_none()
 }
 
 /// Rows area height (logical) for `n` rows; filters always show a list area.
@@ -257,16 +291,16 @@ pub fn layers(sh: &mut Shell) -> Vec<Layer> {
     let r = Rect::new(full.x, full.y, if tall > BAR_H + 1.0 { full.w } else { field_w }, tall);
     let dark = sh.style.is_dark_glass(r);
     let t = sh.spotlight.t;
-    let et = 1.0 - (1.0 - t).powi(3);
-    let from = sh.spotlight.origin.unwrap_or_else(|| Rect::new(r.cx() - r.w * 0.35, r.y + 4.0, r.w * 0.7, BAR_H - 8.0));
-    let lerp = |a: f32, b: f32| a + (b - a) * et;
-    let m = Rect::new(lerp(from.x, r.x), lerp(from.y, r.y), lerp(from.w, r.w), lerp(from.h, r.h));
+    let et = open_ease(t);
+    let zoom = 0.94 + 0.06 * et;
+    let centre = (full.cx(), full.y + tall / 2.0);
+    let m = zoom_about(r, centre, zoom);
     let radius_to = if tall <= BAR_H + 1.0 { BAR_H / 2.0 } else { 26.0 };
     let tint = aqua_config::Rgba(1.0, 1.0, 1.0, if dark { 0.12 } else { 0.34 });
-    let mut g = style::glass_panel(&sh.cfg.glass, lerp(from.h.min(from.w) / 2.0, radius_to).min(m.h / 2.0));
+    let mut g = style::glass_panel(&sh.cfg.glass, radius_to.min(m.h / 2.0));
     g.max_luma = 0.88;
     g.tint = tint;
-    let glass_alpha = (t * 4.0).min(1.0);
+    let glass_alpha = et;
     let blank = sh.blank_pixmap();
     let mut out = vec![Layer {
         id: LayerId::SpotlightGlass,
@@ -276,12 +310,12 @@ pub fn layers(sh: &mut Shell) -> Vec<Layer> {
         content: blank,
         serial: 0,
         opacity: glass_alpha,
-        zoom: 1.0,
+        zoom,
     }];
     let mut content = content_layer(sh, &rows, Rect::new(full.x, full.y, full.w, tall), sel, dark, field_w);
-    let ct = ((t - 0.45) / 0.55).clamp(0.0, 1.0);
-    content.opacity = ct * ct * (3.0 - 2.0 * ct);
-    content.zoom = 0.97 + 0.03 * et;
+    content.rect = zoom_about(content.rect, centre, zoom);
+    content.opacity = et;
+    content.zoom = zoom;
     out.push(content);
     if sh.spotlight.btn_t > 0.01 && tall <= BAR_H + 1.0 {
         let field_right = full.x + field_w;
@@ -300,22 +334,17 @@ pub fn layers(sh: &mut Shell) -> Vec<Layer> {
             });
             out.push(Layer {
                 id,
-                rect: br,
+                rect: zoom_about(br, centre, zoom),
                 glass: Some(bg),
                 tiles: vec![],
                 content: pm,
                 serial,
-                opacity: be * content_opacity(t),
-                zoom: 1.0,
+                opacity: be * et,
+                zoom,
             });
         }
     }
     out
-}
-
-fn content_opacity(t: f32) -> f32 {
-    let ct = ((t - 0.45) / 0.55).clamp(0.0, 1.0);
-    ct * ct * (3.0 - 2.0 * ct)
 }
 
 fn content_layer(sh: &mut Shell, rows: &[Row], r: Rect, sel: usize, dark: bool, field_w: f32) -> Layer {
@@ -554,6 +583,7 @@ fn button_at(sh: &Shell, x: f32, y: f32) -> Option<usize> {
 
 pub fn hover(sh: &mut Shell, x: f32, y: f32) {
     if sh.spotlight.open {
+        sh.spotlight.pointer_at(x, y);
         sh.spotlight.hover = row_at(sh, x, y);
         sh.spotlight.hover_btn = button_at(sh, x, y);
     }
@@ -678,6 +708,9 @@ fn reveal(sh: &mut Shell) {
 }
 
 pub fn key(sh: &mut Shell, key: Option<Key>, text: Option<&str>) -> (bool, Vec<Action>) {
+    if text.is_some_and(|t| !t.is_empty()) {
+        sh.spotlight.typed();
+    }
     let n = rows(sh).len();
     match key {
         Some(Key::Escape) => {
@@ -886,5 +919,49 @@ pub mod files {
                 e.mtime = now;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod reveal_tests {
+    use super::*;
+
+    #[test]
+    fn buttons_wait_for_real_pointer_movement() {
+        let mut sp = Spotlight::default();
+        sp.toggle();
+        sp.pointer_at(100.0, 100.0);
+        sp.pointer_at(101.0, 101.5);
+        assert!(!sp.pointer_moved, "a still pointer must not reveal the buttons");
+        sp.pointer_at(110.0, 100.0);
+        assert!(sp.pointer_moved);
+        sp.typed();
+        assert!(!sp.pointer_moved);
+        sp.toggle();
+        sp.toggle();
+        assert!(!sp.pointer_moved, "reopening starts without buttons");
+    }
+
+    #[test]
+    fn open_curve_matches_the_applications_panel() {
+        let (mut sp, mut lp) = (Spotlight::default(), crate::panels::launchpad::Launchpad::default());
+        sp.toggle();
+        lp.toggle();
+        for _ in 0..12 {
+            sp.animate(1.0 / 60.0);
+            lp.animate(1.0 / 60.0);
+            assert!((sp.t - lp.t).abs() < 1e-4, "{} vs {}", sp.t, lp.t);
+        }
+    }
+
+    #[test]
+    fn zoom_about_keeps_a_shared_centre() {
+        let r = Rect::new(10.0, 20.0, 100.0, 40.0);
+        let c = (200.0, 40.0);
+        let z = 0.9;
+        let m = zoom_about(r, c, z);
+        // left edge after the compositor's zoom about m's centre == zoom about c
+        let left = m.cx() + (m.x - m.cx()) * z;
+        assert!((left - (c.0 + (r.x - c.0) * z)).abs() < 1e-3);
     }
 }
