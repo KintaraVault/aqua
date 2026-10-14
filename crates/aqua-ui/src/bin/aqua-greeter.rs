@@ -22,12 +22,27 @@ fn esc(s: &str) -> String {
             '"' => o.push_str("\\\""),
             '\\' => o.push_str("\\\\"),
             '\n' => o.push_str("\\n"),
+            '\r' => o.push_str("\\r"),
+            '\t' => o.push_str("\\t"),
             c if (c as u32) < 0x20 => o.push_str(&format!("\\u{:04x}", c as u32)),
             c => o.push(c),
         }
     }
     o.push('"');
     o
+}
+
+#[cfg(test)]
+mod esc_tests {
+    use super::*;
+    #[test]
+    fn test_esc_simple() {
+        assert_eq!(esc("hello"), r#""hello""#);
+    }
+    #[test]
+    fn test_esc_special() {
+        assert_eq!(esc("a\nb\tc"), r#""a\nb\tc""#);
+    }
 }
 
 /// Extract a top-level string field from a flat JSON object (enough for greetd replies).
@@ -43,6 +58,8 @@ fn field(json: &str, key: &str) -> Option<String> {
             '"' => return Some(out),
             '\\' => match it.next()? {
                 'n' => out.push('\n'),
+                'r' => out.push('\r'),
+                't' => out.push('\t'),
                 'u' => {
                     let h: String = it.by_ref().take(4).collect();
                     out.push(char::from_u32(u32::from_str_radix(&h, 16).ok()?).unwrap_or('?'));
@@ -55,6 +72,18 @@ fn field(json: &str, key: &str) -> Option<String> {
     None
 }
 
+#[cfg(test)]
+mod field_tests {
+    use super::*;
+    #[test]
+    fn test_field_basic() {
+        let j = r#"{"type":"success","foo":"bar baz"}"#;
+        assert_eq!(field(j, "type"), Some("success".into()));
+        assert_eq!(field(j, "foo"), Some("bar baz".into()));
+        assert_eq!(field(j, "nope"), None);
+    }
+}
+
 struct Greetd {
     sock: UnixStream,
 }
@@ -65,11 +94,17 @@ impl Greetd {
         Ok(Self { sock: UnixStream::connect(path)? })
     }
     fn call(&mut self, json: &str) -> std::io::Result<String> {
-        self.sock.write_all(&(json.len() as u32).to_ne_bytes())?;
+        let len = json.len() as u32;
+        self.sock.write_all(&len.to_ne_bytes())?;
         self.sock.write_all(json.as_bytes())?;
-        let mut len = [0u8; 4];
-        self.sock.read_exact(&mut len)?;
-        let mut buf = vec![0u8; u32::from_ne_bytes(len) as usize];
+        self.sock.flush()?;
+        let mut lbuf = [0u8; 4];
+        self.sock.read_exact(&mut lbuf)?;
+        let rlen = u32::from_ne_bytes(lbuf) as usize;
+        if rlen > 1 << 20 {
+            return Err(std::io::Error::other("reply too large"));
+        }
+        let mut buf = vec![0u8; rlen];
         self.sock.read_exact(&mut buf)?;
         Ok(String::from_utf8_lossy(&buf).into_owned())
     }
@@ -105,7 +140,8 @@ fn login(user: &str, password: &str, cmd: &[String]) -> Result<Outcome, String> 
             }
             Some("success") => {
                 let args: Vec<String> = cmd.iter().map(|c| esc(c)).collect();
-                let env = "[\"XDG_SESSION_TYPE=wayland\",\"XDG_CURRENT_DESKTOP=Aqua\"]";
+                let env_items = ["XDG_SESSION_TYPE=wayland", "XDG_CURRENT_DESKTOP=Aqua"];
+                let env = format!("[{}]", env_items.iter().map(|e| esc(e)).collect::<Vec<_>>().join(","));
                 let r = g
                     .call(&format!("{{\"type\":\"start_session\",\"cmd\":[{}],\"env\":{env}}}", args.join(",")))
                     .map_err(|e| e.to_string())?;
@@ -311,6 +347,7 @@ fn main() -> Result<(), slint::PlatformError> {
                             } else {
                                 msg.into()
                             });
+                            g.set_shake(g.get_shake().wrapping_add(1));
                         }
                         Err(e) => {
                             g.set_error(true);
