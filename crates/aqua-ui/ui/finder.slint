@@ -11,28 +11,59 @@ component ToolGlyph inherits Rectangle {
     in property <bool> on;
     in property <bool> chevron;
     in property <bool> enabled: true;
-    in property <length> w: 34px;
+    /// Paint the selected state; off when the capsule slides one selection pill instead.
+    in property <bool> own-sel: true;
+    in property <length> w: 38px;
     callback clicked(length, length);
     callback right-clicked(length, length);
-    width: w; height: 30px; border-radius: 15px;
-    background: on ? (Theme.dark ? #ffffff2e : #0000001a) : ta.pressed && enabled ? Theme.control-pressed : (ta.has-hover && enabled ? Theme.hover : transparent);
+    // 28 px high, inset 4 px in the 36 px capsule: every state stays concentric with it.
+    width: w; height: 28px; border-radius: 14px;
+    background: on && own-sel ? Theme.tool-sel : ta.pressed && enabled ? Theme.control-pressed : (ta.has-hover && enabled ? Theme.hover : transparent);
+    animate background { duration: 120ms; easing: ease-out; }
     HorizontalLayout {
-        alignment: center; spacing: 2px;
-        VerticalLayout { alignment: center; Image { width: 19px; height: 19px; source: glyph; colorize: enabled ? Theme.text : Theme.text-tertiary; } }
-        if chevron: VerticalLayout { alignment: center; Image { width: 9px; height: 9px; source: F.i-chev-down; colorize: Theme.text; } }
+        alignment: center; spacing: 3px;
+        VerticalLayout {
+            alignment: center;
+            Image {
+                width: 18px; height: 18px; source: glyph; colorize: enabled ? Theme.text : Theme.text-tertiary;
+                transform-scale: ta.pressed && enabled && Theme.motion ? 0.86 : 1.0;
+                animate transform-scale { duration: 160ms; easing: cubic-bezier(0.3, 1.4, 0.5, 1); }
+            }
+        }
+        if chevron: VerticalLayout { alignment: center; Image { width: 8px; height: 8px; source: F.i-chev-down; colorize: Theme.text-secondary; } }
     }
     ta := TouchArea {
         enabled: root.enabled;
-        clicked => { root.clicked(self.absolute-position.x, self.absolute-position.y + root.height + 6px); }
+        clicked => { root.clicked(self.absolute-position.x, self.absolute-position.y + root.height + 10px); }
         pointer-event(e) => {
             if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
-                root.right-clicked(self.absolute-position.x, self.absolute-position.y + root.height + 6px);
+                root.right-clicked(self.absolute-position.x, self.absolute-position.y + root.height + 10px);
             }
         }
     }
 }
 
 component Capsule inherits GlassCapsule { }
+
+/// Icons / list / columns / gallery in one capsule; the selection pill slides between views.
+component ViewSegment inherits GlassCapsule {
+    width: 4 * 38px + 8px;
+    Rectangle {
+        x: 4px + F.view * 38px; y: 4px; width: 38px; height: 28px; border-radius: 14px;
+        background: Theme.tool-sel;
+        animate x { duration: 280ms; easing: cubic-bezier(0.25, 1.15, 0.4, 1); }
+    }
+    for i in 3: Rectangle {
+        x: 4px + (i + 1) * 38px; y: 12px; width: 1px; height: 12px;
+        background: Theme.dark ? #ffffff1f : #0000001a;
+        opacity: F.view != i && F.view != i + 1 ? 1 : 0;
+        animate opacity { duration: 160ms; }
+    }
+    for g[i] in [F.i-icons, F.i-list, F.i-columns, F.i-gallery]: ToolGlyph {
+        x: 4px + i * 38px; y: 4px; glyph: g; on: F.view == i; own-sel: false;
+        clicked => { F.set-view(i); }
+    }
+}
 
 component Sidebar inherits Rectangle {
     callback want-focus();
@@ -747,67 +778,46 @@ export component FinderWindow inherits Window {
         property <bool> field: F.searching || (uni && F.tb-search && F.mode == 0 && root.width > 760px);
         property <length> view-x: max(cx + 4px, F.tb-back ? 96px : 16px);
         property <bool> view-left: uni && F.tb-view && root.width - view-x > (field ? root.search-w + 430px : 470px);
-        if view-left: Capsule {
-            x: toolbar.view-x; y: toolbar.bar-row;
-            width: lv.preferred-width + 8px;
-            lv := HorizontalLayout {
-                x: 4px; padding-top: 3px; padding-bottom: 3px; spacing: 0px;
-                for g[i] in [F.i-icons, F.i-list, F.i-columns, F.i-gallery]: ToolGlyph {
-                    w: 37px; glyph: g; on: F.view == i; clicked => { F.set-view(i); }
-                    if i > 0 && F.view != i && F.view != i - 1: Rectangle {
-                        x: -0.5px; y: 8px; width: 1px; height: 14px; background: Theme.dark ? #ffffff1f : #0000001a;
-                    }
-                }
-            }
-        }
+        if view-left: ViewSegment { x: toolbar.view-x; y: toolbar.bar-row; }
         tools := HorizontalLayout {
             x: parent.width - self.preferred-width - 9px; y: toolbar.bar-row; height: 36px; spacing: uni ? 10px : 14px;
             if F.tb-view && !toolbar.view-left && (uni || !toolbar.roomy): Capsule {
                 width: 56px;
                 ToolGlyph {
-                    x: 3px; y: 3px; w: 50px; chevron: true;
+                    x: 4px; y: 4px; w: 48px; chevron: true;
                     glyph: F.view == 0 ? F.i-icons : F.view == 1 ? F.i-list : F.view == 2 ? F.i-columns : F.i-gallery;
                     clicked(x, y) => { F.toolbar-menu("view", x, y); }
                 }
             }
-            if F.tb-view && !uni && toolbar.roomy: Capsule {
-                width: vh.preferred-width + 8px;
-                vh := HorizontalLayout {
-                    x: 4px; padding-top: 3px; padding-bottom: 3px; spacing: 0px;
-                    ToolGlyph { w: 35px; glyph: F.i-icons; on: F.view == 0; clicked => { F.set-view(0); } }
-                    ToolGlyph { w: 35px; glyph: F.i-list; on: F.view == 1; clicked => { F.set-view(1); } }
-                    ToolGlyph { w: 35px; glyph: F.i-columns; on: F.view == 2; clicked => { F.set-view(2); } }
-                    ToolGlyph { w: 35px; glyph: F.i-gallery; on: F.view == 3; clicked => { F.set-view(3); } }
-                }
-            }
+            if F.tb-view && !uni && toolbar.roomy: ViewSegment { }
             if toolbar.wide && F.tb-group: Capsule {
-                width: 49px;
-                ToolGlyph { x: 2px; y: 3px; w: 45px; glyph: F.i-group; chevron: true; on: F.group-by != 0; clicked(x, y) => { F.toolbar-menu("group", x, y); } }
+                width: 56px;
+                ToolGlyph { x: 4px; y: 4px; w: 48px; glyph: F.i-group; chevron: true; on: F.group-by != 0; clicked(x, y) => { F.toolbar-menu("group", x, y); } }
             }
             if F.mode == 0 && (F.tb-newfolder || F.tb-delete || F.tb-info || F.tb-ql || F.tb-connect || F.tb-eject): Capsule {
                 width: xh.preferred-width + 8px;
                 xh := HorizontalLayout {
-                    x: 4px; padding-top: 3px; padding-bottom: 3px; spacing: 0px;
-                    if F.tb-newfolder: ToolGlyph { w: 36.6px; glyph: @image-url("icons/m-folder-plus.svg"); clicked => { F.menu-action("new-folder"); } }
-                    if F.tb-delete: ToolGlyph { w: 36.6px; glyph: @image-url("icons/f-trash.svg"); enabled: F.pv-any || F.pv-count > 0; clicked => { F.menu-action("trash"); } }
-                    if F.tb-info: ToolGlyph { w: 36.6px; glyph: F.i-info; clicked => { F.menu-action("info-window"); } }
-                    if F.tb-ql: ToolGlyph { w: 36.6px; glyph: @image-url("icons/m-eye.svg"); enabled: F.pv-any || F.pv-count > 0; clicked => { F.menu-action("quicklook"); } }
-                    if F.tb-connect: ToolGlyph { w: 36.6px; glyph: @image-url("icons/f-network.svg"); clicked => { F.menu-action("connect"); } }
-                    if F.tb-eject: ToolGlyph { w: 36.6px; glyph: F.i-eject; clicked => { F.menu-action("eject"); } }
+                    x: 4px; padding-top: 4px; padding-bottom: 4px; spacing: 0px;
+                    if F.tb-newfolder: ToolGlyph { glyph: @image-url("icons/m-folder-plus.svg"); clicked => { F.menu-action("new-folder"); } }
+                    if F.tb-delete: ToolGlyph { glyph: @image-url("icons/f-trash.svg"); enabled: F.pv-any || F.pv-count > 0; clicked => { F.menu-action("trash"); } }
+                    if F.tb-info: ToolGlyph { glyph: F.i-info; clicked => { F.menu-action("info-window"); } }
+                    if F.tb-ql: ToolGlyph { glyph: @image-url("icons/m-eye.svg"); enabled: F.pv-any || F.pv-count > 0; clicked => { F.menu-action("quicklook"); } }
+                    if F.tb-connect: ToolGlyph { glyph: @image-url("icons/f-network.svg"); clicked => { F.menu-action("connect"); } }
+                    if F.tb-eject: ToolGlyph { glyph: F.i-eject; clicked => { F.menu-action("eject"); } }
                 }
             }
             if F.mode == 0 && (F.tb-share || F.tb-tags || F.tb-action): Capsule {
                 width: th.preferred-width + 8px;
                 th := HorizontalLayout {
-                    x: 4px; padding-top: 3px; padding-bottom: 3px; spacing: 0px;
-                    if F.tb-share: ToolGlyph { w: 36.6px; glyph: F.i-share; clicked(x, y) => { F.toolbar-menu("share", x, y); } }
-                    if F.tb-tags: ToolGlyph { w: 36.6px; glyph: F.i-tag; on: F.tags-open; clicked(x, y) => { F.toolbar-menu("tags", x, y); } }
-                    if F.tb-action: ToolGlyph { w: 36.6px; glyph: F.i-more; clicked(x, y) => { F.toolbar-menu("more", x, y); } }
+                    x: 4px; padding-top: 4px; padding-bottom: 4px; spacing: 0px;
+                    if F.tb-share: ToolGlyph { glyph: F.i-share; clicked(x, y) => { F.toolbar-menu("share", x, y); } }
+                    if F.tb-tags: ToolGlyph { glyph: F.i-tag; on: F.tags-open; clicked(x, y) => { F.toolbar-menu("tags", x, y); } }
+                    if F.tb-action: ToolGlyph { glyph: F.i-more; clicked(x, y) => { F.toolbar-menu("more", x, y); } }
                 }
             }
             if !toolbar.field && (F.tb-search || F.mode != 0): Capsule {
                 width: 36px;
-                ToolGlyph { x: 1px; y: 3px; w: 34px; glyph: F.i-search; clicked => { F.searching = true; } }
+                ToolGlyph { x: 4px; y: 4px; w: 28px; glyph: F.i-search; clicked => { F.searching = true; } }
             }
             if toolbar.field: Capsule {
                 width: root.search-w;

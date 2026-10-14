@@ -51,6 +51,8 @@ export global Theme {
     out property <color> control-pressed: dark ? #ffffff38 : #0000001f;
     out property <color> control-border: dark ? #ffffff0f : #00000014;
     out property <color> hover: dark ? #ffffff12 : #0000000a;
+    /// Selected toolbar button / segment inside a glass capsule.
+    out property <color> tool-sel: dark ? #ffffff26 : #00000017;
     out property <color> track: dark ? #ffffff29 : #00000017;
     out property <color> menu-bg: (dark ? #323234f7 : #f7f7f8fa).mix(tint.with-alpha(dark ? 0.97 : 0.98), 1 - tint-amount * 0.5);
     out property <color> selection: accent;
@@ -924,10 +926,14 @@ export component NavArrows inherits GlassCapsule {
     callback history-menu(bool, length, length);
     width: 72px;
     for d in 2: Rectangle {
-        x: d * 36px; width: 36px; height: 36px; border-radius: 18px;
+        x: d * 36px; width: 36px; height: 36px;
         property <bool> on: d == 0 ? root.can-back : root.can-forward;
-        background: ta.pressed && on ? Theme.control-pressed : (ta.has-hover && on ? Theme.hover : transparent);
-        animate background { duration: 100ms; }
+        // Highlight inset 4 px, concentric with the capsule's round ends.
+        Rectangle {
+            x: 4px; y: 4px; width: 28px; height: 28px; border-radius: 14px;
+            background: ta.pressed && on ? Theme.control-pressed : (ta.has-hover && on ? Theme.hover : transparent);
+            animate background { duration: 100ms; }
+        }
         Image {
             x: d == 0 ? 14px : 13px; width: 9px; height: 15px;
             source: d == 0 ? Glyphs.nav-back : Glyphs.nav-forward;

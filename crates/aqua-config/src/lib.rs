@@ -635,15 +635,15 @@ impl Config {
     pub fn mtime() -> Option<std::time::SystemTime> {
         std::fs::metadata(Self::file()).and_then(|m| m.modified()).ok()
     }
-    /// Write the configuration atomically (used by System Settings).
     /// Full-height sidebars instead of floating islands.
     pub fn solid_sidebar(&self) -> bool {
-        self.sidebar_style != "floating"
+        self.sidebar_style == "solid"
     }
     /// The "Aqua" app style (see `sidebar_style`).
     pub fn aqua_style(&self) -> bool {
         self.sidebar_style == "aqua"
     }
+    /// Write the configuration atomically (used by System Settings).
     pub fn save(&self) -> std::io::Result<()> {
         let p = Self::file();
         if let Some(d) = p.parent() {
@@ -922,7 +922,7 @@ mod tests {
 
     #[test]
     fn aqua_style_becomes_the_default() {
-        assert!(Config::default().aqua_style() && Config::default().solid_sidebar());
+        assert!(Config::default().aqua_style() && !Config::default().solid_sidebar());
         let old = |style: &str| Config::from_toml(&format!("version = 2\nsidebar_style = \"{style}\"\n")).unwrap();
         assert_eq!(old("floating").sidebar_style, "aqua");
         assert_eq!(old("solid").sidebar_style, "aqua");
