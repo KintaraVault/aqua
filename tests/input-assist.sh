@@ -33,7 +33,7 @@ for spec in "xdg-shell:$protocols/stable/xdg-shell/xdg-shell.xml" \
 done
 cc -std=c11 -O2 -Wall -Wextra -Werror -I"$rt" "$root/tests/input-assist-client.c" "$rt/"*-code.c \
    $(pkg-config --cflags --libs wayland-client cairo) -o "$rt/client"
-Xvfb -displayfd 3 -screen 0 1280x800x24 3>"$rt/display" >"$out/xvfb-$mode.log" 2>&1 & xp=$!
+Xvfb -noreset -nolisten tcp -displayfd 3 -screen 0 1280x800x24 3>"$rt/display" >"$out/xvfb-$mode.log" 2>&1 & xp=$!
 for _ in $(seq 1 50); do [[ ! -s "$rt/display" ]] || break; sleep 0.1; done
 [[ -s "$rt/display" ]]
 for _ in $(seq 1 50); do
