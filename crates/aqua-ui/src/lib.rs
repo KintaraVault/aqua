@@ -159,48 +159,64 @@ pub fn wallpaper_tint() -> Option<[f32; 3]> {
     Some([(v >> 16) as u8, (v >> 8) as u8, v as u8].map(|c| c as f32 / 255.0))
 }
 
-/// (light, dark) window tints of wallpaper colour `rgb`: its hue at each mode's lightness.
+/// Window tint colours for a wallpaper colour `rgb` (sRGB 0..1): its OKLCH hue at the
+/// perceived lightness of the light and dark window backgrounds. Chroma follows the
+/// wallpaper's own (grey stays neutral) and is capped, so every hue reads as an even hint.
 pub fn tint_pair(rgb: [f32; 3]) -> (slint::Color, slint::Color) {
-    let (h, s, _) = rgb_to_hsl(rgb);
-    let at = |sat: f32, l: f32| {
-        let [r, g, b] = hsl_to_rgb(h, sat, l).map(|c| (c.clamp(0.0, 1.0) * 255.0).round() as u8);
+    let [_, a, b] = oklab(rgb);
+    let (c, h) = (a.hypot(b), b.atan2(a));
+    let at = |l: f32, cap: f32| {
+        let mut ch = (c * 1.3).min(cap);
+        let mut out = oklch_to_srgb(l, ch, h);
+        while !out.iter().all(|v| (-1e-4..=1.0001).contains(v)) && ch > 1e-3 {
+            ch *= 0.85;
+            out = oklch_to_srgb(l, ch, h);
+        }
+        let [r, g, b] = out.map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8);
         slint::Color::from_rgb_u8(r, g, b)
     };
-    (at(s.min(0.55), 0.93), at(s.min(0.45), 0.15))
+    (at(0.93, 0.07), at(0.30, 0.07))
 }
 
-fn rgb_to_hsl([r, g, b]: [f32; 3]) -> (f32, f32, f32) {
-    let (max, min) = (r.max(g).max(b), r.min(g).min(b));
-    let l = (max + min) / 2.0;
-    let d = max - min;
-    if d < 1e-5 {
-        return (0.0, 0.0, l);
-    }
-    let s = d / (1.0 - (2.0 * l - 1.0).abs()).max(1e-5);
-    let h = if max == r {
-        ((g - b) / d).rem_euclid(6.0)
-    } else if max == g {
-        (b - r) / d + 2.0
+fn to_linear(c: f32) -> f32 {
+    if c <= 0.040_45 {
+        c / 12.92
     } else {
-        (r - g) / d + 4.0
-    } / 6.0;
-    (h, s.min(1.0), l)
+        ((c + 0.055) / 1.055).powf(2.4)
+    }
 }
 
-fn hsl_to_rgb(h: f32, s: f32, l: f32) -> [f32; 3] {
-    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
-    let hp = h * 6.0;
-    let x = c * (1.0 - (hp.rem_euclid(2.0) - 1.0).abs());
-    let (r, g, b) = match hp as u32 {
-        0 => (c, x, 0.0),
-        1 => (x, c, 0.0),
-        2 => (0.0, c, x),
-        3 => (0.0, x, c),
-        4 => (x, 0.0, c),
-        _ => (c, 0.0, x),
-    };
-    let m = l - c / 2.0;
-    [r + m, g + m, b + m]
+fn to_srgb(c: f32) -> f32 {
+    if c <= 0.003_130_8 {
+        c * 12.92
+    } else {
+        1.055 * c.powf(1.0 / 2.4) - 0.055
+    }
+}
+
+fn oklab(rgb: [f32; 3]) -> [f32; 3] {
+    let [r, g, b] = rgb.map(to_linear);
+    let l = (0.412_221_47 * r + 0.536_332_55 * g + 0.051_445_99 * b).cbrt();
+    let m = (0.211_903_5 * r + 0.680_699_5 * g + 0.107_396_96 * b).cbrt();
+    let s = (0.088_302_46 * r + 0.281_718_85 * g + 0.629_978_7 * b).cbrt();
+    [
+        0.210_454_26 * l + 0.793_617_8 * m - 0.004_072_047 * s,
+        1.977_998_5 * l - 2.428_592_2 * m + 0.450_593_7 * s,
+        0.025_904_037 * l + 0.782_771_77 * m - 0.808_675_77 * s,
+    ]
+}
+
+fn oklch_to_srgb(l: f32, c: f32, h: f32) -> [f32; 3] {
+    let (a, b) = (c * h.cos(), c * h.sin());
+    let l_ = (l + 0.396_337_78 * a + 0.215_803_76 * b).powi(3);
+    let m_ = (l - 0.105_561_346 * a - 0.063_854_17 * b).powi(3);
+    let s_ = (l - 0.089_484_18 * a - 1.291_485_5 * b).powi(3);
+    [
+        4.076_741_7 * l_ - 3.307_711_6 * m_ + 0.230_969_94 * s_,
+        -1.268_438 * l_ + 2.609_757_4 * m_ - 0.341_319_38 * s_,
+        -0.004_196_086_3 * l_ - 0.703_418_6 * m_ + 1.707_614_7 * s_,
+    ]
+    .map(to_srgb)
 }
 
 /// A strongly blurred, downscaled copy of what the window currently shows (for the glass menus, see
@@ -469,5 +485,39 @@ mod popup_tests {
         assert_eq!(super::popup_title(10.4, 20.6, None, false), "aqua-popup:10:21");
         assert_eq!(super::popup_title(256.0, 40.0, Some(-236.0), true), "aqua-popup:256:40:-236:sub");
         assert_eq!(super::popup_title(5.0, 6.0, None, true), "aqua-popup:5:6::sub");
+    }
+}
+
+#[cfg(test)]
+mod tint_tests {
+    use super::{oklab, tint_pair};
+
+    fn lab(c: slint::Color) -> [f32; 3] {
+        oklab([c.red(), c.green(), c.blue()].map(|v| v as f32 / 255.0))
+    }
+
+    #[test]
+    fn grey_wallpapers_give_neutral_tints() {
+        let (l, d) = tint_pair([0.5, 0.5, 0.5]);
+        for c in [l, d] {
+            let [_, a, b] = lab(c);
+            assert!(a.hypot(b) < 0.01, "{c:?}");
+        }
+    }
+
+    #[test]
+    fn tints_keep_the_hue_at_even_lightness() {
+        let tau = std::f32::consts::TAU;
+        for rgb in [[0.9, 0.1, 0.1], [0.1, 0.2, 0.9], [0.95, 0.85, 0.1], [0.5, 0.2, 0.8], [0.1, 0.7, 0.4]] {
+            let (l, d) = tint_pair(rgb);
+            let src = oklab(rgb);
+            for (c, want) in [(l, 0.93), (d, 0.30)] {
+                let v = lab(c);
+                assert!((v[0] - want).abs() < 0.02, "{rgb:?} -> {c:?}");
+                let dh = (v[2].atan2(v[1]) - src[2].atan2(src[1])).rem_euclid(tau);
+                assert!(dh.min(tau - dh) < 0.3, "{rgb:?} hue drifted to {c:?}");
+                assert!(v[1].hypot(v[2]) <= 0.071);
+            }
+        }
     }
 }
