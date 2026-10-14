@@ -241,7 +241,8 @@ pub fn style(base: &GlassStyle, m: Material, dark: bool) -> GlassStyle {
 /// `shaders/liquid-glass/parameters.md`).
 pub fn variant(m: Material) -> u8 {
     match m {
-        Material::Regular | Material::Pill | Material::Clear | Material::Control | Material::TilePreview => 0,
+        Material::Regular | Material::Pill | Material::Clear | Material::TilePreview => 0,
+        Material::Control => 220,
         Material::Dock | Material::Icon(_) => 2,
         Material::Tile => 8,
         Material::Sidebar => 16,

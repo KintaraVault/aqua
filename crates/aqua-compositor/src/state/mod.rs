@@ -364,6 +364,8 @@ pub struct Aqua {
     pub scale: f64,
     pub next_window_id: u64,
     pub needs_redraw: bool,
+    /// Last explicit user request to bring up an app (launch, Dock click, notification click).
+    pub user_launch: Option<std::time::Instant>,
     pub pointer_in_shell: bool,
     /// Windows appeared/disappeared: re-pick the pointer focus after the next frame.
     pub repick_pointer: bool,
@@ -429,6 +431,7 @@ impl Aqua {
         let ph = (h as f64 * scale).round() as u32;
         let wallpaper = aqua_wallpaper::wallpaper(cfg.wallpaper.as_deref(), pw, ph);
         let shell = Shell::new(cfg.clone(), w, h, scale as f32, &wallpaper);
+        shell.publish_tint();
         set_reduce_motion(cfg.reduce_motion);
         aqua_render::set_blur_max_fps(cfg.blur_max_fps);
         let dnd = cfg.do_not_disturb;
@@ -482,6 +485,7 @@ impl Aqua {
             scale,
             next_window_id: 1,
             needs_redraw: true,
+            user_launch: None,
             pointer_in_shell: false,
             repick_pointer: false,
             config_issues: vec![],

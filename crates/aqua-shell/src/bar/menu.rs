@@ -15,6 +15,8 @@ pub enum MenuKind {
     Dock(usize),
     /// Context menu of the desktop (right click on the wallpaper).
     Desktop,
+    /// Context menu of the selected desktop items.
+    DesktopItems,
     /// Menu of an application's tray item, by tray key.
     Tray(String),
     /// The green title-bar button's tiling menu for a window: (window id, tiled now).
@@ -24,7 +26,7 @@ pub enum MenuKind {
 impl MenuKind {
     /// Context menus pop up at the pointer instead of hanging from the menu bar.
     pub fn is_context(&self) -> bool {
-        matches!(self, MenuKind::Dock(_) | MenuKind::Desktop | MenuKind::Window(..))
+        matches!(self, MenuKind::Dock(_) | MenuKind::Desktop | MenuKind::DesktopItems | MenuKind::Window(..))
     }
 }
 
@@ -402,13 +404,36 @@ fn context_entries(sh: &Shell, kind: &MenuKind) -> Vec<Option<Entry>> {
     use crate::dock::{self, Kind};
     match kind {
         MenuKind::Window(id, tiled) => window_menu(*id, *tiled),
+        MenuKind::DesktopItems => {
+            let paths = crate::desktop::selected_paths(sh);
+            let n = paths.len();
+            let open = if n > 1 { format!("Open {n} Items") } else { "Open".to_string() };
+            vec![
+                e(&open, "", Some(Action::DesktopOpenSelected)),
+                e("Show in Enclosing Folder", "", open_dir(xdg_dir("DESKTOP", "Desktop"))),
+                None,
+                e("Move to Trash", "", Some(Action::TrashPaths(paths))),
+                None,
+                x("Snap to Grid", Extra::Check(sh.cfg.desktop_snap), true, Some(Action::ToggleDesktopSnap)),
+                e("Clean Up", "", Some(Action::DesktopCleanUp)),
+            ]
+        }
         MenuKind::Desktop => {
             let desk = xdg_dir("DESKTOP", "Desktop");
             let widgets = sh.cfg.show_widgets && !sh.widgets.hidden;
+            let icons = sh.cfg.desktop_icons;
+            let arrange = |label: &str, a: Action| {
+                Some(Entry { label: label.into(), shortcut: "", enabled: icons, action: Some(a), extra: Extra::None })
+            };
             vec![
                 e("New Folder", "", Some(Action::NewFolder(new_folder_path()))),
                 e("Open Desktop Folder", "", open_dir(desk)),
                 e("Open Terminal", "", Some(Action::OpenTerminal)),
+                None,
+                e(if icons { "Hide Desktop Items" } else { "Show Desktop Items" }, "", Some(Action::ToggleDesktopIcons)),
+                x("Snap to Grid", Extra::Check(sh.cfg.desktop_snap), icons, Some(Action::ToggleDesktopSnap)),
+                arrange("Clean Up", Action::DesktopCleanUp),
+                arrange("Sort by Name", Action::DesktopSortByName),
                 None,
                 e("Change Wallpaper…", "", Some(Action::OpenSettings("wallpaper".into()))),
                 e("Display Settings…", "", Some(Action::OpenSettings("displays".into()))),
@@ -784,7 +809,7 @@ fn geometry(sh: &Shell, kind: &MenuKind) -> (Rect, Vec<(Option<Entry>, Rect)>) {
             let y = (crate::dock::top(sh) - total_h - 10.0).max(sh.cfg.menubar_height + 4.0);
             (x, y)
         }
-        MenuKind::Desktop | MenuKind::Window(..) => {
+        MenuKind::Desktop | MenuKind::DesktopItems | MenuKind::Window(..) => {
             let (px, py) = sh.menu.pos;
             let x = if px + w + 6.0 > sh.w { (px - w).max(6.0) } else { px };
             let y = if py + total_h + 6.0 > sh.h { (py - total_h).max(sh.cfg.menubar_height + 4.0) } else { py };

@@ -77,6 +77,13 @@ fn main() {
         sh.launchpad.scroll.jump(n);
     }
     if args.iter().any(|a| a == "--control") {
+        for _ in 0..40 {
+            let art = aqua_sys::snapshot().media.art;
+            if aqua_sys::media::art_bytes(&art).is_some() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
         sh.control.toggle();
         sh.control.t = 1.0;
     }

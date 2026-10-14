@@ -6,12 +6,16 @@ use aqua_gfx::{rgba, Color, Pixmap, Rect};
 /// Coarse luminance map of the wallpaper used to pick legible foregrounds.
 pub struct Adaptive {
     grid: Vec<f32>,
+    /// Per cell: colour sums weighted towards saturated pixels (r, g, b, weight).
+    color: Vec<[f32; 4]>,
     gw: usize,
     gh: usize,
     w: f32,
     h: f32,
     /// System-wide Dark Mode (Control Center toggle).
     pub dark: bool,
+    /// Dominant colour of the whole wallpaper (sRGB 0..1), for wallpaper tinting.
+    pub tint: [f32; 3],
 }
 
 const GW: usize = 48;
@@ -20,7 +24,9 @@ const GH: usize = 32;
 impl Adaptive {
     pub fn from_wallpaper(wp: &Pixmap, w: f32, h: f32) -> Self {
         let mut grid = vec![0.0; GW * GH];
+        let mut color = vec![[0.0f32; 4]; GW * GH];
         let (pw, ph) = (wp.width() as usize, wp.height() as usize);
+        let mut sum = [0.0f32; 4];
         for gy in 0..GH {
             for gx in 0..GW {
                 let mut acc = 0.0;
@@ -32,28 +38,57 @@ impl Adaptive {
                         let p = wp.pixel(x as u32, y as u32).unwrap();
                         acc += lum(p.red(), p.green(), p.blue());
                         n += 1.0;
+                        let c = [p.red() as f32 / 255.0, p.green() as f32 / 255.0, p.blue() as f32 / 255.0];
+                        let sat = c.iter().copied().fold(0.0f32, f32::max) - c.iter().copied().fold(1.0f32, f32::min);
+                        let wgt = 0.08 + sat;
+                        let cell = &mut color[gy * GW + gx];
+                        for k in 0..3 {
+                            cell[k] += c[k] * wgt;
+                        }
+                        cell[3] += wgt;
                     }
                 }
                 grid[gy * GW + gx] = acc / n;
+                for k in 0..4 {
+                    sum[k] += color[gy * GW + gx][k];
+                }
             }
         }
-        Self { grid, gw: GW, gh: GH, w, h, dark: false }
+        let tint = if sum[3] > 0.0 { [sum[0] / sum[3], sum[1] / sum[3], sum[2] / sum[3]] } else { [0.5; 3] };
+        Self { grid, color, gw: GW, gh: GH, w, h, dark: false, tint }
+    }
+
+    /// Cells covered by logical rect `r` (at least one, clamped to the screen).
+    fn cells(&self, r: Rect) -> impl Iterator<Item = usize> + '_ {
+        let span = |a: f32, b: f32, size: f32, n: usize| {
+            let a = ((a / size) * n as f32).floor().clamp(0.0, n as f32 - 1.0) as usize;
+            let b = ((b / size) * n as f32).ceil().clamp(1.0, n as f32) as usize;
+            (a, b.max(a + 1))
+        };
+        let (x0, x1) = span(r.x, r.right(), self.w, self.gw);
+        let (y0, y1) = span(r.y, r.bottom(), self.h, self.gh);
+        (y0..y1).flat_map(move |y| (x0..x1).map(move |x| y * self.gw + x))
+    }
+
+    /// Colour of the wallpaper under logical rect `r` (sRGB 0..1, weighted like [`Self::tint`]):
+    /// what a window there takes on with wallpaper tinting.
+    pub fn tint_in(&self, r: Rect) -> [f32; 3] {
+        let mut s = [0.0f32; 4];
+        for i in self.cells(r) {
+            for k in 0..4 {
+                s[k] += self.color[i][k];
+            }
+        }
+        if s[3] > 0.0 {
+            [s[0] / s[3], s[1] / s[3], s[2] / s[3]]
+        } else {
+            self.tint
+        }
     }
 
     /// Mean luminance (0..1) of the wallpaper under logical rect `r`.
     pub fn lum(&self, r: Rect) -> f32 {
-        let x0 = ((r.x / self.w) * self.gw as f32).floor().clamp(0.0, self.gw as f32 - 1.0) as usize;
-        let x1 = ((r.right() / self.w) * self.gw as f32).ceil().clamp(1.0, self.gw as f32) as usize;
-        let y0 = ((r.y / self.h) * self.gh as f32).floor().clamp(0.0, self.gh as f32 - 1.0) as usize;
-        let y1 = ((r.bottom() / self.h) * self.gh as f32).ceil().clamp(1.0, self.gh as f32) as usize;
-        let mut acc = 0.0;
-        let mut n = 0.0;
-        for y in y0..y1.max(y0 + 1) {
-            for x in x0..x1.max(x0 + 1) {
-                acc += self.grid[y * self.gw + x];
-                n += 1.0;
-            }
-        }
+        let (acc, n) = self.cells(r).fold((0.0, 0.0), |(a, n), i| (a + self.grid[i], n + 1.0));
         acc / n
     }
 

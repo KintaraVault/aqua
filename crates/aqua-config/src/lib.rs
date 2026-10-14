@@ -208,6 +208,12 @@ pub struct Config {
     pub menubar_autohide: String,
     pub dock_magnify: bool,
     pub show_widgets: bool,
+    /// Show the items of the Desktop folder on the desktop.
+    pub desktop_icons: bool,
+    /// Desktop icons dropped after a move snap to the icon grid; off = free placement.
+    pub desktop_snap: bool,
+    /// Windows of system apps, menus and panels take a hint of the wallpaper's colour.
+    pub wallpaper_tinting: bool,
     pub clock_24h: bool,
     pub clock_seconds: bool,
     /// Menu bar status items hidden by the user ("input", "battery", "wifi", "search").
@@ -253,6 +259,9 @@ pub struct Config {
     /// Translucent glass behind the whole window body of Finder, System Settings and the
     /// App Store (not just the sidebar). Off by default.
     pub window_glass: bool,
+    /// Opaque sidebars in Finder, System Settings and the App Store: the sidebar is a solid
+    /// pane flush with the window and Finder's toolbar joins the title bar above the content.
+    pub reduce_sidebar_transparency: bool,
     /// Toolbar buttons of Finder, System Settings and the App Store (navigation arrows,
     /// view and action capsules) drawn as raised liquid glass; false = flat.
     pub glass_controls: bool,
@@ -557,6 +566,9 @@ impl Default for Config {
             menubar_autohide: "fullscreen".into(),
             dock_magnify: true,
             show_widgets: true,
+            desktop_icons: true,
+            desktop_snap: true,
+            wallpaper_tinting: true,
             clock_24h: true,
             clock_seconds: false,
             menubar_hidden: vec![],
@@ -578,6 +590,7 @@ impl Default for Config {
             dock_click: "focus".into(),
             sidebar_style: "aqua".into(),
             window_glass: false,
+            reduce_sidebar_transparency: false,
             glass_controls: true,
             glass_traffic_lights: true,
             dock_bounce: true,

@@ -68,6 +68,32 @@ pub enum Media {
     BrightUp,
     BrightDown,
     MicMute,
+    PlayPause,
+    Play,
+    Pause,
+    Stop,
+    Next,
+    Prev,
+    Forward,
+    Rewind,
+    KbdUp,
+    KbdDown,
+    KbdToggle,
+}
+
+/// Launch keys found on multimedia keyboards, mapped to named actions or commands.
+fn launch_key(raw: u32) -> Option<&'static str> {
+    Some(match raw {
+        keysyms::KEY_XF86Search => "spotlight",
+        keysyms::KEY_XF86LaunchA => "mission-control",
+        keysyms::KEY_XF86LaunchB => "launchpad",
+        keysyms::KEY_XF86Explorer | keysyms::KEY_XF86MyComputer => "exec:xdg-open ~",
+        keysyms::KEY_XF86HomePage | keysyms::KEY_XF86WWW => "exec:gtk-launch \"$(xdg-settings get default-web-browser)\"",
+        keysyms::KEY_XF86Mail => "exec:xdg-open mailto:",
+        keysyms::KEY_XF86Calculator => "exec:gnome-calculator || kcalc || qalculate-gtk || galculator",
+        keysyms::KEY_XF86Tools => "settings",
+        _ => return None,
+    })
 }
 
 /// System Settings → Keyboard Shortcuts drops this marker while it records a new
@@ -251,12 +277,24 @@ impl Aqua {
                 keysyms::KEY_XF86AudioMicMute => Some(Media::MicMute),
                 keysyms::KEY_XF86MonBrightnessUp => Some(Media::BrightUp),
                 keysyms::KEY_XF86MonBrightnessDown => Some(Media::BrightDown),
+                keysyms::KEY_XF86AudioPlay => Some(Media::PlayPause),
+                keysyms::KEY_XF86AudioPause => Some(Media::Pause),
+                keysyms::KEY_XF86AudioStop => Some(Media::Stop),
+                keysyms::KEY_XF86AudioNext => Some(Media::Next),
+                keysyms::KEY_XF86AudioPrev => Some(Media::Prev),
+                keysyms::KEY_XF86AudioForward => Some(Media::Forward),
+                keysyms::KEY_XF86AudioRewind => Some(Media::Rewind),
+                keysyms::KEY_XF86KbdBrightnessUp => Some(Media::KbdUp),
+                keysyms::KEY_XF86KbdBrightnessDown => Some(Media::KbdDown),
+                keysyms::KEY_XF86KbdLightOnOff => Some(Media::KbdToggle),
                 _ => None,
             };
             let a = if (keysyms::KEY_XF86Switch_VT_1..=keysyms::KEY_XF86Switch_VT_12).contains(&raw) {
                 Some(KeyAction::Vt((raw - keysyms::KEY_XF86Switch_VT_1 + 1) as i32))
             } else if let Some(md) = media {
                 Some(KeyAction::Media(md))
+            } else if let Some(name) = (!locked).then(|| launch_key(raw)).flatten() {
+                Some(KeyAction::Bind(name.to_string()))
             } else if raw == keysyms::KEY_XF86PowerOff {
                 Some(KeyAction::PowerKey)
             } else if raw == keysyms::KEY_XF86Sleep || raw == keysyms::KEY_XF86Suspend {
@@ -654,6 +692,7 @@ impl Aqua {
         }
         if state == ButtonState::Pressed && !pointer.is_grabbed() {
             if self.shell.wants_pointer(x, y) {
+                self.user_launch = Some(std::time::Instant::now());
                 let acts = self.shell.pointer_button(x, y, true);
                 self.handle_actions(acts);
                 return;
@@ -722,8 +761,13 @@ impl Aqua {
                 if button == BTN_LEFT && self.stage_click(pos) {
                     return;
                 }
+                let menu_open = self.shell.menu.open.is_some();
                 let acts = self.shell.pointer_button(x, y, true);
                 self.handle_actions(acts);
+                if button == BTN_LEFT && !menu_open {
+                    let acts = self.shell.desktop_press(x, y);
+                    self.handle_actions(acts);
+                }
                 if self
                     .layer_under(
                         pos,
@@ -918,6 +962,25 @@ impl Aqua {
                 self.shell.control.brightness = v;
                 self.shell.show_hud(HudKind::Brightness, v, "");
             }
+            Media::PlayPause => aqua_sys::media::play_pause(&snap.media.player),
+            Media::Play => aqua_sys::media::play(&snap.media.player),
+            Media::Pause => aqua_sys::media::pause(&snap.media.player),
+            Media::Stop => aqua_sys::media::stop(&snap.media.player),
+            Media::Next => aqua_sys::media::next(&snap.media.player),
+            Media::Prev => aqua_sys::media::previous(&snap.media.player),
+            Media::Forward => aqua_sys::media::seek(&snap.media.player, 10.0),
+            Media::Rewind => aqua_sys::media::seek(&snap.media.player, -10.0),
+            Media::KbdUp | Media::KbdDown | Media::KbdToggle => {
+                let steps = match m {
+                    Media::KbdUp => 1,
+                    Media::KbdDown => -1,
+                    _ if aqua_sys::backlight::kbd_get().unwrap_or(0.0) > 0.0 => -1000,
+                    _ => 1000,
+                };
+                if let Some(v) = aqua_sys::backlight::kbd_step(steps) {
+                    self.shell.show_hud(HudKind::Keyboard, v, "");
+                }
+            }
         }
         self.needs_redraw = true;
     }
@@ -972,6 +1035,11 @@ impl Aqua {
             "mute" => self.media_key(Media::Mute),
             "brightness-up" => self.media_key(Media::BrightUp),
             "brightness-down" => self.media_key(Media::BrightDown),
+            "play-pause" => self.media_key(Media::PlayPause),
+            "next-track" => self.media_key(Media::Next),
+            "previous-track" => self.media_key(Media::Prev),
+            "keyboard-brightness-up" => self.media_key(Media::KbdUp),
+            "keyboard-brightness-down" => self.media_key(Media::KbdDown),
             n if n.starts_with("tile-") || n.starts_with("arrange-") => {
                 if !self.run_tile_action(n) {
                     return false;

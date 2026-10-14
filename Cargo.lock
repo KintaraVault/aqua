@@ -388,6 +388,7 @@ name = "aqua-sys"
 version = "0.1.0"
 dependencies = [
  "tracing",
+ "ureq",
  "zbus",
 ]
 

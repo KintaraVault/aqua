@@ -39,20 +39,26 @@ macro_rules! apply_theme {
         t.set_solid_sidebar(cfg.solid_sidebar());
         t.set_aqua(cfg.aqua_style());
         t.set_window_glass(cfg.window_glass);
+        t.set_opaque_sidebar(cfg.reduce_sidebar_transparency);
         t.set_glass_controls(cfg.glass_controls);
         t.set_glass_lights(cfg.glass_traffic_lights);
         t.set_motion(!cfg.reduce_motion);
+        $crate::apply_tint(&t, &cfg);
         {
             let weak = $ui.as_weak();
             let last = std::cell::Cell::new(aqua_config::Config::mtime());
+            let tint_file = || std::fs::metadata(aqua_config::paths::tint_file()).and_then(|m| m.modified()).ok();
+            let last_tint = std::cell::Cell::new(tint_file());
             let tick = std::cell::Cell::new(0u32);
             let timer = slint::Timer::default();
             timer.start(slint::TimerMode::Repeated, std::time::Duration::from_secs(1), move || {
                 let mt = aqua_config::Config::mtime();
+                let tt = tint_file();
                 tick.set(tick.get().wrapping_add(1));
-                if mt == last.get() && tick.get() % 30 != 0 {
+                if mt == last.get() && tt == last_tint.get() && tick.get() % 30 != 0 {
                     return;
                 }
+                last_tint.set(tt);
                 last.set(mt);
                 let Some(u) = weak.upgrade() else { return };
                 // A broken or half-written file keeps the current look.
@@ -75,6 +81,9 @@ macro_rules! apply_theme {
                 if t.get_window_glass() != cfg.window_glass {
                     t.set_window_glass(cfg.window_glass);
                 }
+                if t.get_opaque_sidebar() != cfg.reduce_sidebar_transparency {
+                    t.set_opaque_sidebar(cfg.reduce_sidebar_transparency);
+                }
                 if t.get_glass_controls() != cfg.glass_controls {
                     t.set_glass_controls(cfg.glass_controls);
                 }
@@ -84,6 +93,7 @@ macro_rules! apply_theme {
                 if t.get_motion() == cfg.reduce_motion {
                     t.set_motion(!cfg.reduce_motion);
                 }
+                $crate::apply_tint(&t, &cfg);
             });
             std::mem::forget(timer);
         }
@@ -107,6 +117,90 @@ macro_rules! apply_theme {
             }
         });
     }};
+}
+
+/// Wallpaper tint colours for the Theme global: the wallpaper's hue at the lightness of the
+/// light and dark window backgrounds.
+pub fn apply_tint(t: &Theme<'_>, cfg: &aqua_config::Config) {
+    let on = cfg.wallpaper_tinting;
+    if t.get_tinting() != on {
+        t.set_tinting(on);
+    }
+    if !on || t.get_tint_local() {
+        return;
+    }
+    if let Some(rgb) = wallpaper_tint() {
+        set_tints(t, rgb);
+    }
+}
+
+/// The wallpaper behind this window has colour `rgb` (sRGB 0..1, from the compositor).
+pub fn set_window_tint(t: &Theme<'_>, rgb: [f32; 3]) {
+    if !t.get_tint_local() {
+        t.set_tint_local(true);
+    }
+    set_tints(t, rgb);
+}
+
+fn set_tints(t: &Theme<'_>, rgb: [f32; 3]) {
+    let (light, dark) = tint_pair(rgb);
+    if t.get_tint_light() != light {
+        t.set_tint_light(light);
+    }
+    if t.get_tint_dark() != dark {
+        t.set_tint_dark(dark);
+    }
+}
+
+/// Colour of the whole wallpaper as published by the compositor (sRGB 0..1).
+pub fn wallpaper_tint() -> Option<[f32; 3]> {
+    let s = std::fs::read_to_string(aqua_config::paths::tint_file()).ok()?;
+    let v = u32::from_str_radix(s.trim().strip_prefix('#')?, 16).ok()?;
+    Some([(v >> 16) as u8, (v >> 8) as u8, v as u8].map(|c| c as f32 / 255.0))
+}
+
+/// (light, dark) window tints of wallpaper colour `rgb`: its hue at each mode's lightness.
+pub fn tint_pair(rgb: [f32; 3]) -> (slint::Color, slint::Color) {
+    let (h, s, _) = rgb_to_hsl(rgb);
+    let at = |sat: f32, l: f32| {
+        let [r, g, b] = hsl_to_rgb(h, sat, l).map(|c| (c.clamp(0.0, 1.0) * 255.0).round() as u8);
+        slint::Color::from_rgb_u8(r, g, b)
+    };
+    (at(s.min(0.55), 0.93), at(s.min(0.45), 0.15))
+}
+
+fn rgb_to_hsl([r, g, b]: [f32; 3]) -> (f32, f32, f32) {
+    let (max, min) = (r.max(g).max(b), r.min(g).min(b));
+    let l = (max + min) / 2.0;
+    let d = max - min;
+    if d < 1e-5 {
+        return (0.0, 0.0, l);
+    }
+    let s = d / (1.0 - (2.0 * l - 1.0).abs()).max(1e-5);
+    let h = if max == r {
+        ((g - b) / d).rem_euclid(6.0)
+    } else if max == g {
+        (b - r) / d + 2.0
+    } else {
+        (r - g) / d + 4.0
+    } / 6.0;
+    (h, s.min(1.0), l)
+}
+
+fn hsl_to_rgb(h: f32, s: f32, l: f32) -> [f32; 3] {
+    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+    let hp = h * 6.0;
+    let x = c * (1.0 - (hp.rem_euclid(2.0) - 1.0).abs());
+    let (r, g, b) = match hp as u32 {
+        0 => (c, x, 0.0),
+        1 => (x, c, 0.0),
+        2 => (0.0, c, x),
+        3 => (0.0, x, c),
+        4 => (x, 0.0, c),
+        _ => (c, 0.0, x),
+    };
+    let m = l - c / 2.0;
+    [r + m, g + m, b + m]
 }
 
 /// A strongly blurred, downscaled copy of what the window currently shows (for the glass menus, see

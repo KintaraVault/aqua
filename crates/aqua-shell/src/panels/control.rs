@@ -16,6 +16,11 @@ pub struct ControlCenter {
     pub volume: f32,
     pub hover: Option<usize>,
     pub drag: Option<usize>,
+    /// Clock of the scrolling labels, restarted when the panel opens or their text changes.
+    pub(crate) marquee_t0: std::time::Instant,
+    pub(crate) marquee_text: u64,
+    pub(crate) marquee_on: bool,
+    pub(crate) art: Option<(String, Option<std::sync::Arc<aqua_gfx::Pixmap>>)>,
 }
 
 impl Default for ControlCenter {
@@ -33,6 +38,10 @@ impl Default for ControlCenter {
             volume: 0.6,
             hover: None,
             drag: None,
+            marquee_t0: std::time::Instant::now(),
+            marquee_text: 0,
+            marquee_on: false,
+            art: None,
         }
     }
 }
@@ -43,12 +52,15 @@ impl ControlCenter {
     }
     pub fn toggle(&mut self) {
         self.open = !self.open;
+        if self.open {
+            self.marquee_t0 = std::time::Instant::now();
+        }
     }
     pub fn animate(&mut self, dt: f32) -> bool {
         let target = if self.open { 1.0 } else { 0.0 };
         if (self.t - target).abs() < 0.001 {
             self.t = target;
-            return false;
+            return self.open && self.marquee_on;
         }
         self.t += (target - self.t) * (1.0 - (-9.0 * dt).exp());
         if (self.t - target).abs() < 0.01 {
@@ -164,12 +176,38 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
         })
     };
     let wired_on = snap.net.wired.is_some();
-    let cc = &sh.control;
     let light_bg = !sh.style.dark && sh.style.lum(p) > 0.80;
     let media = snap.media.clone();
+    let f = sh.fonts.clone();
+    let text_key = hash_of(&(&wifi_name, &media.title, &media.artist));
+    if text_key != sh.control.marquee_text {
+        sh.control.marquee_text = text_key;
+        sh.control.marquee_t0 = std::time::Instant::now();
+    }
+    let clock = sh.control.marquee_t0.elapsed().as_secs_f32();
+    let tile_w = |want: T| ts.iter().find(|t| t.0 == want).map(|t| t.1.w).unwrap_or(0.0);
+    let net_scroll = aqua_gfx::canvas::marquee_offset(
+        f.measure(&wifi_name, 12.0, Weight::Regular),
+        tile_w(T::Wifi) - 68.0,
+        clock,
+    )
+    .filter(|_| !ethernet && wifi_name != "Connected");
+    let has_track = !media.player.is_empty() && !media.title.is_empty();
+    let text_w = tile_w(T::Playing) - 28.0;
+    let title_scroll = aqua_gfx::canvas::marquee_offset(f.measure(&media.title, 13.5, Weight::Semibold), text_w, clock)
+        .filter(|_| has_track);
+    let artist_scroll = aqua_gfx::canvas::marquee_offset(f.measure(&media.artist, 12.0, Weight::Regular), text_w, clock)
+        .filter(|_| has_track);
+    sh.control.marquee_on = net_scroll.is_some() || title_scroll.is_some() || artist_scroll.is_some();
+    let art_pm = cover_art(&mut sh.control, &media.art);
+    let q = |o: Option<f32>| o.map(|v| (v * 4.0).round() as i32);
+    let cc = &sh.control;
     let key = hash_of(&(
         (wifi_name.clone(), snap.bt.devices.iter().filter(|d| d.connected).count(), snap.audio.device.clone()),
-        (media.title.clone(), media.artist.clone(), media.app.clone(), media.playing),
+        (
+            (media.title.clone(), media.artist.clone(), media.app.clone(), media.playing),
+            (q(net_scroll), q(title_scroll), q(artist_scroll), media.art.clone(), art_pm.is_some()),
+        ),
         (cc.wifi, ethernet, wired_on),
         cc.bluetooth,
         cc.airdrop,
@@ -184,7 +222,6 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
     let fg = if light_bg { rgba(29, 29, 31, 0.92) } else { rgba(255, 255, 255, 0.97) };
     let fg2 = if light_bg { rgba(29, 29, 31, 0.6) } else { rgba(255, 255, 255, 0.72) };
     let (pm, serial) = sh.cached(LayerId::ControlCenter, key, p.w, p.h, |c, sh| {
-        let f = sh.fonts.clone();
         let cc = &sh.control;
         for (i, (t, r, round)) in ts.iter().enumerate() {
             let r = r.translate(-p.x, -p.y);
@@ -233,9 +270,14 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
                         // too long: a shorter way to say it before cutting it ("Connected" → "On")
                         let short = if sub == "Connected" { "On" } else { sub };
                         let sub = if f.measure(sub, 12.0, Weight::Regular) > max { short } else { sub };
-                        let sub = f.ellipsize(sub, 12.0, Weight::Regular, max);
                         c.text(&f, tx, r.cy() - 1.0, 13.5, Weight::Semibold, fg, &title);
-                        c.text(&f, tx, r.cy() + 15.0, 12.0, Weight::Regular, fg2, &sub);
+                        if *t == T::Wifi && net_scroll.is_some() {
+                            let line = Rect::new(tx, r.cy() + 4.0, max, 14.0);
+                            c.marquee(&f, line, 12.0, Weight::Regular, fg2, sub, net_scroll);
+                        } else {
+                            let sub = f.ellipsize(sub, 12.0, Weight::Regular, max);
+                            c.text(&f, tx, r.cy() + 15.0, 12.0, Weight::Regular, fg2, &sub);
+                        }
                     }
                 }
                 T::Bt | T::AirDrop => {
@@ -253,10 +295,16 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
                 }
                 T::Playing => {
                     let art = Rect::new(r.x + 16.0, r.y + 16.0, 52.0, 52.0);
-                    c.fill_continuous(art, 12.0, rgba(255, 255, 255, 0.22));
+                    if let Some(cover) = &art_pm {
+                        c.draw_pixmap_rounded(cover, art, 12.0);
+                    } else {
+                        c.fill_continuous(art, 12.0, rgba(255, 255, 255, 0.22));
+                    }
                     if !media.app.is_empty() {
-                        let initial: String = media.app.chars().take(1).collect();
-                        c.text_in(&f, art, 0.5, 24.0, Weight::Bold, fg, &initial);
+                        if art_pm.is_none() {
+                            let initial: String = media.app.chars().take(1).collect();
+                            c.text_in(&f, art, 0.5, 24.0, Weight::Bold, fg, &initial);
+                        }
                         c.text_in(
                             &f,
                             Rect::new(art.right() + 8.0, art.y, r.right() - art.right() - 14.0, 18.0),
@@ -275,25 +323,11 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
                     } else {
                         (media.title.clone(), media.artist.clone())
                     };
-                    c.text_in(
-                        &f,
-                        Rect::new(r.x + 16.0, r.bottom() - 62.0, r.w - 28.0, 18.0),
-                        0.0,
-                        13.5,
-                        Weight::Semibold,
-                        fg,
-                        &title,
-                    );
+                    let line = Rect::new(r.x + 16.0, r.bottom() - 62.0, r.w - 28.0, 18.0);
+                    c.marquee(&f, line, 13.5, Weight::Semibold, fg, &title, title_scroll);
                     if !artist.is_empty() {
-                        c.text_in(
-                            &f,
-                            Rect::new(r.x + 16.0, r.bottom() - 46.0, r.w - 28.0, 16.0),
-                            0.0,
-                            12.0,
-                            Weight::Regular,
-                            fg2,
-                            &artist,
-                        );
+                        let line = Rect::new(r.x + 16.0, r.bottom() - 46.0, r.w - 28.0, 16.0);
+                        c.marquee(&f, line, 12.0, Weight::Regular, fg2, &artist, artist_scroll);
                     }
                     let dim = |on: bool| if on { fg } else { fg2 };
                     symbols::skip(c, Rect::new(r.x + 22.0, r.bottom() - 26.0, 20.0, 14.0), dim(media.can_prev), false);
@@ -554,4 +588,30 @@ fn hyphenate(f: &aqua_gfx::Fonts, s: &str, size: f32, w: Weight, max: f32) -> (S
         }
     }
     (s.to_string(), String::new())
+}
+
+/// Decoded cover of the current track, kept until the track's art URL changes. Large covers
+/// are reduced once so drawing the module stays cheap.
+fn cover_art(cc: &mut ControlCenter, url: &str) -> Option<std::sync::Arc<aqua_gfx::Pixmap>> {
+    if url.is_empty() {
+        cc.art = None;
+        return None;
+    }
+    if let Some((u, pm)) = &cc.art {
+        if u == url && pm.is_some() {
+            return pm.clone();
+        }
+    }
+    let pm = aqua_sys::media::art_bytes(url).and_then(|b| aqua_gfx::load_image_bytes(&b)).map(|pm| {
+        let side = pm.width().min(pm.height()) as f32;
+        let k = 192.0 / side;
+        if k < 1.0 {
+            let (w, h) = ((pm.width() as f32 * k).round() as u32, (pm.height() as f32 * k).round() as u32);
+            std::sync::Arc::new(aqua_gfx::resample(&pm, k, k, 0.0, 0.0, w.max(1), h.max(1)))
+        } else {
+            std::sync::Arc::new(pm)
+        }
+    });
+    cc.art = Some((url.to_string(), pm.clone()));
+    pm
 }

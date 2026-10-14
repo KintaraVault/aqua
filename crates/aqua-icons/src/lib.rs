@@ -19,6 +19,7 @@ pub mod builtin;
 pub mod equiv;
 mod fetch;
 pub mod apple_fx;
+pub mod backdrop;
 pub mod glass;
 pub mod glyph;
 pub mod icns;
@@ -123,7 +124,7 @@ impl IconProvider {
             return p.clone();
         }
         let (mut pm, builtin) = self.resolve(req, px);
-        if !builtin && self.look.style != look::Style::Default {
+        if !builtin && self.look.styled() {
             let k = if px <= 160 {
                 3
             } else if px <= 520 {
@@ -208,7 +209,7 @@ impl IconProvider {
             }
         }
         if let Some(pm) = theme::lookup(&req.icon, px.max(128)) {
-            if self.look.style != look::Style::Default {
+            if self.look.styled() {
                 return Err(normalize::plate_look(&pm, px, &self.look));
             }
             return Ok(normalize::plate(&pm, px));
@@ -240,6 +241,7 @@ impl IconProvider {
         };
         let l = &self.look;
         let direct = match l.style {
+            _ if l.glass_plate => None,
             look::Style::Default => Some((false, 0, "none")),
             look::Style::Dark => Some((true, 0, "none")),
             look::Style::Tinted => mac_tint(l.tint).map(|t| (l.dark, 2, t)),

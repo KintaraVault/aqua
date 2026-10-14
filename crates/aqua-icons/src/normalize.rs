@@ -100,7 +100,28 @@ pub fn plate_look(src: &Pixmap, px: u32, look: &crate::look::Look) -> Pixmap {
         ic.forget_plate();
         let inner = glass::B * 0.70;
         let o = (glass::B - inner) / 2.0;
-        ic.layer_pixmap(src, Rect::new(o, o, inner, inner));
+        let stripped = look.glass_plate.then(|| crate::backdrop::strip_pixmap(src)).flatten();
+        if let Some((pm, bd)) = &stripped {
+            // neutral artwork left from a backdrop is ink on it (a letter on a white tile)
+            if neutral(pm) {
+                ic.ink_on(*bd);
+            }
+        }
+        ic.layer_pixmap(stripped.as_ref().map(|s| &s.0).unwrap_or(src), Rect::new(o, o, inner, inner));
         ic.finish(true)
     })
+}
+
+/// Whether a picture is (nearly) without colour.
+fn neutral(pm: &Pixmap) -> bool {
+    let (mut sat, mut sum) = (0.0f32, 0.0f32);
+    for p in pm.data().as_chunks::<4>().0 {
+        let a = p[3] as f32 / 255.0;
+        if a > 0.0 {
+            let (mx, mn) = (p[0].max(p[1]).max(p[2]) as f32, p[0].min(p[1]).min(p[2]) as f32);
+            sat += (mx - mn) / 255.0;
+            sum += a;
+        }
+    }
+    sum > 0.0 && sat / sum < 0.12
 }

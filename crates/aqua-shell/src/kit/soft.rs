@@ -339,7 +339,7 @@ mod lens_tests {
 /// Composite a full frame: wallpaper → windows → shell layers.
 pub fn compose(wallpaper: &Pixmap, windows: &[SoftWindow], layers: &[Layer], scale: f32) -> Pixmap {
     let mut out = wallpaper.clone();
-    for l in layers.iter().filter(|l| matches!(l.id, crate::LayerId::Widgets(_))) {
+    for l in layers.iter().filter(|l| l.id.below_windows()) {
         draw_layer(&mut out, l, scale);
     }
     for w in windows {
@@ -359,7 +359,7 @@ pub fn compose(wallpaper: &Pixmap, windows: &[SoftWindow], layers: &[Layer], sca
             None,
         );
     }
-    for l in layers.iter().filter(|l| !matches!(l.id, crate::LayerId::Widgets(_))) {
+    for l in layers.iter().filter(|l| !l.id.below_windows()) {
         draw_layer(&mut out, l, scale);
     }
     out

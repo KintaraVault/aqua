@@ -292,6 +292,7 @@ impl Aqua {
         let ph = (h as f64 * self.scale).round() as u32;
         let wp = aqua_wallpaper::wallpaper(self.cfg.wallpaper.as_deref(), pw, ph);
         self.shell.resize(w as f32, h as f32, self.scale as f32, &wp);
+        self.shell.publish_tint();
         self.wallpaper = std::sync::Arc::new(wp);
         self.wallpaper_serial += 1;
         self.needs_redraw = true;

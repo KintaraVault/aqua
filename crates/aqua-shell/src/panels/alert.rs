@@ -398,6 +398,7 @@ pub fn key(sh: &mut Shell, key: Option<Key>) -> (bool, Vec<Action>) {
 pub enum HudKind {
     Volume,
     Brightness,
+    Keyboard,
     Mute,
     Layout,
 }
@@ -446,6 +447,7 @@ pub fn hud_layer(sh: &mut Shell) -> Option<Layer> {
         let title = match kind {
             HudKind::Volume | HudKind::Mute => "Sound",
             HudKind::Brightness => "Display",
+            HudKind::Keyboard => "Keyboard Brightness",
             HudKind::Layout => "Input Source",
         };
         c.text(&f, 16.0, 22.0, 13.0, Weight::Semibold, fg, title);

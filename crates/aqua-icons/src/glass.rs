@@ -439,7 +439,7 @@ thread_local! {
 
 /// Draw built-in icons inside `f` in the given look.
 pub fn with_look<T>(look: &Look, f: impl FnOnce() -> T) -> T {
-    let prev = LOOK.with(|c| c.replace((look.style != Style::Default).then_some(*look)));
+    let prev = LOOK.with(|c| c.replace(look.styled().then_some(*look)));
     let r = f();
     LOOK.with(|c| c.set(prev));
     r
@@ -491,6 +491,9 @@ impl Ic {
     /// Plate colour and alpha of the style at relative height `t` (0 top … 1 bottom).
     fn style_plate(&self, t: f32) -> ([f32; 3], f32) {
         let Some(l) = self.style else { return ([1.0; 3], 1.0) };
+        if l.glass_plate {
+            return l.glass_tone(t);
+        }
         let tint = [l.tint.0, l.tint.1, l.tint.2];
         let white = [1.0f32; 3];
         match (l.style, l.dark) {
@@ -646,6 +649,10 @@ impl Ic {
     /// icon on our plate), not ink on paper — its greys must not be inverted.
     pub fn forget_plate(&mut self) {
         self.plate_col = None;
+    }
+    /// The foreground is ink on a backdrop of this colour (its own, cut away).
+    pub fn ink_on(&mut self, c: [f32; 3]) {
+        self.plate_col = Some(c);
     }
     /// A bitmap as a foreground layer, placed in `r` (drawing coords).
     pub fn layer_pixmap(&mut self, src: &Pixmap, r: Rect) {

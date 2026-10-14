@@ -715,7 +715,16 @@ impl XdgActivationHandler for Aqua {
     fn activation_state(&mut self) -> &mut XdgActivationState {
         &mut self.xdg_activation_state
     }
-    fn token_created(&mut self, _token: XdgActivationToken, _data: XdgActivationTokenData) -> bool {
+    fn token_created(&mut self, _token: XdgActivationToken, data: XdgActivationTokenData) -> bool {
+        let granted = data.serial.as_ref().is_some_and(|(serial, _)| {
+            use smithay::reexports::wayland_server::Resource;
+            use smithay::wayland::seat::WaylandFocus;
+            let Some(kb) = self.seat.get_keyboard() else { return false };
+            let fresh = kb.last_enter().is_some_and(|e| serial.is_no_older_than(&e));
+            let focused = kb.current_focus().and_then(|f| f.wl_surface().and_then(|s| s.client())).map(|c| c.id());
+            fresh && focused.is_some() && focused == data.client_id
+        });
+        data.user_data.insert_if_missing(|| crate::wm::ClientToken { granted });
         true
     }
     fn request_activation(
@@ -724,11 +733,11 @@ impl XdgActivationHandler for Aqua {
         token_data: XdgActivationTokenData,
         surface: WlSurface,
     ) {
-        if token_data.timestamp.elapsed().as_secs() < 10 {
-            if let Some(w) = self.window_for_surface(&surface) {
-                self.focus_window(&w);
-            }
-        }
+        let Some(w) = self.window_for_surface(&surface) else { return };
+        // Tokens without a `ClientToken` were issued by the compositor itself.
+        let granted = token_data.timestamp.elapsed().as_secs() < 10
+            && token_data.user_data.get::<crate::wm::ClientToken>().is_none_or(|t| t.granted);
+        self.client_activation(&w, granted);
     }
 }
 

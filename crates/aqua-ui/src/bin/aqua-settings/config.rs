@@ -94,6 +94,8 @@ pub fn load_into(ui: &SettingsWindow, cfg: &Config) {
     s.set_accent(ACCENTS.iter().position(|a| *a == cfg.accent).unwrap_or(0) as i32);
     s.set_minimize_idx(if cfg.minimize_effect == "scale" { 1 } else { 0 });
     s.set_show_widgets(cfg.show_widgets);
+    s.set_desktop_icons(cfg.desktop_icons);
+    s.set_desktop_snap(cfg.desktop_snap);
     s.set_clock_24h(cfg.clock_24h);
     s.set_clock_seconds(cfg.clock_seconds);
     s.set_clock_date(cfg.clock_date);
@@ -112,6 +114,8 @@ pub fn load_into(ui: &SettingsWindow, cfg: &Config) {
     s.set_glass_controls(cfg.glass_controls);
     s.set_glass_lights(cfg.glass_traffic_lights);
     s.set_window_glass(cfg.window_glass);
+    s.set_opaque_sidebar(cfg.reduce_sidebar_transparency);
+    s.set_wallpaper_tinting(cfg.wallpaper_tinting);
     s.set_dock_size(lerp_inv(cfg.dock_icon_size as f64, 32.0, 96.0));
     s.set_dock_magnify(cfg.dock_magnify);
     s.set_dock_mag(lerp_inv(cfg.dock_magnification as f64, 1.0, 2.5));
@@ -179,6 +183,8 @@ pub fn store_from(ui: &SettingsWindow, cfg: &mut Config) {
     cfg.accent = ACCENTS[s.get_accent().clamp(0, 8) as usize].into();
     cfg.minimize_effect = if s.get_minimize_idx() == 1 { "scale" } else { "genie" }.into();
     cfg.show_widgets = s.get_show_widgets();
+    cfg.desktop_icons = s.get_desktop_icons();
+    cfg.desktop_snap = s.get_desktop_snap();
     cfg.clock_24h = s.get_clock_24h();
     cfg.clock_seconds = s.get_clock_seconds();
     cfg.clock_date = s.get_clock_date();
@@ -202,6 +208,8 @@ pub fn store_from(ui: &SettingsWindow, cfg: &mut Config) {
     cfg.glass_controls = s.get_glass_controls();
     cfg.glass_traffic_lights = s.get_glass_lights();
     cfg.window_glass = s.get_window_glass();
+    cfg.reduce_sidebar_transparency = s.get_opaque_sidebar();
+    cfg.wallpaper_tinting = s.get_wallpaper_tinting();
     store_glass(&s, &mut cfg.glass);
     cfg.dock_icon_size = lerp(s.get_dock_size(), 32.0, 96.0).round() as f32;
     cfg.dock_magnify = s.get_dock_magnify();

@@ -12,9 +12,12 @@
     Behind-content materials (sidebar, menu, panel) are drawn under the surface: the client
     leaves those pixels transparent or translucent. The control material is a clear lens
     drawn over the surface's own pixels (a toolbar button's rim refracts and catches light).
+
+    The compositor also tells each glass object the colour of the wallpaper behind its
+    window, so the client can tint its window background with it (wallpaper tinting).
   </description>
 
-  <interface name="aqua_glass_manager_v1" version="1">
+  <interface name="aqua_glass_manager_v1" version="2">
     <request name="destroy" type="destructor">
       <description summary="destroy the manager (existing glass objects stay valid)"/>
     </request>
@@ -25,7 +28,7 @@
     </request>
   </interface>
 
-  <interface name="aqua_glass_v1" version="1">
+  <interface name="aqua_glass_v1" version="2">
     <request name="destroy" type="destructor">
       <description summary="remove all glass from the surface"/>
     </request>
@@ -38,5 +41,13 @@
       </description>
       <arg name="shapes" type="array"/>
     </request>
+    <event name="tint" since="2">
+      <description summary="colour of the wallpaper behind the window">
+        The desktop picture's colour under the surface's window as 0xRRGGBB (sRGB), weighted
+        towards its saturated parts. Sent soon after the object is created and again whenever
+        it changes noticeably (the window moved, the wallpaper changed).
+      </description>
+      <arg name="rgb" type="uint"/>
+    </event>
   </interface>
 </protocol>

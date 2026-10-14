@@ -77,14 +77,16 @@ export component StoreWindow inherits Window {
     Rectangle { background: mod(repaint, 2) == 0 ? #00000000 : #00000001; }
 
     if !AS.glass: Rectangle { border-radius: 0px; background: Theme.window-bg; }
-    property <bool> solid: Theme.solid-sidebar;
+    property <bool> opaque: Theme.opaque-sidebar;
+    property <bool> solid: Theme.solid-sidebar || opaque;
+    property <bool> side-glass: AS.glass && !opaque;
     if AS.glass: GlassSurround {
         width: root.width;
         height: root.height;
         color: Theme.glass-bg;
         hole-x: solid ? 0px : 8px;
         hole-y: solid ? 0px : 8px;
-        hole-w: solid ? cx : side-w;
+        hole-w: opaque ? 0px : solid ? cx : side-w;
         hole-h: solid ? root.height : root.height - 16px;
         hole-r: solid ? 0px : 20px;
     }
@@ -188,13 +190,13 @@ export component StoreWindow inherits Window {
         width: solid ? cx : side-w;
         height: solid ? root.height : root.height - 16px;
         border-radius: solid ? 0px : 20px;
-        property <bool> lg: AS.glass && AquaGlass.active;
-        GlassShape { width: parent.width; height: parent.height; material: 1; radius: parent.border-radius; on: AS.glass; }
+        property <bool> lg: root.side-glass && AquaGlass.active;
+        GlassShape { width: parent.width; height: parent.height; material: 1; radius: parent.border-radius; on: root.side-glass; }
         background: lg ? transparent : solid
-            ? (AS.glass ? Theme.glass-side : (Theme.dark ? #29292c : #eeeff2))
-            : (AS.glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%));
+            ? (root.side-glass ? Theme.glass-side : Theme.side-opaque)
+            : (root.side-glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%));
         border-width: solid || lg ? 0px : 0.5px;
-        border-color: AS.glass ? (Theme.dark ? #ffffff26 : #ffffffb0) : Theme.sidebar-border;
+        border-color: root.side-glass ? (Theme.dark ? #ffffff26 : #ffffffb0) : Theme.sidebar-border;
         drop-shadow-blur: solid || lg ? 0px : 10px;
         drop-shadow-color: solid || lg ? transparent : #00000017;
         drop-shadow-offset-y: 2px;

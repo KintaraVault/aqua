@@ -394,7 +394,7 @@ impl Aqua {
             }
             radius = win_radius;
         }
-        let g = self.cfg.glass.material(m, self.shell.style.dark).with_radius(radius);
+        let g = self.wallpaper_tinting(m, self.cfg.glass.material(m, self.shell.style.dark).with_radius(radius));
         let p = glass_params(&g, scale as f32);
         if let Some(e) = self.render_cache.glass_el(GlassKey::App(id, i as u8), to_phys(r, scale), p, alpha) {
             out.push(WinElement::Glass(e));

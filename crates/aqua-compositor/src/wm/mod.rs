@@ -27,6 +27,12 @@ pub(crate) fn x11_configure(x: &smithay::xwayland::X11Surface, r: Rectangle<i32,
     let _ = x.configure(r + x.frame_extents());
 }
 
+/// Marks activation tokens created by clients; `granted` when the token carries a fresh
+/// input serial of the focused client.
+pub struct ClientToken {
+    pub granted: bool,
+}
+
 pub fn to_rect(r: Rectangle<i32, Logical>) -> aqua_wm::Rect {
     aqua_wm::Rect::new(r.loc.x, r.loc.y, r.size.w, r.size.h)
 }
@@ -558,6 +564,21 @@ impl Aqua {
         all.into_iter().filter(|w| { let id = id_of(w); !id.is_empty() && want.contains(&id) }).collect()
     }
 
+    /// Activation requested by a client (xdg-activation, `_NET_ACTIVE_WINDOW`). Apps may only
+    /// take the focus with a token from a recent user interaction, from the focused app, or
+    /// right after the user launched or clicked something; otherwise the Dock icon bounces.
+    pub fn client_activation(&mut self, w: &Window, granted: bool) {
+        let app = title_of(w).0;
+        let same_app = self.focused_window().is_some_and(|f| title_of(&f).0 == app);
+        let recent = self.user_launch.is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(5));
+        if granted || same_app || recent {
+            self.focus_window(w);
+        } else if self.focused_window().as_ref() != Some(w) {
+            self.shell.bounce_app(&app);
+        }
+        self.needs_redraw = true;
+    }
+
     pub fn activate_app(&mut self, app_id: &str) {
         let wins = self.windows_of_app(app_id);
         for w in &wins {
@@ -795,11 +816,18 @@ impl Aqua {
         for a in acts {
             match a {
                 Launch(cmd) => {
+                    self.user_launch = Some(std::time::Instant::now());
                     self.pending_launch = self.shell.launch_origin.take().map(|r| (std::time::Instant::now(), r));
                     aqua_apps::launch(&cmd);
                 }
-                Activate(id) => self.activate_app(&id),
-                DockClick(id, exec) => self.dock_click(&id, &exec),
+                Activate(id) => {
+                    self.user_launch = Some(std::time::Instant::now());
+                    self.activate_app(&id)
+                }
+                DockClick(id, exec) => {
+                    self.user_launch = Some(std::time::Instant::now());
+                    self.dock_click(&id, &exec)
+                }
                 Restore(id) => {
                     if let Some(w) = self.minimized.iter().find(|w| meta(w).borrow().id == id).cloned() {
                         self.focus_window(&w);

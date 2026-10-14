@@ -36,27 +36,30 @@ component Capsule inherits GlassCapsule { }
 
 component Sidebar inherits Rectangle {
     callback want-focus();
-    property <bool> solid: Theme.solid-sidebar;
+    // Reduced transparency: an opaque pane below the unified toolbar, which holds the lights.
+    property <bool> opaque: Theme.opaque-sidebar;
+    property <bool> solid: Theme.solid-sidebar || opaque;
+    property <bool> glass: F.glass && !opaque;
     // Under Aqua the sidebar is the compositor's Liquid Glass (sidebar material).
-    property <bool> lg: F.glass && AquaGlass.active;
+    property <bool> lg: glass && AquaGlass.active;
     border-radius: solid ? 0px : 20px;
-    GlassShape { width: parent.width; height: parent.height; material: 1; radius: parent.border-radius; on: F.glass; }
+    GlassShape { width: parent.width; height: parent.height; material: 1; radius: parent.border-radius; on: root.glass; }
     background: lg ? transparent : solid
-        ? (F.glass ? Theme.glass-side : (Theme.dark ? #29292c : #eeeff2))
-        : (F.glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%));
+        ? (root.glass ? Theme.glass-side : Theme.side-opaque)
+        : (root.glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%));
     border-width: solid || lg ? 0px : 0.5px;
-    border-color: F.glass ? (Theme.dark ? #ffffff26 : #ffffffb0) : Theme.sidebar-border;
+    border-color: root.glass ? (Theme.dark ? #ffffff26 : #ffffffb0) : Theme.sidebar-border;
     drop-shadow-blur: solid || lg ? 0px : 10px; drop-shadow-color: solid || lg ? transparent : #00000017; drop-shadow-offset-y: 2px;
     // Solid style: a hairline separates the sidebar from the content, with a faint highlight on its left.
     if solid: Rectangle { x: parent.width - 1px; width: 1px; background: Theme.dark ? #00000066 : #00000014; }
     if solid && Theme.dark: Rectangle { x: parent.width - 2px; width: 1px; background: #ffffff0a; }
-    TouchArea {
+    if !opaque: TouchArea {
         height: 44px;
         pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.win-drag(); } }
     }
-    TrafficLights { x: solid ? 18px : 10px; y: solid ? 19px : 10px; active: F.active; close => { F.win-close(); } minimize => { F.win-minimize(); } zoom => { F.win-zoom(); } }
+    if !opaque: TrafficLights { x: solid ? 18px : 10px; y: solid ? 19px : 10px; active: F.active; close => { F.win-close(); } minimize => { F.win-minimize(); } zoom => { F.win-zoom(); } }
     Flickable {
-        x: 0; y: solid ? 52px : 44px; width: parent.width; height: parent.height - (solid ? 58px : 50px);
+        x: 0; y: opaque ? 6px : solid ? 52px : 44px; width: parent.width; height: parent.height - self.y - 6px;
         content-height: side.preferred-height + 8px;
         content-y <=> F.side-scroll;
         side := VerticalLayout {
@@ -513,19 +516,23 @@ export component FinderWindow inherits Window {
     in property <int> repaint;
     property <bool> side-on: F.show-sidebar || F.mode != 0;
     property <length> side-w: side-on ? F.side-w : 0px;
-    property <bool> solid-side: Theme.solid-sidebar;
+    // Reduced transparency: one opaque title bar + toolbar across the window (macOS's
+    // unified toolbar), the sidebar under it.
+    property <bool> uni: Theme.opaque-sidebar;
+    property <bool> solid-side: Theme.solid-sidebar || uni;
+    property <length> bar-h: uni ? 76px : 52px;
     property <length> cx: side-on ? side-w + 8px : 0px;
     property <length> pv-w: F.show-preview && F.mode == 0 && root.width > 820px ? 268px : 0px;
     // Like macOS: no tab bar for a single tab (it appears with the second one).
     property <length> tab-h: F.show-tabbar && F.mode == 0 && F.tabs.length > 1 ? 38px : 0px;
     property <length> scope-h: F.in-search ? 40px + F.crit.length * 36px : 0px;
-    property <length> top-h: 52px + tab-h + scope-h + (F.mode == 2 ? 78px : 0px);
+    property <length> top-h: bar-h + tab-h + scope-h + (F.mode == 2 ? 78px : 0px);
     property <length> path-h: F.show-pathbar && F.mode == 0 ? 28px : 0px;
     property <length> stat-h: F.show-statusbar && F.mode == 0 ? 26px : 0px;
     property <length> bot-h: F.mode != 0 ? 52px : path-h + stat-h;
     property <length> cw: root.width - cx - pv-w;
     property <length> ch: root.height - top-h - bot-h;
-    property <length> search-w: root.width > 980px ? 300px : 230px;
+    property <length> search-w: uni ? (root.width > 980px ? 220px : 180px) : (root.width > 980px ? 300px : 230px);
     property <string> geo: F.view + ":" + cx / 1px + ":" + top-h / 1px + ":" + cw / 1px + ":" + ch / 1px + ":" + F.items.length + ":" + F.icon-s / 1px;
     changed geo => { F.relayout(F.view, cx, top-h, cw, ch); }
     init => { F.relayout(F.view, cx, top-h, cw, ch); }
@@ -535,7 +542,7 @@ export component FinderWindow inherits Window {
     if F.glass: GlassSurround {
         width: root.width; height: root.height; color: Theme.glass-bg;
         hole-x: solid-side ? 0px : 8px; hole-y: solid-side ? 0px : 8px;
-        hole-w: side-on ? (solid-side ? cx : side-w) : 0px; hole-h: solid-side ? root.height : root.height - 16px;
+        hole-w: side-on && !uni ? (solid-side ? cx : side-w) : 0px; hole-h: solid-side ? root.height : root.height - 16px;
         hole-r: solid-side ? 0px : 20px;
     }
 
@@ -572,7 +579,7 @@ export component FinderWindow inherits Window {
     }
 
     if F.mode == 2: Rectangle {
-        x: cx; y: 52px; width: cw + pv-w; height: 78px;
+        x: cx; y: bar-h; width: cw + pv-w; height: 78px;
         GridLayout {
             x: 0; width: min(parent.width, 460px); padding-left: 24px; spacing: 8px; padding-top: 8px;
             Row {
@@ -600,8 +607,8 @@ export component FinderWindow inherits Window {
         Rectangle { y: parent.height - 1px; height: 1px; background: Theme.separator; }
     }
 
-    if tab-h > 0: TabBar { x: cx; y: 52px; width: root.width - cx; }
-    if scope-h > 0: ScopeBar { x: cx; y: 52px + tab-h; width: root.width - cx; }
+    if tab-h > 0: TabBar { x: cx; y: bar-h + (uni ? 6px : 0px); width: root.width - cx; }
+    if scope-h > 0: ScopeBar { x: cx; y: bar-h + tab-h; width: root.width - cx; }
 
     if pv-w > 0: Rectangle {
         x: root.width - pv-w; y: top-h; width: pv-w; height: root.height - top-h - bot-h;
@@ -676,8 +683,10 @@ export component FinderWindow inherits Window {
     }
 
     toolbar := Rectangle {
-        x: cx; y: 0; width: root.width - self.x; height: 52px;
-        property <length> lead: side-on ? 0px : 86px;
+        x: uni ? 0px : cx; y: 0; width: root.width - self.x; height: bar-h;
+        background: uni ? Theme.bar-bg : transparent;
+        property <length> lead: side-on || uni ? 0px : 86px;
+        property <length> bar-row: uni ? 32px : 8px;
         TouchArea {
             pointer-event(e) => {
                 if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.win-drag(); }
@@ -686,16 +695,20 @@ export component FinderWindow inherits Window {
                 }
             }
         }
-        if !side-on: TrafficLights { x: 18px; y: 19px; active: F.active; close => { F.win-close(); } minimize => { F.win-minimize(); } zoom => { F.win-zoom(); } }
+        if uni: Rectangle { y: parent.height - 1px; height: 1px; background: Theme.bar-line; }
+        if !side-on || uni: TrafficLights {
+            x: uni ? 14px : 18px; y: uni ? 9px : 19px;
+            active: F.active; close => { F.win-close(); } minimize => { F.win-minimize(); } zoom => { F.win-zoom(); }
+        }
         if F.tb-back: NavArrows {
-            x: 7px + lead; y: 8px;
+            x: uni ? 8px : 7px + toolbar.lead; y: toolbar.bar-row;
             can-back: F.can-back; can-forward: F.can-forward;
             back => { F.back(); }
             forward => { F.forward(); }
             history-menu(b, x, y) => { F.toolbar-menu(b ? "history-back" : "history-forward", x, y); }
         }
-        title-text := Text {
-            x: (F.tb-back ? 93px : 14px) + lead; height: 52px; width: min(self.preferred-width, max(40px, tools.x - 100px - lead));
+        if !uni: Text {
+            x: (F.tb-back ? 93px : 14px) + toolbar.lead; height: 52px; width: min(self.preferred-width, max(40px, tools.x - 100px - toolbar.lead));
             vertical-alignment: center; font-size: 15px; font-weight: 700; color: Theme.text; text: F.title; overflow: elide;
             TouchArea {
                 pointer-event(e) => {
@@ -706,12 +719,50 @@ export component FinderWindow inherits Window {
                 }
             }
         }
+        // Unified title bar: the location's icon and name centred over the whole window.
+        if uni: Rectangle {
+            property <length> room: parent.width - 200px;
+            property <length> tw: min(ut.preferred-width, max(40px, room - 22px));
+            x: (parent.width - self.width) / 2; y: 0; width: tw + 22px; height: 32px;
+            property <string> icon: F.crumbs.length > 0 ? F.crumbs[F.crumbs.length - 1].icon : "folder";
+            if icon == "folder": FolderIcon { x: 0; y: (32px - 16px) / 2; s: 16px; }
+            if icon != "folder": Image { x: 0; y: (32px - 16px) / 2; width: 16px; height: 16px; source: F.glyph(icon); colorize: Theme.text-secondary; }
+            ut := Text {
+                x: 22px; width: tw; height: 32px;
+                vertical-alignment: center; font-size: 15px; font-weight: 700; color: Theme.text; text: F.title; overflow: elide;
+            }
+            TouchArea {
+                pointer-event(e) => {
+                    if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                        F.toolbar-menu("path", self.absolute-position.x + self.mouse-x, self.absolute-position.y + 30px);
+                    }
+                    if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { F.win-drag(); }
+                }
+            }
+        }
         property <bool> wide: root.width > 900px;
         // Room for the four view buttons next to the title (otherwise one view pop-up button).
         property <bool> roomy: root.width - cx > (F.searching ? 940px : 800px);
+        // Unified toolbar: the search field stays open; the view buttons start at the content.
+        property <bool> field: F.searching || (uni && F.tb-search && F.mode == 0 && root.width > 760px);
+        property <length> view-x: max(cx + 4px, F.tb-back ? 96px : 16px);
+        property <bool> view-left: uni && F.tb-view && root.width - view-x > (field ? root.search-w + 430px : 470px);
+        if view-left: Capsule {
+            x: toolbar.view-x; y: toolbar.bar-row;
+            width: lv.preferred-width + 8px;
+            lv := HorizontalLayout {
+                x: 4px; padding-top: 3px; padding-bottom: 3px; spacing: 0px;
+                for g[i] in [F.i-icons, F.i-list, F.i-columns, F.i-gallery]: ToolGlyph {
+                    w: 37px; glyph: g; on: F.view == i; clicked => { F.set-view(i); }
+                    if i > 0 && F.view != i && F.view != i - 1: Rectangle {
+                        x: -0.5px; y: 8px; width: 1px; height: 14px; background: Theme.dark ? #ffffff1f : #0000001a;
+                    }
+                }
+            }
+        }
         tools := HorizontalLayout {
-            x: parent.width - self.preferred-width - 9px; y: 8px; height: 36px; spacing: 14px;
-            if F.tb-view && !roomy: Capsule {
+            x: parent.width - self.preferred-width - 9px; y: toolbar.bar-row; height: 36px; spacing: uni ? 10px : 14px;
+            if F.tb-view && !toolbar.view-left && (uni || !toolbar.roomy): Capsule {
                 width: 56px;
                 ToolGlyph {
                     x: 3px; y: 3px; w: 50px; chevron: true;
@@ -719,7 +770,7 @@ export component FinderWindow inherits Window {
                     clicked(x, y) => { F.toolbar-menu("view", x, y); }
                 }
             }
-            if F.tb-view && roomy: Capsule {
+            if F.tb-view && !uni && toolbar.roomy: Capsule {
                 width: vh.preferred-width + 8px;
                 vh := HorizontalLayout {
                     x: 4px; padding-top: 3px; padding-bottom: 3px; spacing: 0px;
@@ -729,7 +780,7 @@ export component FinderWindow inherits Window {
                     ToolGlyph { w: 35px; glyph: F.i-gallery; on: F.view == 3; clicked => { F.set-view(3); } }
                 }
             }
-            if wide && F.tb-group: Capsule {
+            if toolbar.wide && F.tb-group: Capsule {
                 width: 49px;
                 ToolGlyph { x: 2px; y: 3px; w: 45px; glyph: F.i-group; chevron: true; on: F.group-by != 0; clicked(x, y) => { F.toolbar-menu("group", x, y); } }
             }
@@ -754,11 +805,11 @@ export component FinderWindow inherits Window {
                     if F.tb-action: ToolGlyph { w: 36.6px; glyph: F.i-more; clicked(x, y) => { F.toolbar-menu("more", x, y); } }
                 }
             }
-            if !F.searching && (F.tb-search || F.mode != 0): Capsule {
+            if !toolbar.field && (F.tb-search || F.mode != 0): Capsule {
                 width: 36px;
                 ToolGlyph { x: 1px; y: 3px; w: 34px; glyph: F.i-search; clicked => { F.searching = true; } }
             }
-            if F.searching: Capsule {
+            if toolbar.field: Capsule {
                 width: root.search-w;
                 border-width: sf.has-focus ? 3px : 0.5px;
                 border-color: sf.has-focus ? Theme.accent.with-alpha(0.55) : (Theme.dark ? #ffffff1f : #0000000f);
@@ -767,7 +818,7 @@ export component FinderWindow inherits Window {
                 sf := TextInput {
                     x: 34px; width: parent.width - 62px; height: 100%; text <=> F.query; font-size: 13px; color: Theme.text;
                     vertical-alignment: center; single-line: true;
-                    edited => { F.sugg-hide = false; F.search-focus = true; F.search(self.text); }
+                    edited => { F.searching = true; F.sugg-hide = false; F.search-focus = true; F.search(self.text); }
                     accepted => { F.sugg-hide = true; F.menu-action("search-pick:0"); }
                     changed has-focus => { F.search-focus = self.has-focus; }
                     key-pressed(e) => {
@@ -776,7 +827,9 @@ export component FinderWindow inherits Window {
                         if e.text == Key.DownArrow { keys.focus(); return accept; }
                         reject
                     }
-                    init => { self.focus(); F.search-focus = true; }
+                    property <bool> want: F.searching;
+                    changed want => { if self.want && !self.has-focus { self.focus(); } }
+                    init => { if F.searching { self.focus(); F.search-focus = true; } }
                 }
                 if F.query == "": Text { x: 34px; height: 100%; text: @tr("Search"); font-size: 13px; color: Theme.text-tertiary; vertical-alignment: center; }
                 if F.query != "": Rectangle {
@@ -809,12 +862,12 @@ export component FinderWindow inherits Window {
     }
 
     if side-on: Sidebar {
-        x: solid-side ? 0px : 8px; y: solid-side ? 0px : 8px;
-        width: solid-side ? cx : side-w; height: solid-side ? root.height : root.height - 16px;
+        x: solid-side ? 0px : 8px; y: uni ? bar-h : solid-side ? 0px : 8px;
+        width: solid-side ? cx : side-w; height: uni ? root.height - bar-h : solid-side ? root.height : root.height - 16px;
         want-focus => { keys.focus(); }
     }
     if side-on && F.mode == 0: TouchArea {
-        x: 8px + side-w - 2px; y: 52px; width: 8px; height: root.height - 60px;
+        x: 8px + side-w - 2px; y: bar-h; width: 8px; height: root.height - bar-h - 8px;
         mouse-cursor: MouseCursor.col-resize;
         property <length> start;
         pointer-event(e) => {
@@ -859,10 +912,10 @@ export component FinderWindow inherits Window {
         x: cx + (cw - self.width) / 2; y: top-h + max(40px, (ch - self.height) / 2 - 40px);
     }
     if F.searching && F.search-focus && !F.sugg-hide && F.query != "" && F.mode == 0: SearchSuggestions {
-        x: root.width - 9px - search-w; y: 48px; width: search-w;
+        x: root.width - 9px - search-w; y: bar-h - (uni ? 6px : 4px); width: search-w;
     }
     if F.prog-on: ProgressCard { x: root.width - self.width - 16px; y: root.height - self.height - bot-h - 12px; }
-    if F.vo-open: ViewOptions { x: root.width - self.width - 14px; y: 58px; }
+    if F.vo-open: ViewOptions { x: root.width - self.width - 14px; y: bar-h + 6px; }
     if F.ql-open: QuickLook { }
     if F.menu-open && !F.menu-native: MenuOverlay { }
     property <bool> menu-shown: F.menu-open;

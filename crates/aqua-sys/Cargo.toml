@@ -8,6 +8,7 @@ description = "Real system state for Aqua: NetworkManager/iwd, BlueZ, UPower, Pi
 [dependencies]
 zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"] }
 tracing.workspace = true
+ureq = { version = "2", default-features = false, features = ["tls"] }
 
 [lints]
 workspace = true

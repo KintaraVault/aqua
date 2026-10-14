@@ -1544,6 +1544,18 @@ msgstr "Стиль приложений"
 msgid "Finder, System Settings and the App Store. Aqua: glass sidebar"
 msgstr "Finder, Системные настройки и App Store. Aqua — стеклянная боковая панель"
 
+msgid "Allow wallpaper tinting in windows"
+msgstr "Разрешить тонирование окон цветом обоев"
+
+msgid "Window backgrounds and sidebars take on the colour of the wallpaper"
+msgstr "Фон окон и боковых панелей принимает цвет обоев под ними"
+
+msgid "Reduce sidebar transparency"
+msgstr "Уменьшить прозрачность боковой панели"
+
+msgid "Opaque sidebars; Finder's toolbar joins the title bar"
+msgstr "Непрозрачные боковые панели; панель инструментов Finder объединяется со строкой заголовка"
+
 msgid "Translucent windows"
 msgstr "Полупрозрачные окна"
 

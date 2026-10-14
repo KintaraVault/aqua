@@ -8,6 +8,11 @@ pub fn runtime_dir() -> PathBuf {
 
 /// Control socket of the running compositor: `$AQUA_SOCKET`, else
 /// `$XDG_RUNTIME_DIR/aqua.sock` (`aqua-$WAYLAND_DISPLAY.sock` with `AQUA_SOCKET_PER_DISPLAY`).
+/// Dominant wallpaper colour ("#rrggbb") published by the compositor for wallpaper tinting.
+pub fn tint_file() -> PathBuf {
+    runtime_dir().join("aqua-wallpaper-tint")
+}
+
 pub fn control_socket() -> PathBuf {
     if let Some(p) = std::env::var_os("AQUA_SOCKET") {
         return PathBuf::from(p);

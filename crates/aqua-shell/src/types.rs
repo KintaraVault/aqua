@@ -4,6 +4,10 @@ use super::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LayerId {
     Widgets(u8),
+    /// An item of the Desktop folder.
+    Desktop(u16),
+    /// Rubber-band selection rectangle on the desktop.
+    DesktopBand,
     MenuBar,
     Dock,
     DockTooltip,
@@ -35,6 +39,13 @@ pub enum LayerId {
     KeyboardViewer,
     /// Screenshot interface pieces (selection, toolbar, thumbnail).
     Shot(u8),
+}
+
+impl LayerId {
+    /// Drawn on the wallpaper, under every window.
+    pub fn below_windows(&self) -> bool {
+        matches!(self, LayerId::Widgets(_) | LayerId::Desktop(_) | LayerId::DesktopBand)
+    }
 }
 
 /// One drawable shell surface.
@@ -168,6 +179,14 @@ pub enum Action {
     EmptyTrash,
     EmptyTrashConfirmed,
     ToggleWidgets,
+    ToggleDesktopIcons,
+    ToggleDesktopSnap,
+    DesktopCleanUp,
+    DesktopSortByName,
+    /// Open the selected desktop items.
+    DesktopOpenSelected,
+    /// Move files to the trash.
+    TrashPaths(Vec<String>),
     NewFolder(String),
     /// A row of an application's tray menu was chosen: (tray key, dbusmenu id).
     TrayMenu(String, i32),

@@ -38,6 +38,9 @@ pub enum Variant {
     /// Center, menu-bar menus): full blur inside, fading to the sharp backdrop over
     /// [`VEIL_FADE`] points at the edge, no tint, no lens, no rim (linuxtosh code 210).
     Veil,
+    /// A clear lens over the app's own pixels (toolbar capsules of Aqua's apps): only the
+    /// rim bends and catches light, the face passes the glyphs under it untouched.
+    Lens,
 }
 
 /// Width of the [`Variant::Veil`] fade, points.
@@ -55,6 +58,7 @@ impl Variant {
             101 => Variant::Alert,
             200 => Variant::Flat,
             210 => Variant::Veil,
+            220 => Variant::Lens,
             _ => Variant::Regular,
         }
     }
@@ -288,6 +292,16 @@ impl GlassInputs {
                 g.shadow_height = 0.0;
                 g.face = ColorMatrix::IDENTITY;
                 g.highlight = Highlight::NONE;
+            }
+            Variant::Lens => {
+                g.blur_radius = 1.0;
+                g.inner_refraction_amount = -(0.4 * m).min(16.0);
+                g.inner_refraction_height = (0.14 * m).min(6.0);
+                g.bleed_amount = 0.0;
+                g.bleed_height = 0.0;
+                g.shadow_amount = 0.0;
+                g.shadow_height = 0.0;
+                g.face = ColorMatrix::IDENTITY;
             }
         }
         g

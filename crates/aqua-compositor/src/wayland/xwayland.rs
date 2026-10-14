@@ -458,7 +458,7 @@ impl XwmHandler for Aqua {
     }
     fn unminimize_request(&mut self, _xwm: XwmId, window: X11Surface) {
         if let Some(w) = self.window_for_x11(&window) {
-            self.focus_window(&w);
+            self.client_activation(&w, false);
         }
     }
     fn active_window_request(
@@ -466,10 +466,13 @@ impl XwmHandler for Aqua {
         _xwm: XwmId,
         window: X11Surface,
         _timestamp: u32,
-        _current: Option<X11Surface>,
+        current: Option<X11Surface>,
     ) {
         if let Some(w) = self.window_for_x11(&window) {
-            self.focus_window(&w);
+            let from_focused = current
+                .and_then(|c| self.window_for_x11(&c))
+                .is_some_and(|c| self.focused_window().as_ref() == Some(&c));
+            self.client_activation(&w, from_focused);
         }
     }
 

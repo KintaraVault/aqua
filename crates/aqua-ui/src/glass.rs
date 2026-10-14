@@ -7,9 +7,14 @@
 //! geometry when `epoch` changes and calls `dirty()` when it moves; [`link`] bumps the epoch,
 //! collects the reports and sends them when they changed. Without the protocol (another
 //! compositor, an old Aqua) the window falls back to the KDE blur request as before.
+//!
+//! The compositor also reports the wallpaper colour behind the window (`tint`, version 2):
+//! with wallpaper tinting the window background eases towards it as the window moves.
 use slint::ComponentHandle;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use wayland_client::{
     backend::{Backend, ObjectId},
@@ -64,15 +69,21 @@ impl Dispatch<AquaGlassManagerV1, ()> for St {
     ) {
     }
 }
-impl Dispatch<AquaGlassV1, ()> for St {
+/// Latest `tint` of a window (0xRRGGBB), [`NO_TINT`] until the compositor sent one.
+type TintCell = Arc<AtomicU32>;
+const NO_TINT: u32 = u32::MAX;
+
+impl Dispatch<AquaGlassV1, TintCell> for St {
     fn event(
         _: &mut Self,
         _: &AquaGlassV1,
-        _: <AquaGlassV1 as Proxy>::Event,
-        _: &(),
+        ev: <AquaGlassV1 as Proxy>::Event,
+        tint: &TintCell,
         _: &Connection,
         _: &QueueHandle<Self>,
     ) {
+        let proto::aqua_glass_v1::Event::Tint { rgb } = ev;
+        tint.store(rgb & 0xff_ffff, Ordering::Relaxed);
     }
 }
 
@@ -96,7 +107,7 @@ fn shared(display: *mut std::ffi::c_void) -> Option<Rc<Shared>> {
                 let backend = unsafe { Backend::from_foreign_display(display.cast()) };
                 let conn = Connection::from_backend(backend);
                 let (globals, queue) = registry_queue_init::<St>(&conn).ok()?;
-                let mgr = globals.bind::<AquaGlassManagerV1, _, _>(&queue.handle(), 1..=1, ()).ok()?;
+                let mgr = globals.bind::<AquaGlassManagerV1, _, _>(&queue.handle(), 1..=2, ()).ok()?;
                 Some(Rc::new(Shared { conn, queue: RefCell::new(queue), mgr }))
             })
             .clone()
@@ -121,6 +132,9 @@ struct Link {
     timers: RefCell<Vec<slint::Timer>>,
     /// Whole-window KDE blur state (follows `window_glass` for main windows).
     body_blur: Cell<Option<bool>>,
+    /// Wallpaper colour behind the window (from the compositor) and the one shown now.
+    tint: TintCell,
+    shown_tint: Cell<Option<[f32; 3]>>,
 }
 
 /// Object-safe access to the component's window and globals.
@@ -131,6 +145,7 @@ trait WinAccess {
     fn bump_epoch(&self);
     fn set_active(&self, on: bool);
     fn window_glass(&self) -> bool;
+    fn set_tint(&self, rgb: [f32; 3]);
 }
 
 impl Drop for Link {
@@ -186,7 +201,7 @@ impl Link {
                 o.destroy();
             }
             let qh = self.sh.queue.borrow().handle();
-            *obj = Some((surface.id(), self.sh.mgr.get_glass(&surface, &qh, ())));
+            *obj = Some((surface.id(), self.sh.mgr.get_glass(&surface, &qh, self.tint.clone())));
             *self.sent.borrow_mut() = None;
         }
         if self.sent.borrow().as_ref() == Some(&shapes) {
@@ -200,6 +215,32 @@ impl Link {
         *self.sent.borrow_mut() = Some(shapes);
         let _ = self.sh.queue.borrow_mut().dispatch_pending(&mut St);
         let _ = self.sh.conn.flush();
+    }
+
+    /// Read the compositor's events and ease the window tint towards the latest colour.
+    fn follow_tint(&self) {
+        let _ = self.sh.queue.borrow_mut().dispatch_pending(&mut St);
+        let v = self.tint.load(Ordering::Relaxed);
+        if v == NO_TINT {
+            return;
+        }
+        let target = [(v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff].map(|c| c as f32 / 255.0);
+        let next = match self.shown_tint.get() {
+            Some(cur) if cur != target => {
+                let mut n = [0.0; 3];
+                for k in 0..3 {
+                    let d = target[k] - cur[k];
+                    n[k] = if d.abs() < 1.0 / 255.0 { target[k] } else { cur[k] + d * 0.35 };
+                }
+                n
+            }
+            Some(_) => return,
+            None => target,
+        };
+        self.shown_tint.set(Some(next));
+        if let Some(w) = (self.win)() {
+            w.set_tint(next);
+        }
     }
 
     fn sync_body_blur(&self, body: bool) {
@@ -233,6 +274,9 @@ macro_rules! access {
             }
             fn window_glass(&self) -> bool {
                 self.global::<crate::Theme>().get_window_glass()
+            }
+            fn set_tint(&self, rgb: [f32; 3]) {
+                crate::set_window_tint(&self.global::<crate::Theme>(), rgb);
             }
         }
     };
@@ -294,6 +338,8 @@ fn attempt<C: ComponentHandle + WinAccessPub + 'static>(weak: slint::Weak<C>, bo
         collect_due: Cell::new(false),
         timers: RefCell::new(vec![]),
         body_blur: Cell::new(None),
+        tint: Arc::new(AtomicU32::new(NO_TINT)),
+        shown_tint: Cell::new(None),
     });
     {
         let l = link.clone();
@@ -318,6 +364,14 @@ fn attempt<C: ComponentHandle + WinAccessPub + 'static>(weak: slint::Weak<C>, bo
         if let Some(l) = l.upgrade() {
             l.sync_body_blur(body);
             l.collect();
+        }
+    });
+    link.timers.borrow_mut().push(t);
+    let t = slint::Timer::default();
+    let l = Rc::downgrade(&link);
+    t.start(slint::TimerMode::Repeated, Duration::from_millis(80), move || {
+        if let Some(l) = l.upgrade() {
+            l.follow_tint();
         }
     });
     link.timers.borrow_mut().push(t);

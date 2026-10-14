@@ -155,6 +155,86 @@ impl Canvas {
     }
 }
 
+/// Scroll position of a marquee line `tw` wide in a box `avail` wide, `t` seconds after it
+/// appeared: rests at the start, scrolls left by one text width plus a gap, rests again.
+/// `None` when the text fits.
+pub fn marquee_offset(tw: f32, avail: f32, t: f32) -> Option<f32> {
+    if tw <= avail + 0.5 {
+        return None;
+    }
+    let travel = tw + MARQUEE_GAP;
+    let run = travel / MARQUEE_SPEED;
+    let t = t.max(0.0) % (MARQUEE_PAUSE + run);
+    Some(if t < MARQUEE_PAUSE { 0.0 } else { (t - MARQUEE_PAUSE) * MARQUEE_SPEED })
+}
+
+const MARQUEE_PAUSE: f32 = 2.2;
+const MARQUEE_SPEED: f32 = 28.0;
+pub const MARQUEE_GAP: f32 = 32.0;
+
+impl Canvas {
+    /// One line of text clipped to `r`; when it does not fit it is drawn shifted by `offset`
+    /// (see [`marquee_offset`]) with a second copy following, and fades out at the edges.
+    #[allow(clippy::too_many_arguments)]
+    pub fn marquee(&mut self, fonts: &Fonts, r: Rect, size: f32, w: Weight, color: Color, s: &str, offset: Option<f32>) {
+        let Some(off) = offset else {
+            self.text_in(fonts, r, 0.0, size, w, color, s);
+            return;
+        };
+        let fade = 14.0f32.min(r.w / 4.0);
+        let pad = 2.0;
+        let mut sub = Canvas::new(r.w, r.h + 2.0 * pad, self.scale);
+        let baseline = pad + r.h / 2.0 + fonts.cap_height(size, w) / 2.0;
+        let tw = fonts.measure(s, size, w);
+        sub.text(fonts, -off, baseline, size, w, color, s);
+        sub.text(fonts, -off + tw + MARQUEE_GAP, baseline, size, w, color, s);
+        let lead = (off / fade).clamp(0.0, 1.0);
+        let (pw, ph) = (sub.pm.width() as usize, sub.pm.height() as usize);
+        let fpx = fade * self.scale;
+        let data = sub.pm.data_mut();
+        for x in 0..pw {
+            let fx = x as f32 + 0.5;
+            let right = ((pw as f32 - fx) / fpx).clamp(0.0, 1.0);
+            let left = 1.0 - lead * (1.0 - (fx / fpx).clamp(0.0, 1.0));
+            let k = right * left;
+            if k >= 1.0 {
+                continue;
+            }
+            for y in 0..ph {
+                let i = (y * pw + x) * 4;
+                for c in &mut data[i..i + 4] {
+                    *c = (*c as f32 * k).round() as u8;
+                }
+            }
+        }
+        self.blit(&sub.pm, r.x, r.y - pad);
+    }
+
+    /// Draw `src` scaled to cover `dst` (centre crop), clipped to a continuous rounded rect.
+    pub fn draw_pixmap_rounded(&mut self, src: &Pixmap, dst: Rect, radius: f32) {
+        let Some(path) = shapes::continuous(dst, radius) else { return };
+        let (sw, sh) = (src.width() as f32, src.height() as f32);
+        if sw < 1.0 || sh < 1.0 {
+            return;
+        }
+        let k = (dst.w / sw).max(dst.h / sh);
+        let tx = dst.x + (dst.w - sw * k) / 2.0;
+        let ty = dst.y + (dst.h - sh * k) / 2.0;
+        let paint = Paint {
+            anti_alias: true,
+            shader: Pattern::new(
+                src.as_ref(),
+                SpreadMode::Pad,
+                FilterQuality::Bicubic,
+                1.0,
+                Transform::from_row(k, 0.0, 0.0, k, tx, ty),
+            ),
+            ..Default::default()
+        };
+        self.pm.fill_path(&path, &paint, FillRule::Winding, self.ts(), None);
+    }
+}
+
 pub fn solid(c: Color) -> Paint<'static> {
     let mut p = Paint::default();
     p.set_color(c);

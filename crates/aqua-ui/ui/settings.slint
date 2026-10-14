@@ -41,6 +41,8 @@ export global S {
     in-out property <int> accent: 0;
     in-out property <int> minimize-idx: 0;
     in-out property <bool> show-widgets: true;
+    in-out property <bool> desktop-icons: true;
+    in-out property <bool> desktop-snap: true;
     in-out property <bool> clock-24h: true;
     in-out property <bool> clock-seconds: false;
     in-out property <bool> clock-date: true;
@@ -59,6 +61,8 @@ export global S {
     in-out property <bool> glass-controls: true;
     in-out property <bool> glass-lights: true;
     in-out property <bool> window-glass: false;
+    in-out property <bool> opaque-sidebar: false;
+    in-out property <bool> wallpaper-tinting: true;
     // Liquid Glass (0..1 slider positions, see aqua-settings config.rs)
     in-out property <float> glass-clear: 0.71;
     in-out property <float> glass-blur: 0.33;
@@ -377,7 +381,7 @@ component AppearancePane inherits VerticalLayout {
             PopupSelect { items: [@tr("Default"), @tr("Automatic"), @tr("Dark"), @tr("Clear"), @tr("Tinted")]; current <=> S.icon-style-idx; changed => { S.commit(); } } }
         Row { title: @tr("Liquid Glass edges"); subtitle: @tr("Add the glass highlight to the rims of app icons");
             Toggle { checked <=> S.icon-glass; toggled => { S.commit(); } } }
-        Row { title: @tr("Clear icon plate"); subtitle: @tr("Filled: tinted plate and translucent logo, as in macOS 26; Glass: see-through glass plate with an opaque logo");
+        Row { title: @tr("Icon plate"); subtitle: @tr("Filled: the style's own plate; Glass: a see-through glass plate with only the logo, its background removed");
             PopupSelect { items: [@tr("Filled"), @tr("Glass")]; current <=> S.icon-plate-idx; changed => { S.commit(); } } }
         Row { title: @tr("Use macOS app icons"); subtitle: @tr("Show Linux apps as their macOS counterparts, e.g. Firefox as Safari, Files as Finder"); last: S.apple-icons-idx != 1;
             PopupSelect { items: [@tr("For all apps"), @tr("For selected apps"), @tr("Off")]; current <=> S.apple-icons-idx; changed => { S.commit(); } } }
@@ -394,6 +398,10 @@ component AppearancePane inherits VerticalLayout {
         Row { title: @tr("App style"); subtitle: @tr("Finder, System Settings and the App Store. Aqua: glass sidebar");
             Segmented { items: [@tr("Aqua"), @tr("Floating"), @tr("Solid")]; current: S.sidebar-style;
                 changed(v) => { S.sidebar-style = v; Theme.aqua = v == 0; Theme.solid-sidebar = v != 1; S.commit(); } } }
+        Row { title: @tr("Allow wallpaper tinting in windows"); subtitle: @tr("Window backgrounds and sidebars take on the colour of the wallpaper");
+            Toggle { checked: S.wallpaper-tinting; toggled(v) => { S.wallpaper-tinting = v; Theme.tinting = v; S.commit(); } } }
+        Row { title: @tr("Reduce sidebar transparency"); subtitle: @tr("Opaque sidebars; Finder's toolbar joins the title bar");
+            Toggle { checked: S.opaque-sidebar; toggled(v) => { S.opaque-sidebar = v; Theme.opaque-sidebar = v; S.commit(); } } }
         Row { title: @tr("Translucent windows"); subtitle: @tr("Blur the desktop behind the whole window, not only the sidebar");
             Toggle { checked: S.window-glass; toggled(v) => { S.window-glass = v; Theme.window-glass = v; S.commit(); } } }
         Row { title: @tr("Glass toolbar buttons"); subtitle: @tr("Navigation arrows and toolbar capsules");
@@ -488,6 +496,8 @@ component DockPane inherits VerticalLayout {
     } }
     SectionHeader { text: @tr("Desktop & Widgets"); }
     Card { VerticalLayout {
+        Row { title: @tr("Show Items on Desktop"); subtitle: @tr("Files and folders of the Desktop folder"); Toggle { checked <=> S.desktop-icons; toggled => { S.commit(); } } }
+        Row { title: @tr("Snap to Grid"); subtitle: @tr("Moved icons align to the grid; off places them freely"); Toggle { checked <=> S.desktop-snap; toggled => { S.commit(); } } }
         Row { title: @tr("Show Widgets"); subtitle: @tr("Clock and calendar widgets on the desktop"); Toggle { checked <=> S.show-widgets; toggled => { S.commit(); } } }
         Row { title: @tr("Hot Corners"); subtitle: @tr("Move the pointer to a screen corner to start an action"); last: true; PillButton { text: @tr("Hot Corners…"); clicked => { S.sheet = "hot-corners"; } } }
     } }
@@ -1135,10 +1145,12 @@ export component SettingsWindow inherits Window {
     in property <int> repaint;
     property <length> side-w: 222px;
     property <length> content-x: side-w + 16px;
-    property <bool> solid: Theme.solid-sidebar;
+    property <bool> opaque: Theme.opaque-sidebar;
+    property <bool> solid: Theme.solid-sidebar || opaque;
+    property <bool> side-glass: glass && !opaque;
     Rectangle { background: mod(repaint, 2) == 0 ? #00000000 : #00000001; }
     if glass: GlassSurround { width: root.width; height: root.height; color: Theme.glass-bg;
-        hole-x: solid ? 0px : 8px; hole-y: solid ? 0px : 8px; hole-w: solid ? side-w + 8px : side-w;
+        hole-x: solid ? 0px : 8px; hole-y: solid ? 0px : 8px; hole-w: opaque ? 0px : solid ? side-w + 8px : side-w;
         hole-h: solid ? root.height : root.height - 16px; hole-r: solid ? 0px : 18px; }
 
     // Cross-fade the detail pane when switching panes (instant out, eased in).
@@ -1201,10 +1213,10 @@ export component SettingsWindow inherits Window {
         x: solid ? 0px : 8px; y: solid ? 0px : 8px;
         width: solid ? side-w + 8px : side-w; height: solid ? root.height : root.height - 16px;
         border-radius: solid ? 0px : 18px;
-        property <bool> lg: root.glass && AquaGlass.active;
-        GlassShape { width: parent.width; height: parent.height; material: 1; radius: parent.border-radius; on: root.glass; }
+        property <bool> lg: root.side-glass && AquaGlass.active;
+        GlassShape { width: parent.width; height: parent.height; material: 1; radius: parent.border-radius; on: root.side-glass; }
         background: lg ? transparent : solid
-            ? (root.glass ? Theme.glass-side : (Theme.dark ? #29292c : #eeeff2))
+            ? (root.side-glass ? Theme.glass-side : Theme.side-opaque)
             : (root.glass ? (Theme.dark ? #2c2c30c8 : #fbfcfec4) : @linear-gradient(180deg, Theme.sidebar-bg 0%, Theme.sidebar-bg2 100%));
         border-width: solid || lg ? 0px : 0.5px; border-color: Theme.sidebar-border;
         drop-shadow-blur: solid || lg ? 0px : 10px; drop-shadow-color: solid || lg ? transparent : #00000017; drop-shadow-offset-y: 2px;

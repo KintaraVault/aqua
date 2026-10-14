@@ -25,7 +25,7 @@ pub use types::*;
 pub use bar::{clock, menu, menubar, sysinfo, tray};
 pub use kit::{scroll, soft, style};
 pub use panels::{
-    alert, charviewer, clipboard, control, launchpad, lockscreen, mission, notifications, screenshot, spotlight,
+    alert, charviewer, clipboard, control, desktop, launchpad, lockscreen, mission, notifications, screenshot, spotlight,
     switcher, widgets,
 };
 
@@ -67,6 +67,7 @@ pub struct Shell {
     pub menu: menu::MenuState,
     pub control: control::ControlCenter,
     pub widgets: widgets::Widgets,
+    pub desktop: desktop::Desktop,
     pub spotlight: spotlight::Spotlight,
     pub switcher: switcher::Switcher,
     pub notes: notifications::Notifications,
@@ -147,6 +148,7 @@ impl Shell {
             menu: menu::MenuState::default(),
             control,
             widgets: widgets::Widgets::default(),
+            desktop: desktop::Desktop::default(),
             spotlight: Default::default(),
             switcher: Default::default(),
             notes: Default::default(),
@@ -239,6 +241,16 @@ impl Shell {
         self.icons.invalidate();
     }
 
+    /// Hand the wallpaper's dominant colour to Aqua's apps (wallpaper tinting in windows).
+    pub fn publish_tint(&self) {
+        let [r, g, b] = self.style.tint.map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8);
+        let p = aqua_config::paths::tint_file();
+        let text = format!("#{r:02x}{g:02x}{b:02x}\n");
+        if std::fs::read_to_string(&p).ok().as_deref() != Some(text.as_str()) {
+            let _ = std::fs::write(p, text);
+        }
+    }
+
     pub fn set_windows(&mut self, wins: Vec<WindowInfo>) {
         self.dock.track_windows(&wins);
         self.windows = wins;
@@ -324,6 +336,7 @@ impl Shell {
         alert::reap(self);
         anim |= self.launchpad.animate(dt);
         anim |= self.control.animate(dt);
+        anim |= desktop::tick(self);
         anim |= self.dock.animate(dt);
         anim |= dock::sync(self, dt);
         anim |= self.spotlight.animate(dt);
@@ -363,6 +376,7 @@ impl Shell {
         self.freed += self.trim_caches();
         let mut out = Vec::new();
         out.extend(widgets::layers(self));
+        out.extend(desktop::layers(self));
         if let Some(l) = mission::layer(self) {
             out.push(l);
         }
@@ -470,7 +484,7 @@ impl Shell {
 
     /// A Dock icon is pressed: the compositor must deliver motion and the release here.
     pub fn pointer_captured(&self) -> bool {
-        self.dock.press.is_some()
+        self.dock.press.is_some() || self.desktop.pressing()
     }
 
     /// An icon is being dragged out of the Dock (grabbing hand cursor).

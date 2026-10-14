@@ -79,11 +79,14 @@ pub fn composite(dst: &mut Pixmap, fg: &Pixmap, look: &Look, cx: &Ctx) {
         ];
     }
     let Some(_) = cov.bounds() else { return };
-    let mono = look.style != Style::Dark;
-    let tinted_light = look.style == Style::Tinted && !look.dark;
+    let mono = matches!(look.style, Style::Clear | Style::Tinted);
+    let tinted_light = look.style == Style::Tinted && !look.dark && !look.glass_plate;
     let inv = cx.plate && mono && !tinted_light && light_plate(cx.plate_col);
 
-    let mut le: Vec<f32> = col.iter().map(|c| if inv { 1.0 - luma(*c) } else { luma(*c) }).collect();
+    // on the glass plate only the logo is left: its vivid parts are as solid as its light ones
+    let vivid = if look.glass_plate { 0.85 } else { 0.0 };
+    let mut le: Vec<f32> =
+        col.iter().map(|c| (if inv { 1.0 - luma(*c) } else { luma(*c) }).max(sat(*c) * vivid)).collect();
     if mono && !(tinted_light && cx.plate && light_plate(cx.plate_col)) {
         let mut s: Vec<f32> = (0..n).filter(|&i| cov.a[i] > 0.85).map(|i| le[i]).collect();
         if s.len() >= 16 {
@@ -105,9 +108,11 @@ pub fn composite(dst: &mut Pixmap, fg: &Pixmap, look: &Look, cx: &Ctx) {
     let white = [1.0f32; 3];
     let material = |t: f32| -> ([f32; 3], f32) {
         match (look.style, look.dark) {
-            // glass plate: the logo is solid, only its plate is see-through
-            (Style::Clear, false) if look.glass_plate => ([1.0, 1.0, 1.0], 0.94 + 0.06 * t),
-            (Style::Clear, true) if look.glass_plate => (mix([0.86, 0.87, 0.90], [0.98, 0.98, 0.99], t), 0.96 + 0.04 * t),
+            // glass plate: the logo's light parts are solid, its dark ones thinner glass
+            (Style::Clear, false) if look.glass_plate => (mix([0.84, 0.85, 0.88], white, t), 0.5 + 0.5 * t),
+            (Style::Clear, true) if look.glass_plate => (mix([0.72, 0.73, 0.77], [0.98, 0.98, 0.99], t), 0.48 + 0.52 * t),
+            (Style::Tinted, false) if look.glass_plate => (mix(scale(tint, 0.8), mix(tint, white, 0.45), t), 0.52 + 0.48 * t),
+            (Style::Tinted, true) if look.glass_plate => (mix(tint, mix(tint, white, 0.6), t), 0.52 + 0.48 * t),
             (Style::Clear, false) => ([1.0, 1.0, 1.0], if cx.plate { 0.42 + 0.58 * t } else { 0.45 + 0.40 * t }),
             (Style::Clear, true) => (
                 mix([0.62, 0.64, 0.69], [0.95, 0.955, 0.97], t),

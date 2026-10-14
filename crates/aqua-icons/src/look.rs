@@ -42,12 +42,29 @@ pub struct Look {
     pub tint: (f32, f32, f32),
     /// Glass specular rim on bitmap icons.
     pub glass: bool,
-    /// Clear style: transparent plate (only the glass behind it) with an opaque logo,
-    /// instead of the tinted, filled plate with a translucent logo.
+    /// Transparent plate (only the glass behind it) carrying just the logo, its own
+    /// backdrop cut away, instead of the style's filled plate.
     pub glass_plate: bool,
 }
 
 impl Look {
+    /// Whether icons are restyled at all.
+    pub fn styled(&self) -> bool {
+        self.style != Style::Default || self.glass_plate
+    }
+
+    /// The glass plate's colour and alpha at relative height `t` (0 top … 1 bottom).
+    pub fn glass_tone(&self, t: f32) -> ([f32; 3], f32) {
+        let tint = [self.tint.0, self.tint.1, self.tint.2];
+        match (self.style, self.dark) {
+            (Style::Dark, _) => ([0.06, 0.06, 0.07], 0.30 + 0.08 * t),
+            (Style::Tinted, true) => ([tint[0] * 0.3, tint[1] * 0.3, tint[2] * 0.3], 0.28 + 0.06 * t),
+            (Style::Tinted, false) => (mix(tint, [1.0; 3], 0.35), 0.16 - 0.04 * t),
+            (_, true) => ([0.10, 0.105, 0.12], 0.07 + 0.05 * t),
+            (_, false) => ([1.0; 3], 0.05 - 0.02 * t),
+        }
+    }
+
     pub fn key(&self) -> u64 {
         let t = |v: f32| (v * 255.0) as u64;
         (self.style as u64)
@@ -114,7 +131,7 @@ pub fn apply(pm: &mut Pixmap, look: &Look, builtin: bool) {
     if builtin {
         return;
     }
-    let shape = if look.style != Style::Default { restyle(pm, look) } else { None };
+    let shape = if look.styled() { restyle(pm, look) } else { None };
     if look.glass {
         rim(pm, look, shape.as_ref());
     }
@@ -246,6 +263,9 @@ fn restyle(pm: &mut Pixmap, look: &Look) -> Option<crate::glass::Cov> {
     let tint = [look.tint.0, look.tint.1, look.tint.2];
     let white = [1.0f32, 1.0, 1.0];
     let plate_of = |ty: f32| -> ([f32; 3], f32) {
+        if look.glass_plate {
+            return look.glass_tone(ty);
+        }
         match look.style {
             Style::Dark => (mix([0.215, 0.215, 0.23], [0.085, 0.085, 0.095], ty), 1.0),
             Style::Tinted if look.dark => (
@@ -257,14 +277,40 @@ fn restyle(pm: &mut Pixmap, look: &Look) -> Option<crate::glass::Cov> {
                 1.0,
             ),
             Style::Tinted => (mix(mix(tint, white, 0.30), mix(tint, [0.0; 3], 0.06), ty), 1.0),
-            Style::Clear if look.glass_plate && look.dark => ([0.10, 0.105, 0.12], 0.07 + 0.05 * ty),
-            Style::Clear if look.glass_plate => (white, 0.05 - 0.02 * ty),
             Style::Clear if look.dark => (mix([0.17, 0.18, 0.21], [0.06, 0.065, 0.08], ty), 0.52 + 0.14 * ty),
             Style::Clear => (white, 0.17 - 0.07 * ty),
             Style::Default => (white, 1.0),
         }
     };
     let clipc = crate::glass::Cov { w, h, a: m.iter().map(|v| *v as f32 / 255.0).collect() };
+    let mut keep: Vec<f32> = (0..w * h)
+        .map(|i| if has_plate { smoothstep(lo, hi, sig[i]).min(smoothstep(0.55, 0.97, alpha[i])) } else { 1.0 })
+        .collect();
+    let mut touched = vec![false; w * h];
+    if has_plate {
+        // the source's own plate rim (a light edge or a grey hairline) is not artwork
+        let band = (b.w * 0.045).max(2.0);
+        let inside: Vec<bool> = clipc.a.iter().map(|v| *v > 0.5).collect();
+        let depth = crate::backdrop::depth(&inside, w, h, band * 2.0);
+        for i in 0..w * h {
+            if let (true, Some(p)) = (depth[i] < band, plate[i / w]) {
+                keep[i] = keep[i].min(smoothstep(0.08, 0.2, crate::backdrop::d_tone(col[i], p)));
+            }
+        }
+    }
+    let mut backdrop = None;
+    if look.glass_plate {
+        let mut l = crate::backdrop::Layer {
+            w,
+            h,
+            col: &mut col,
+            alpha: &alpha,
+            keep: &mut keep,
+            touched: &mut touched,
+        };
+        let rows = |y: usize| if has_plate { plate[y] } else { None };
+        backdrop = crate::backdrop::strip(&mut l, &rows, has_plate.then_some(&clipc.a[..]), b.w * b.h);
+    }
     let mut fg = Pixmap::new(w as u32, h as u32)?;
     let r = ((w as f32 / 64.0).round() as usize).clamp(1, 3);
     let sat = |c: [f32; 3]| c[0].max(c[1]).max(c[2]) - c[0].min(c[1]).min(c[2]);
@@ -274,7 +320,7 @@ fn restyle(pm: &mut Pixmap, look: &Look) -> Option<crate::glass::Cov> {
         avg = [avg[0] + p[0], avg[1] + p[1], avg[2] + p[2]];
         cnt += 1.0;
     }
-    let avg = if cnt > 0.0 { [avg[0] / cnt, avg[1] / cnt, avg[2] / cnt] } else { white };
+    let avg = backdrop.unwrap_or(if cnt > 0.0 { [avg[0] / cnt, avg[1] / cnt, avg[2] / cnt] } else { white });
     {
         let fd = fg.data_mut();
         for y in 0..h {
@@ -285,17 +331,17 @@ fn restyle(pm: &mut Pixmap, look: &Look) -> Option<crate::glass::Cov> {
                 if cov <= 0.0 || a <= 0.0 {
                     continue;
                 }
-                let s = if has_plate { smoothstep(lo, hi, sig[i]).min(smoothstep(0.55, 0.97, a)) } else { 1.0 };
+                let s = keep[i];
                 if s <= 0.0 {
                     continue;
                 }
                 let mut g = col[i];
-                if has_plate && s < 0.98 {
+                if has_plate && s < 0.98 && !touched[i] {
                     let mut best = sig[i];
                     for yy in y.saturating_sub(r)..(y + r + 1).min(h) {
                         for xx in x.saturating_sub(r)..(x + r + 1).min(w) {
                             let j = yy * w + xx;
-                            if alpha[j] > 0.9 && sig[j] > best {
+                            if alpha[j] > 0.9 && sig[j] > best && !touched[j] {
                                 best = sig[j];
                                 g = col[j];
                             }
@@ -331,16 +377,16 @@ fn restyle(pm: &mut Pixmap, look: &Look) -> Option<crate::glass::Cov> {
             for x in 0..w {
                 let i = y * w + x;
                 let cov = if has_plate { clipc.a[i] } else { 1.0 };
-                if cov <= 0.0 {
-                    continue;
-                }
-                let pa = if has_plate { pa * (alpha[i] / cov.max(1e-3)).min(1.0) } else { 0.0 };
+                let pa = if has_plate { pa } else { 0.0 };
+                // past our plate outline only the source's shadow stays: its own plate edge,
+                // which never matches ours exactly, would show as light slivers in the corners
+                let out = if has_plate { (1.0 - cov) * (1.0 - smoothstep(0.25, 0.5, luma(col[i]))) } else { 1.0 - cov };
                 for k in 0..3 {
                     let v = d[i * 4 + k] as f32 / 255.0;
-                    d[i * 4 + k] = ((v * (1.0 - cov) + pc[k] * pa * cov) * 255.0 + 0.5).min(255.0) as u8;
+                    d[i * 4 + k] = ((v * out + pc[k] * pa * cov) * 255.0 + 0.5).min(255.0) as u8;
                 }
                 let v = d[i * 4 + 3] as f32 / 255.0;
-                d[i * 4 + 3] = ((v * (1.0 - cov) + pa * cov) * 255.0 + 0.5).min(255.0) as u8;
+                d[i * 4 + 3] = ((v * out + pa * cov) * 255.0 + 0.5).min(255.0) as u8;
             }
         }
     }

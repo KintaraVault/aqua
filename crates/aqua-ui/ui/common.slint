@@ -12,17 +12,35 @@ export global Theme {
     /// Translucent glass behind the whole window body (config `window_glass`), independent
     /// of the app style.
     in-out property <bool> window-glass: false;
+    /// Reduce sidebar transparency (config `reduce_sidebar_transparency`): sidebars are opaque
+    /// panes flush with the window, Finder's toolbar joins the title bar, controls are flat.
+    in-out property <bool> opaque-sidebar: false;
     /// Toolbar capsules / navigation arrows as raised liquid glass (config `glass_controls`).
     in-out property <bool> glass-controls: true;
     /// Glossy glass traffic lights (config `glass_traffic_lights`).
     in-out property <bool> glass-lights: true;
     /// Interface animations (press squish, sheet / pane fades); false with "Reduce motion".
     in-out property <bool> motion: true;
-    out property <color> window-bg: dark ? #1f1f21 : #ffffff;
-    out property <color> sidebar-bg: dark ? #2b2b2e : #eef0f3;
-    out property <color> sidebar-bg2: dark ? #28282b : #e9ebef;
+    /// Wallpaper tinting in windows (config `wallpaper_tinting`): window, sidebar and card
+    /// backgrounds take a hint of the wallpaper's colour, given at each mode's lightness.
+    in-out property <bool> tinting: false;
+    /// tint-light / tint-dark follow the wallpaper behind this window (sent by Aqua) rather
+    /// than the colour of the whole wallpaper.
+    in-out property <bool> tint-local: false;
+    in-out property <color> tint-light: #ffffff;
+    in-out property <color> tint-dark: #1f1f21;
+    out property <color> tint: dark ? tint-dark : tint-light;
+    out property <float> tint-amount: !tinting ? 0 : dark ? 0.32 : 0.22;
+    out property <color> window-bg: (dark ? #1f1f21 : #ffffff).mix(tint, 1 - tint-amount * 0.8);
+    out property <color> sidebar-bg: (dark ? #2b2b2e : #eef0f3).mix(tint, 1 - tint-amount);
+    out property <color> sidebar-bg2: (dark ? #28282b : #e9ebef).mix(tint, 1 - tint-amount);
     out property <color> sidebar-border: dark ? #ffffff17 : #00000012;
-    out property <color> card-bg: dark ? #2a2a2c : #f5f5f6;
+    /// Opaque full-height sidebar (solid style without glass, reduced transparency).
+    out property <color> side-opaque: (dark ? #29292c : #eeeff2).mix(tint, 1 - tint-amount);
+    /// Unified title bar + toolbar (reduced transparency) and its bottom hairline.
+    out property <color> bar-bg: window-glass ? aqua-content : (dark ? #2a2a2d : #fafafa).mix(tint, 1 - tint-amount * 0.8);
+    out property <color> bar-line: dark ? #00000099 : #0000001c;
+    out property <color> card-bg: (dark ? #2a2a2c : #f5f5f6).mix(tint, 1 - tint-amount * 0.7);
     out property <color> card-border: dark ? #ffffff0d : #00000008;
     out property <color> separator: dark ? #ffffff14 : #0000000f;
     out property <color> text: dark ? #ffffffde : #000000d9;
@@ -34,7 +52,7 @@ export global Theme {
     out property <color> control-border: dark ? #ffffff0f : #00000014;
     out property <color> hover: dark ? #ffffff12 : #0000000a;
     out property <color> track: dark ? #ffffff29 : #00000017;
-    out property <color> menu-bg: dark ? #323234f7 : #f7f7f8fa;
+    out property <color> menu-bg: (dark ? #323234f7 : #f7f7f8fa).mix(tint.with-alpha(dark ? 0.97 : 0.98), 1 - tint-amount * 0.5);
     out property <color> selection: accent;
     /// Aqua style: content and sidebar tints over the compositor's blurred backdrop.
     out property <color> aqua-content: dark ? #18181bc7 : #f7f8fab3;
@@ -198,18 +216,21 @@ export component GlassSel inherits Rectangle {
     in property <bool> sel;
     in property <bool> hot;
     in property <bool> pressed;
+    property <bool> flat: Theme.opaque-sidebar;
     border-radius: 10px;
-    background: sel
+    background: flat
+        ? (sel ? (Theme.dark ? #ffffff1f : #0000001a) : pressed ? (Theme.dark ? #ffffff17 : #00000012) : hot ? Theme.hover : transparent)
+        : sel
         ? (Theme.dark ? @linear-gradient(180deg, #ffffff21 0%, #ffffff12 100%) : @linear-gradient(180deg, #ffffffe6 0%, #ffffffa8 100%))
         : pressed ? (Theme.dark ? #ffffff17 : #ffffff80) : hot ? (Theme.dark ? #ffffff0d : #ffffff59) : transparent;
-    border-width: sel ? 1px : 0px;
+    border-width: sel && !flat ? 1px : 0px;
     border-color: Theme.dark
         ? @linear-gradient(180deg, #ffffff4d 0%, #ffffff17 50%, #ffffff21 100%)
         : @linear-gradient(180deg, #ffffff 0%, #ffffffc0 55%, #0000000f 100%);
     // (a shadow colour with zero blur still paints a hard copy of the shape: keep it clear)
-    drop-shadow-blur: sel ? 8px : 0px;
-    drop-shadow-offset-y: sel ? 1px : 0px;
-    drop-shadow-color: !sel ? transparent : Theme.dark ? #00000047 : #0000001a;
+    drop-shadow-blur: sel && !flat ? 8px : 0px;
+    drop-shadow-offset-y: sel && !flat ? 1px : 0px;
+    drop-shadow-color: !sel || flat ? transparent : Theme.dark ? #00000047 : #0000001a;
     animate background { duration: 140ms; easing: ease-out; }
 }
 
@@ -866,7 +887,7 @@ export component GlassSurround inherits Path {
 /// highlight along the top and a soft caustic at the bottom; otherwise a flat bezel.
 export component GlassCapsule inherits Rectangle {
     in property <bool> hot: false;
-    property <bool> glass: Theme.glass-controls;
+    property <bool> glass: Theme.glass-controls && !Theme.opaque-sidebar;
     // Under Aqua the rim, refraction and edge light come from the compositor's control lens.
     property <bool> lens: glass && AquaGlass.active;
     height: 36px;
@@ -877,13 +898,13 @@ export component GlassCapsule inherits Rectangle {
     background: !glass ? (Theme.dark ? #ffffff17 : #ffffffd9)
         : Theme.dark ? @linear-gradient(180deg, #ffffff26 0%, #ffffff1e 100%)
         : @linear-gradient(180deg, #ffffffeb 0%, #ffffffc7 100%);
-    border-width: lens ? 0px : glass ? 1px : 0.5px;
-    border-color: !glass ? (Theme.dark ? #ffffff1f : #0000000f)
+    border-width: lens ? 0px : 1px;
+    border-color: !glass ? (Theme.dark ? #ffffff1a : #00000017)
         : Theme.dark ? @linear-gradient(180deg, #ffffff47 0%, #ffffff14 55%, #ffffff0a 100%)
         : @linear-gradient(180deg, #ffffff 0%, #0000000f 100%);
-    drop-shadow-blur: glass ? 10px : 8px;
-    drop-shadow-offset-y: glass ? 2px : 1px;
-    drop-shadow-color: glass ? (Theme.dark ? #00000059 : #00000024) : #0000001c;
+    drop-shadow-blur: glass ? 10px : 3px;
+    drop-shadow-offset-y: glass ? 2px : 0.5px;
+    drop-shadow-color: glass ? (Theme.dark ? #00000059 : #00000024) : (Theme.dark ? #00000040 : #00000012);
     if glass: Rectangle {
         x: 1px; y: 1px; width: parent.width - 2px; height: parent.height - 2px;
         border-radius: self.height / 2;

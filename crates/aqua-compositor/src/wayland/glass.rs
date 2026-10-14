@@ -41,6 +41,27 @@ pub struct Shape {
 #[derive(Default)]
 struct Shapes(Mutex<Vec<Shape>>);
 
+/// The surface's glass object (version 2+, it takes `tint` events) and the colour last sent.
+#[derive(Default)]
+struct Tint(Mutex<Option<(AquaGlassV1, Option<u32>)>>);
+
+/// Tell the glass object of `surface` the wallpaper colour behind it (if it changed).
+pub fn send_tint(surface: &WlSurface, rgb: [f32; 3]) {
+    let v = rgb.map(|c| (c.clamp(0.0, 1.0) * 255.0).round() as u32);
+    let packed = v[0] << 16 | v[1] << 8 | v[2];
+    let near = |a: u32| (0..3).all(|k| ((a >> (k * 8)) & 0xff).abs_diff((packed >> (k * 8)) & 0xff) <= 2);
+    with_states(surface, |s| {
+        let Some(t) = s.data_map.get::<Tint>() else { return };
+        let mut t = t.0.lock().unwrap();
+        if let Some((obj, last)) = t.as_mut() {
+            if obj.is_alive() && !last.is_some_and(near) {
+                obj.tint(packed);
+                *last = Some(packed);
+            }
+        }
+    });
+}
+
 /// Per-object state: the surface it decorates.
 pub struct GlassObj {
     surface: WlSurface,
@@ -80,7 +101,7 @@ pub fn decode(bytes: &[u8]) -> Vec<Shape> {
 }
 
 pub fn init(dh: &DisplayHandle) {
-    dh.create_global::<Aqua, AquaGlassManagerV1, ()>(1, ());
+    dh.create_global::<Aqua, AquaGlassManagerV1, ()>(2, ());
 }
 
 impl GlobalDispatch<AquaGlassManagerV1, ()> for Aqua {
@@ -107,7 +128,13 @@ impl Dispatch<AquaGlassManagerV1, ()> for Aqua {
         di: &mut DataInit<'_, Self>,
     ) {
         if let mgr::Request::GetGlass { id, surface } = req {
-            di.init(id, GlassObj { surface });
+            let obj = di.init(id, GlassObj { surface: surface.clone() });
+            if obj.version() >= 2 {
+                with_states(&surface, |s| {
+                    s.data_map.insert_if_missing_threadsafe(Tint::default);
+                    *s.data_map.get::<Tint>().unwrap().0.lock().unwrap() = Some((obj, None));
+                });
+            }
         }
     }
 }
@@ -135,11 +162,19 @@ impl Dispatch<AquaGlassV1, GlassObj> for Aqua {
     fn destroyed(
         st: &mut Self,
         _: smithay::reexports::wayland_server::backend::ClientId,
-        _: &AquaGlassV1,
+        obj: &AquaGlassV1,
         data: &GlassObj,
     ) {
         if data.surface.is_alive() {
             set(&data.surface, vec![]);
+            with_states(&data.surface, |s| {
+                if let Some(t) = s.data_map.get::<Tint>() {
+                    let mut t = t.0.lock().unwrap();
+                    if t.as_ref().is_some_and(|(o, _)| o == obj) {
+                        *t = None;
+                    }
+                }
+            });
         }
         st.needs_redraw = true;
     }

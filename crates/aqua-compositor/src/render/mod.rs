@@ -345,7 +345,32 @@ impl Aqua {
 
     /// Material used for window chrome (titlebar + frame behind server-side decorated clients).
     pub(crate) fn window_glass(&self, radius: f32, focused: bool) -> GlassStyle {
-        self.cfg.glass.material(Material::WindowFrame { focused }, self.shell.style.dark).with_radius(radius)
+        let g = self.cfg.glass.material(Material::WindowFrame { focused }, self.shell.style.dark).with_radius(radius);
+        self.wallpaper_tinting(Material::WindowFrame { focused }, g)
+    }
+
+    /// Each glass-linked window learns the wallpaper colour behind it (wallpaper tinting).
+    fn send_window_tints(&self) {
+        let Some(og) = self.output.as_ref().and_then(|o| self.space.output_geometry(o)) else { return };
+        for w in self.space.elements() {
+            let (Some(t), Some(g)) = (SurfRef::of(w), self.space.element_geometry(w)) else { continue };
+            let r = aqua_gfx::Rect::new(
+                (g.loc.x - og.loc.x) as f32,
+                (g.loc.y - og.loc.y) as f32,
+                g.size.w as f32,
+                g.size.h as f32,
+            );
+            crate::wayland::glass::send_tint(t.wl_surface(), self.shell.style.tint_in(r));
+        }
+    }
+
+    /// Without wallpaper tinting window materials show the desktop behind them only as
+    /// neutral light and shade, never its colour.
+    pub(crate) fn wallpaper_tinting(&self, m: Material, mut g: GlassStyle) -> GlassStyle {
+        if !self.cfg.wallpaper_tinting && matches!(m, Material::WindowFrame { .. } | Material::Sidebar) {
+            g.saturation = 0.0;
+        }
+        g
     }
 }
 
@@ -396,6 +421,7 @@ impl Aqua {
         let sf = scale as f32;
         self.sync_shell_windows();
         self.sync_mission_shell();
+        self.send_window_tints();
         self.mission_targets = if self.mission_visible() {
             self.mission_layout().into_iter().map(|(w, c, t)| (meta(&w).borrow().id, (c, t))).collect()
         } else {
@@ -449,7 +475,7 @@ impl Aqua {
         }
         let cursor_n = out.len();
 
-        let (above, below): (Vec<_>, Vec<_>) = layers.into_iter().partition(|l| !matches!(l.id, LayerId::Widgets(_)));
+        let (above, below): (Vec<_>, Vec<_>) = layers.into_iter().partition(|l| !l.id.below_windows());
         for l in above.iter().rev() {
             if l.id == LayerId::Dock {
                 self.push_dock_thumbnails(renderer, &mut out, scale);

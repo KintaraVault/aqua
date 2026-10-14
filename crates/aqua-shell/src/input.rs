@@ -7,6 +7,7 @@ impl Shell {
     pub fn wants_pointer(&self, x: f32, y: f32) -> bool {
         self.locked
             || self.dock.press.is_some()
+            || self.desktop.pressing()
             || alert::active(self)
             || self.clipboard.open
             || charviewer::over(self, x, y)
@@ -57,6 +58,7 @@ impl Shell {
         if self.shot.active() {
             return;
         }
+        desktop::motion(self, x, y);
         alert::hover(self, x, y);
         clipboard::hover(self, x, y);
         charviewer::hover(self, x, y);
@@ -82,6 +84,9 @@ impl Shell {
         if !pressed {
             if self.dock.press.is_some() {
                 return dock::release(self, x, y).unwrap_or_default();
+            }
+            if self.desktop.pressing() {
+                return desktop::release(self, x, y);
             }
             return vec![];
         }
@@ -157,10 +162,17 @@ impl Shell {
         self.menu.hover = None;
     }
 
+    /// Left press on the bare desktop (no window under the pointer).
+    pub fn desktop_press(&mut self, x: f32, y: f32) -> Vec<Action> {
+        let a = desktop::press(self, x, y);
+        self.intercept(a)
+    }
+
     /// Right click on the bare desktop.
     pub fn open_desktop_menu(&mut self, x: f32, y: f32) {
         self.close_transients();
-        self.menu.open = Some(menu::MenuKind::Desktop);
+        let on_item = desktop::secondary(self, x, y);
+        self.menu.open = Some(if on_item { menu::MenuKind::DesktopItems } else { menu::MenuKind::Desktop });
         self.menu.pos = (x, y);
         self.menu.hover = None;
     }

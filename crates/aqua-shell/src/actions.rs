@@ -76,6 +76,33 @@ impl Shell {
                     self.cache.clear();
                     out.push(Action::Redraw);
                 }
+                Action::ToggleDesktopIcons => {
+                    self.cfg.desktop_icons = !self.cfg.desktop_icons;
+                    self.save_cfg();
+                    out.push(Action::Redraw);
+                }
+                Action::ToggleDesktopSnap => {
+                    self.cfg.desktop_snap = !self.cfg.desktop_snap;
+                    if self.cfg.desktop_snap {
+                        desktop::clean_up(self);
+                    }
+                    self.save_cfg();
+                    out.push(Action::Redraw);
+                }
+                Action::DesktopCleanUp => {
+                    desktop::clean_up(self);
+                    out.push(Action::Redraw);
+                }
+                Action::DesktopSortByName => {
+                    desktop::sort_by_name(self);
+                    out.push(Action::Redraw);
+                }
+                Action::DesktopOpenSelected => out.extend(desktop::open_selected(self)),
+                Action::TrashPaths(paths) if !paths.is_empty() => {
+                    let args: Vec<String> = paths.iter().map(|p| aqua_apps::shell_quote(p)).collect();
+                    out.push(Action::Launch(format!("gio trash -- {}", args.join(" "))));
+                    self.desktop.selected.clear();
+                }
                 Action::NewFolder(path) => {
                     if let Err(e) = std::fs::create_dir_all(&path) {
                         let a = alert::Alert::new(

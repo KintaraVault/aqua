@@ -2,6 +2,7 @@ pub mod alert;
 pub mod charviewer;
 pub mod clipboard;
 pub mod control;
+pub mod desktop;
 pub mod launchpad;
 pub mod lockscreen;
 pub mod mission;
