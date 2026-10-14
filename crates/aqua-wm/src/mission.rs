@@ -9,8 +9,7 @@ pub fn grid(frames: &[RectF], area: RectF) -> Vec<RectF> {
     if n == 0 {
         return vec![];
     }
-    // tiny screens / hundreds of windows: cells smaller than the paddings used to give
-    // negative thumbnail sizes (a panic in Size::new); zero-sized frames gave NaN
+    // Ensure minimum cell size on tiny screens or with hundreds of windows.
     let area = RectF::new(area.x, area.y, area.w.max(1.0), area.h.max(1.0));
     let frames: Vec<RectF> = frames
         .iter()

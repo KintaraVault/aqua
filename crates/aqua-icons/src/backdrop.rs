@@ -505,7 +505,7 @@ fn remove(l: &mut Layer, plate: &dyn Fn(usize) -> Option<[f32; 3]>, b: &Backdrop
 /// Find and remove backdrop shapes, nested ones too; `plate` is the original plate colour
 /// of a row (None for free-form icons), `clip` the plate's coverage, `body` the plate
 /// rect's area in pixels. Returns the colour of the innermost backdrop removed: the
-/// glyph's ink is read against it, no longer the plate.
+/// innermost backdrop color, used for glyph ink reading.
 pub fn strip(
     l: &mut Layer,
     plate: &dyn Fn(usize) -> Option<[f32; 3]>,

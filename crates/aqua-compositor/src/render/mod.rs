@@ -605,6 +605,9 @@ impl Aqua {
         let before = self.render_cache.offscreen.len();
         self.render_cache.offscreen.retain(|_, t| t.used.elapsed() < std::time::Duration::from_secs(5));
         self.render_cache.freed += (before - self.render_cache.offscreen.len()) << 20;
+        let before_comp = self.render_cache.composites.len();
+        self.render_cache.composites.retain(|_, (at, _)| at.elapsed() < std::time::Duration::from_secs(10));
+        self.render_cache.freed += (before_comp - self.render_cache.composites.len()) << 20;
         if !self.mission_visible() && self.render_cache.wallpaper_thumb.take().is_some() {
             self.render_cache.freed += 1 << 20;
         }
@@ -634,6 +637,7 @@ impl Aqua {
             GlassKey::Window(id) | GlassKey::Client(id, _) => ids.contains(id),
             _ => true,
         });
+        rc.composites.retain(|k, _| ids.contains(k));
     }
 }
 
