@@ -20,6 +20,7 @@ cleanup() {
             kill "$p" 2>/dev/null || true
         fi
     done
+    [[ $rt != /tmp/aqua-input-assist.* ]] || rm -rf -- "$rt"
 }
 trap cleanup EXIT
 protocols=$(pkg-config --variable=pkgdatadir wayland-protocols)
@@ -72,7 +73,7 @@ cp "$rt/cache/aqua/logs/client.log" "$out/client-$mode.log"
 cp "$rt/cache/aqua/logs/compositor.log" "$out/compositor-$mode.log"
 [[ -s "$out/before-$mode.png" && -s "$out/after-$mode.png" ]]
 case "$mode" in
-    plain) grep -q 'TEXT=hello$' "$out/client-$mode.log"; [[ $(grep -c '^INSERT ' "$out/client-$mode.log") == 2 ]] ;;
+    plain|multi) grep -q 'TEXT=hello$' "$out/client-$mode.log"; [[ $(grep -c '^INSERT ' "$out/client-$mode.log") == 2 ]] ;;
     cancel) [[ $(grep -c '^INSERT ' "$out/client-$mode.log") == 1 ]]; grep -q INPUT_DISABLED_AFTER_FIRST "$out/client-$mode.log" ;;
     unicode) grep -q 'TEXT=привет$' "$out/client-$mode.log" ;;
     t9) grep -q 'TEXT=hello$' "$out/client-$mode.log" ;;

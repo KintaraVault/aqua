@@ -1,9 +1,11 @@
 //! Smithay delegation with a text-input transaction observer.
 use crate::state::Aqua;
+use smithay::reexports::wayland_protocols::wp::text_input::zv3::server::zwp_text_input_manager_v3::Request as ManagerRequest;
 use smithay::reexports::wayland_protocols::wp::text_input::zv3::server::zwp_text_input_v3::{Request, ZwpTextInputV3};
 use smithay::reexports::wayland_server::{
     backend::ClientId, Client, DataInit, Dispatch, DisplayHandle, GlobalDispatch, New, Resource,
 };
+use smithay::wayland::{input_method::InputMethodSeat, text_input::TextInputSeat};
 use smithay::wayland::{Dispatch2, GlobalDispatch2};
 use std::any::Any;
 
@@ -28,16 +30,31 @@ where
         } else {
             false
         };
+        let entering = if matches!(
+            (&request as &dyn Any).downcast_ref::<ManagerRequest>(),
+            Some(ManagerRequest::GetTextInput { .. })
+        ) && st.seat.text_input().compositor_input_method()
+            && !st.seat.input_method().has_instance()
+        {
+            let mut known = Vec::new();
+            st.seat.text_input().with_focused_text_input(|ti, _| known.push(ti.id()));
+            Some(known)
+        } else {
+            None
+        };
         data.request(st, client, resource, request, dh, di);
         if commit {
             if let Some(ti) = ti {
                 st.commit_text_input(&ti);
             }
         }
-        // Smithay enters newly created instances only when an external IME is present.
-        if (resource as &dyn Any).is::<smithay::reexports::wayland_protocols::wp::text_input::zv3::server::zwp_text_input_manager_v3::ZwpTextInputManagerV3>() {
-            use smithay::wayland::text_input::TextInputSeat;
-            if st.seat.text_input().compositor_input_method() { st.seat.text_input().enter(); }
+        // Enter only the new instance; re-entering existing instances would reset their fields.
+        if let Some(known) = entering {
+            st.seat.text_input().with_focused_text_input(|ti, surface| {
+                if !known.contains(&ti.id()) {
+                    ti.enter(surface);
+                }
+            });
         }
     }
     fn destroyed(st: &mut Self, client: ClientId, resource: &I, data: &U) {

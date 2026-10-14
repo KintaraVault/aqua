@@ -32,6 +32,8 @@ static char pending[4097];
 static uint32_t delete_before, delete_after;
 static int configured, enabled, closed, password, cancel_after_first, invalid_offset, events;
 static int width=760, height=400;
+static int multi, enter_count, second_created;
+static const struct zwp_text_input_v3_listener input_listener;
 static double last_event;
 static double now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec*1000.0+t.tv_nsec/1e6; }
 static void buffer_release(void *data, struct wl_buffer *buffer) { munmap(data, width*height*4); wl_buffer_destroy(buffer); }
@@ -73,8 +75,13 @@ static void publish(void) {
     if(field) { aqua_text_field_v1_set_geometry(field,wl_fixed_from_int(48),wl_fixed_from_int(130),wl_fixed_from_int(640),wl_fixed_from_int(56),wl_fixed_from_int(12));wl_surface_commit(surface); }
 }
 static void input_enter(void *data,struct zwp_text_input_v3 *ti,struct wl_surface *s) {
-    (void)data;(void)s;if(enabled)return;enabled=1;
+    (void)data;(void)s;enter_count++;fprintf(stderr,"INPUT_ENTER total=%d\n",enter_count);if(enabled)return;enabled=1;
     zwp_text_input_v3_enable(ti);publish();fprintf(stderr,"INPUT_ENABLED mode=%s\n",password?"password":"normal");
+    if(multi && !second_created){
+        second_created=1;
+        struct zwp_text_input_v3 *second=zwp_text_input_manager_v3_get_text_input(input_manager,seat);
+        zwp_text_input_v3_add_listener(second,&input_listener,NULL);
+    }
 }
 static void input_leave(void *data,struct zwp_text_input_v3 *ti,struct wl_surface *s) { (void)data;(void)s;enabled=0;zwp_text_input_v3_disable(ti);zwp_text_input_v3_commit(ti); }
 static void preedit(void*d,struct zwp_text_input_v3*t,const char*s,int32_t a,int32_t b){(void)d;(void)t;(void)s;(void)a;(void)b;}
@@ -122,7 +129,7 @@ static void global(void*d,struct wl_registry*r,uint32_t name,const char*iface,ui
 static void removed(void*d,struct wl_registry*r,uint32_t n){(void)d;(void)r;(void)n;}
 static const struct wl_registry_listener registry_listener={.global=global,.global_remove=removed};
 int main(int argc,char**argv){
-    const char*mode=argc>1?argv[1]:"plain";
+    const char*mode=argc>1?argv[1]:"plain";multi=!strcmp(mode,"multi");
     password=!strncmp(mode,"password",8);cancel_after_first=!strcmp(mode,"cancel")||!strcmp(mode,"password-cancel");invalid_offset=!strcmp(mode,"invalid");
     if(password)snprintf(text,sizeof text,"test-only");
     if(!strcmp(mode,"password-fill")||!strcmp(mode,"password-cancel"))text[0]=0;
@@ -144,5 +151,6 @@ int main(int argc,char**argv){
         if(ready>0){if(wl_display_read_events(display)<0)break;if(wl_display_dispatch_pending(display)<0)break;}else wl_display_cancel_read(display);
     }
 finished:
+    if(multi)assert(enter_count==2);
     fprintf(stderr,"SUMMARY events=%d mode=%s\n",events,mode);wl_display_disconnect(display);return 0;
 }

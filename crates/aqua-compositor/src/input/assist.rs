@@ -73,6 +73,21 @@ impl Field {
             self.anchor = anchor;
         }
     }
+    fn expect_insertion(&mut self, part: &str) {
+        if self.sensitive() || self.cursor < 0 || self.anchor < 0 {
+            return;
+        }
+        let lo = self.cursor.min(self.anchor) as usize;
+        let hi = self.cursor.max(self.anchor) as usize;
+        if self.text.is_char_boundary(lo)
+            && self.text.is_char_boundary(hi)
+            && self.text.len() - (hi - lo) + part.len() <= MAX_TEXT
+        {
+            self.text.replace_range(lo..hi, part);
+            self.cursor = (lo + part.len()) as i32;
+            self.anchor = self.cursor;
+        }
+    }
     fn prefix(&self) -> Option<&str> {
         if self.sensitive()
             || !matches!(self.purpose, ContentPurpose::Normal | ContentPurpose::Alpha | ContentPurpose::Name)
@@ -591,14 +606,7 @@ impl Aqua {
             return false;
         }
         ti.done(false);
-        if !active.field.sensitive() {
-            let f = &mut active.field;
-            if f.cursor >= 0 && f.text.is_char_boundary(f.cursor as usize) && f.text.len() + part.len() <= MAX_TEXT {
-                f.text.insert_str(f.cursor as usize, &part);
-                f.cursor += part.len() as i32;
-                f.anchor = f.cursor;
-            }
-        }
+        active.field.expect_insertion(&part);
         self.needs_redraw = true;
         if self.assist.queue.as_ref().is_some_and(Typing::finished) {
             self.assist.queue = None;
@@ -788,6 +796,16 @@ mod tests {
         assist.clear_focus();
         assert!(assist.queue.is_none());
         assert_ne!(generation, assist.generation);
+    }
+    #[test]
+    fn paced_insertion_replaces_utf8_selection() {
+        let mut field = Field::default();
+        field.apply(Delta { surrounding: Some((Zeroizing::new("привет".into()), 12, 6)), ..Default::default() });
+        field.expect_insertion("ё");
+        assert_eq!(field.text.as_str(), "приё");
+        assert_eq!((field.cursor, field.anchor), (8, 8));
+        field.expect_insertion("т");
+        assert_eq!(field.text.as_str(), "приёт");
     }
     #[test]
     fn placement_flips_and_clamps_on_offset_monitor() {
