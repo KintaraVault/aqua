@@ -14,7 +14,7 @@ use smithay::{
     wayland::{input_method::InputMethodSeat, seat::WaylandFocus, text_input::TextInputSeat},
 };
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     sync::{mpsc, Arc},
     time::Duration,
 };
@@ -25,10 +25,12 @@ struct Delta {
     enabled: Option<bool>,
     surrounding: Option<(Zeroizing<String>, i32, i32)>,
     content: Option<(ContentHint, ContentPurpose)>,
-    caret: Option<Shape>,
+    caret: Option<Option<Shape>>,
 }
 struct Field {
     text: Zeroizing<String>,
+    surrounding_reported: bool,
+    caret_reported: bool,
     cursor: i32,
     anchor: i32,
     hint: ContentHint,
@@ -39,6 +41,8 @@ impl Default for Field {
     fn default() -> Self {
         Self {
             text: Zeroizing::new(String::new()),
+            surrounding_reported: false,
+            caret_reported: false,
             cursor: 0,
             anchor: 0,
             hint: ContentHint::empty(),
@@ -61,7 +65,8 @@ impl Field {
             self.purpose = purpose;
         }
         if let Some(caret) = delta.caret {
-            self.caret = Some(caret);
+            self.caret_reported = caret.is_some();
+            self.caret = caret;
         }
         if self.sensitive() {
             self.text = Zeroizing::new(String::new());
@@ -69,6 +74,7 @@ impl Field {
             self.anchor = 0;
         } else if let Some((text, cursor, anchor)) = delta.surrounding {
             self.text = text;
+            self.surrounding_reported = true;
             self.cursor = cursor;
             self.anchor = anchor;
         }
@@ -97,10 +103,41 @@ impl Field {
         aqua_text::word_before_cursor(&self.text, self.cursor, self.anchor)
     }
 }
+/// Native clients may acknowledge one edit more than once, or acknowledge deletion separately.
+/// Keep only a small, zeroized history; an old acknowledgement must never release the next edit.
+#[derive(Default)]
+struct Acknowledgements(VecDeque<(Zeroizing<String>, i32, i32)>);
+impl Acknowledgements {
+    fn remember(&mut self, field: &Field) {
+        if field.sensitive() {
+            return;
+        }
+        if self.0.len() == 16 {
+            self.0.pop_front();
+        }
+        self.0.push_back((field.text.clone(), field.cursor, field.anchor));
+    }
+    fn contains(&self, state: &(Zeroizing<String>, i32, i32)) -> bool {
+        self.0.iter().any(|old| old.0.as_str() == state.0.as_str() && old.1 == state.1 && old.2 == state.2)
+    }
+    fn clear(&mut self) {
+        self.0.clear();
+    }
+}
 struct Active {
     id: ObjectId,
     surface: WlSurface,
     field: Field,
+    native: bool,
+    accessible: Option<aqua_text::accessibility::Target>,
+    bounds: Option<Shape>,
+    origin: Option<String>,
+    browser: bool,
+}
+impl Active {
+    fn use_native_delivery(&self) -> bool {
+        self.native
+    }
 }
 enum Row {
     Word(String),
@@ -132,11 +169,21 @@ pub struct TextContext<'a> {
     pub surrounding: Option<&'a str>,
     pub cursor: i32,
     pub anchor: i32,
-    pub caret: Shape,
+    pub caret: Option<Shape>,
     pub field: Option<Shape>,
+    pub field_radius_known: bool,
 }
 
 pub struct Assist {
+    bridge: aqua_text::accessibility::Bridge,
+    bridge_window: Option<(u64, String, u32, bool)>,
+    access_typing: bool,
+    permit_pending: bool,
+    native_waiting: bool,
+    native_deadline: Option<std::time::Instant>,
+    pending_delete: Option<u32>,
+    acknowledgements: Acknowledgements,
+    replace_prefix: Option<Zeroizing<String>>,
     pending: HashMap<ObjectId, Delta>,
     active: Option<Active>,
     dictionary: Dictionary,
@@ -181,6 +228,15 @@ impl Default for Assist {
             rx
         });
         Self {
+            bridge: aqua_text::accessibility::Bridge::new(),
+            bridge_window: None,
+            access_typing: false,
+            permit_pending: false,
+            native_waiting: false,
+            native_deadline: None,
+            pending_delete: None,
+            acknowledgements: Acknowledgements::default(),
+            replace_prefix: None,
             pending: HashMap::new(),
             active: None,
             dictionary: Dictionary::seed(),
@@ -204,6 +260,14 @@ impl Default for Assist {
 }
 impl Assist {
     pub fn clear_focus(&mut self) {
+        self.access_typing = false;
+        self.permit_pending = false;
+        self.native_waiting = false;
+        self.native_deadline = None;
+        self.pending_delete = None;
+        self.acknowledgements.clear();
+        self.replace_prefix = None;
+        self.bridge_window = None;
         self.pending.clear();
         self.active = None;
         self.rows.clear();
@@ -213,6 +277,7 @@ impl Assist {
         self.dismissed = false;
         self.content_cache = None;
         self.generation = self.generation.wrapping_add(1);
+        self.bridge.cancel(self.generation);
         self.serial = self.serial.wrapping_add(1);
     }
     fn refresh(&mut self) {
@@ -221,12 +286,18 @@ impl Assist {
         self.selected = 0;
         self.prefix_bytes = 0;
         self.serial = self.serial.wrapping_add(1);
-        if !self.enabled || self.dismissed || self.queue.is_some() || self.password_rx.is_some() {
+        if !self.enabled || self.dismissed || self.queue.is_some() || self.access_typing || self.password_rx.is_some() {
             return;
         }
         let Some(active) = &self.active else { return };
         if active.field.purpose == ContentPurpose::Password {
-            self.rows.push(Row::Passwords);
+            if self.bridge_window.is_none() {
+                self.rows.push(Row::Info(aqua_i18n::tr("Input target could not be verified").into()));
+            } else if active.browser && active.origin.is_none() {
+                self.rows.push(Row::Info(aqua_i18n::tr("Website could not be verified").into()));
+            } else {
+                self.rows.push(Row::Passwords);
+            }
         } else if let Some(prefix) = active.field.prefix() {
             self.prefix_bytes = prefix.len();
             self.rows = self.dictionary.complete(prefix).into_iter().map(Row::Word).collect();
@@ -249,6 +320,9 @@ impl Assist {
 }
 impl Aqua {
     pub fn observe_text_input(&mut self, input: &ZwpTextInputV3, request: &Request) -> bool {
+        if !self.assist.enabled || self.seat.input_method().has_instance() {
+            return false;
+        }
         let focus = self.seat.text_input().focus();
         if !focus.as_ref().is_some_and(|s| s.id().same_client_as(&input.id())) || self.lock.is_locked() {
             return false;
@@ -282,14 +356,10 @@ impl Aqua {
                 ))
             }
             Request::SetCursorRectangle { x, y, width, height } => {
-                pending.caret = Shape {
-                    x: *x as f32,
-                    y: *y as f32,
-                    w: (*width).max(1) as f32,
-                    h: (*height).max(1) as f32,
-                    radius: 0.0,
-                }
-                .validated();
+                pending.caret = Some(
+                    Shape { x: *x as f32, y: *y as f32, w: *width as f32, h: *height as f32, radius: 0.0 }
+                        .validated_caret(),
+                );
             }
             Request::Commit => return true,
             Request::Destroy => {
@@ -300,7 +370,7 @@ impl Aqua {
         false
     }
     pub fn commit_text_input(&mut self, input: &ZwpTextInputV3) {
-        let Some(delta) = self.assist.pending.remove(&input.id()) else { return };
+        let Some(mut delta) = self.assist.pending.remove(&input.id()) else { return };
         let mut active = None;
         self.seat.text_input().with_active_text_input(|ti, surface| {
             if ti == input {
@@ -308,11 +378,31 @@ impl Aqua {
             }
         });
         let Some(surface) = active else {
-            if self.assist.active.as_ref().is_some_and(|a| a.id == input.id()) {
+            if self.assist.active.as_ref().is_some_and(|a| a.native && a.id == input.id()) {
                 self.assist.clear_focus();
             }
             return;
         };
+        let current = self.assist.active.as_ref().filter(|a| a.native && a.id == input.id());
+        let exact = current.is_some_and(|a| {
+            delta.surrounding.as_ref().is_some_and(|(text, cursor, anchor)| {
+                text.as_str() == a.field.text.as_str() && *cursor == a.field.cursor && *anchor == a.field.anchor
+            })
+        });
+        let old_ack = self.assist.native_waiting
+            && !exact
+            && delta.surrounding.as_ref().is_some_and(|state| self.assist.acknowledgements.contains(state));
+        if old_ack {
+            delta.surrounding = None;
+        }
+        let acknowledged = !old_ack
+            && current.is_some_and(|a| {
+                a.field.sensitive() || exact || !a.field.surrounding_reported && delta.caret.flatten().is_some()
+            });
+        if acknowledged {
+            self.assist.native_waiting = false;
+            self.assist.native_deadline = None;
+        }
         let new_field = delta.enabled == Some(true);
         let changed_type = delta.content.is_some_and(|(hint, purpose)| {
             self.assist.active.as_ref().is_some_and(|a| a.field.hint != hint || a.field.purpose != purpose)
@@ -325,23 +415,42 @@ impl Aqua {
             })
         });
         if new_field || changed_type || unexpected_text && self.assist.queue.is_some() {
+            self.assist.acknowledgements.clear();
             self.assist.queue = None;
             self.assist.password_rx = None;
             self.assist.generation = self.assist.generation.wrapping_add(1);
+            self.assist.access_typing = false;
+            self.assist.permit_pending = false;
+            self.assist.native_waiting = false;
+            self.assist.native_deadline = None;
+            self.assist.bridge.cancel(self.assist.generation);
         }
-        if !self.assist.active.as_ref().is_some_and(|a| a.id == input.id()) {
+        if !self.assist.active.as_ref().is_some_and(|a| a.native && a.id == input.id()) {
             self.assist.clear_focus();
-            self.assist.active = Some(Active { id: input.id(), surface, field: Field::default() });
+            self.assist.active = Some(Active {
+                id: input.id(),
+                surface,
+                field: Field::default(),
+                native: true,
+                accessible: None,
+                bounds: None,
+                origin: None,
+                browser: false,
+            });
         }
         let a = self.assist.active.as_mut().unwrap();
         a.field.apply(delta);
+        if new_field {
+            self.seat.text_input().done(false);
+        }
+        self.poll_accessibility();
         self.assist.dismissed = false;
         self.assist.refresh();
         self.needs_redraw = true;
     }
     pub fn destroy_text_input(&mut self, input: &ZwpTextInputV3) {
         self.assist.pending.remove(&input.id());
-        if self.assist.active.as_ref().is_some_and(|a| a.id == input.id()) {
+        if self.assist.active.as_ref().is_some_and(|a| a.native && a.id == input.id()) {
             self.assist.clear_focus();
         }
         self.needs_redraw = true;
@@ -357,6 +466,13 @@ impl Aqua {
         self.assist.queue = None;
         self.assist.password_rx = None;
         self.assist.generation = self.assist.generation.wrapping_add(1);
+        self.assist.access_typing = false;
+        self.assist.permit_pending = false;
+        self.assist.native_waiting = false;
+        self.assist.native_deadline = None;
+        self.assist.pending_delete = None;
+        self.assist.acknowledgements.clear();
+        self.assist.bridge.cancel(self.assist.generation);
         if !self.assist_available() {
             self.assist.dismiss();
             return false;
@@ -436,6 +552,13 @@ impl Aqua {
         self.assist.queue = None;
         self.assist.password_rx = None;
         self.assist.generation = self.assist.generation.wrapping_add(1);
+        self.assist.access_typing = false;
+        self.assist.permit_pending = false;
+        self.assist.native_waiting = false;
+        self.assist.native_deadline = None;
+        self.assist.pending_delete = None;
+        self.assist.acknowledgements.clear();
+        self.assist.bridge.cancel(self.assist.generation);
         self.assist.dismiss();
         false
     }
@@ -457,22 +580,37 @@ impl Aqua {
                 } else {
                     (self.assist.prefix_bytes, word)
                 };
-                if delete > 0 {
-                    let ti = self.seat.text_input().clone();
-                    ti.with_active_text_input(|input, _| input.delete_surrounding_text(delete as u32, 0));
-                    ti.done(false);
+                let native = active.use_native_delivery();
+                if delete > 0 && native {
+                    self.assist.pending_delete = Some(delete as u32);
                     if let Some(a) = self.assist.active.as_mut() {
+                        self.assist.acknowledgements.remember(&a.field);
                         let cursor = a.field.cursor.max(0) as usize;
                         if cursor >= delete && a.field.text.is_char_boundary(cursor - delete) {
                             a.field.text.replace_range(cursor - delete..cursor, "");
                             a.field.cursor -= delete as i32;
                             a.field.anchor = a.field.cursor;
+                            self.assist.acknowledgements.remember(&a.field);
                         }
+                    }
+                }
+                if delete > 0 && !native {
+                    let f = &self.assist.active.as_ref().unwrap().field;
+                    let cursor = f.cursor.max(0) as usize;
+                    if cursor >= delete && f.text.is_char_boundary(cursor - delete) {
+                        self.assist.replace_prefix = Some(Zeroizing::new(f.text[cursor - delete..cursor].to_owned()));
+                    } else {
+                        return;
                     }
                 }
                 self.queue_assist_text(Zeroizing::new(insert));
             }
             Row::Passwords | Row::Secret(_) => {
+                // _NET_WM_PID is a client claim, not an authenticated credential target.
+                if self.focused_window().is_some_and(|w| w.x11_surface().is_some()) {
+                    self.assist.dismiss();
+                    return;
+                }
                 let Some(app) = self.focused_window().map(|w| crate::state::title_of(&w).0).filter(|s| !s.is_empty())
                 else {
                     return;
@@ -481,6 +619,20 @@ impl Aqua {
                     Row::Secret(e) => Some(e.path.clone()),
                     _ => None,
                 };
+                let Some(active) = self.assist.active.as_ref() else {
+                    return;
+                };
+                if self.assist.bridge_window.is_none() {
+                    return;
+                }
+                let scope = if active.browser {
+                    let Some(origin) = active.origin.clone() else {
+                        return;
+                    };
+                    aqua_text::passwords::Scope::Origin(origin)
+                } else {
+                    aqua_text::passwords::Scope::App(app.clone())
+                };
                 let generation = self.assist.generation;
                 let (tx, rx) = mpsc::channel();
                 self.assist.password_rx = Some(rx);
@@ -488,9 +640,12 @@ impl Aqua {
                 self.assist.serial = self.assist.serial.wrapping_add(1);
                 std::thread::spawn(move || {
                     let result = if let Some(path) = selected_path {
-                        PasswordResult::Secret(generation, aqua_text::passwords::fetch(&app, &path).map_err(|_| ()))
+                        PasswordResult::Secret(
+                            generation,
+                            aqua_text::passwords::fetch_scoped(&scope, &path).map_err(|_| ()),
+                        )
                     } else {
-                        PasswordResult::List(generation, aqua_text::passwords::list(&app).map_err(|_| ()))
+                        PasswordResult::List(generation, aqua_text::passwords::list_scoped(&scope).map_err(|_| ()))
                     };
                     let _ = tx.send(result);
                 });
@@ -499,18 +654,225 @@ impl Aqua {
             Row::Info(_) => {}
         }
     }
+    fn revoke_accessible_context(&mut self) -> bool {
+        let Some(active) = self.assist.active.as_mut() else {
+            return false;
+        };
+        let changed = active.accessible.is_some() || active.bounds.is_some() || active.origin.is_some();
+        active.accessible = None;
+        active.bounds = None;
+        active.origin = None;
+        if changed {
+            self.assist.password_rx = None;
+            self.assist.queue = None;
+            self.assist.access_typing = false;
+            self.assist.permit_pending = false;
+            self.assist.native_waiting = false;
+            self.assist.native_deadline = None;
+            self.assist.generation = self.assist.generation.wrapping_add(1);
+            self.assist.bridge.cancel(self.assist.generation);
+            self.assist.refresh();
+        }
+        changed
+    }
+    fn poll_accessibility(&mut self) -> bool {
+        use aqua_text::accessibility::{is_browser_executable, Focus};
+        let window = self.focused_window();
+        let permitted = self.assist.enabled && self.assist_available();
+        let identity = window.as_ref().filter(|_| permitted).and_then(|w| {
+            let title = crate::state::title_of(w).1;
+            let id = crate::state::meta(w).borrow().id;
+            if self.space.elements().filter(|other| crate::state::title_of(other).1 == title).count() != 1 {
+                return None;
+            }
+            if let Some(cached) = &self.assist.bridge_window {
+                if cached.0 == id && cached.1 == title {
+                    return Some(cached.clone());
+                }
+            }
+            let pid = w.x11_surface().and_then(|s| s.pid()).or_else(|| {
+                w.wl_surface()?.client()?.get_credentials(&self.display_handle).ok().map(|c| c.pid as u32)
+            })?;
+            if pid == 0 {
+                return None;
+            }
+            let exe = std::fs::read_link(format!("/proc/{pid}/exe")).ok()?;
+            let browser = is_browser_executable(exe.file_name()?.to_str()?);
+            let pid = if browser { aqua_text::accessibility::browser_process_root(pid)? } else { pid };
+            Some((id, title, pid, browser))
+        });
+        self.assist.bridge_window = identity.clone();
+        if let (Some(active), Some(identity)) = (self.assist.active.as_mut(), identity.as_ref()) {
+            active.browser = identity.3;
+        }
+        if identity.is_none() {
+            self.assist.bridge.focus(None, self.assist.generation);
+            if self.assist.active.as_ref().is_some_and(|active| !active.native) {
+                self.assist.clear_focus();
+                return true;
+            }
+            let pending = self.assist.password_rx.is_some() || self.assist.queue.is_some() || self.assist.access_typing;
+            if pending {
+                self.assist.password_rx = None;
+                self.assist.queue = None;
+                self.assist.access_typing = false;
+                self.assist.permit_pending = false;
+                self.assist.native_waiting = false;
+                self.assist.native_deadline = None;
+                self.assist.generation = self.assist.generation.wrapping_add(1);
+                self.assist.bridge.cancel(self.assist.generation);
+            }
+            return self.revoke_accessible_context() || pending;
+        }
+        let focus = identity.map(|(window, title, pid, browser)| Focus {
+            generation: self.assist.generation,
+            window,
+            pid,
+            title,
+            browser,
+            protected: self.assist.active.as_ref().is_some_and(|a| a.native && a.field.sensitive()),
+        });
+        self.assist.bridge.focus(focus, self.assist.generation);
+        let mut dirty = false;
+        if let Some((generation, _success)) = self.assist.bridge.take_done() {
+            if generation == self.assist.generation {
+                self.assist.access_typing = false;
+                self.assist.permit_pending = false;
+                self.assist.native_waiting = false;
+                self.assist.native_deadline = None;
+                self.assist.replace_prefix = None;
+                dirty = true;
+            }
+        }
+        let Some(update) = self.assist.bridge.take_snapshot() else {
+            return dirty;
+        };
+        if update.generation != self.assist.generation {
+            return dirty;
+        }
+        let Some(snapshot) = update.snapshot else {
+            if self.assist.active.as_ref().is_some_and(|a| !a.native) {
+                self.assist.clear_focus();
+                self.needs_redraw = true;
+                return true;
+            }
+            dirty |= self.revoke_accessible_context();
+            return dirty;
+        };
+        let Some(w) = window else {
+            return dirty;
+        };
+        let Some(surface) = w.wl_surface().map(|s| s.into_owned()) else {
+            return dirty;
+        };
+        let native = self.assist.active.as_ref().is_some_and(|a| a.native);
+        // Do not attach document metadata from another widget to a native password field.
+        if native {
+            let a = self.assist.active.as_ref().unwrap();
+            if a.field.sensitive() != snapshot.password {
+                return self.revoke_accessible_context() || dirty;
+            }
+            if let Some(caret) = a.field.caret {
+                let b = snapshot.field;
+                if caret.x < b.x - 2.0 || caret.y < b.y - 2.0 || caret.x > b.x + b.w + 2.0 || caret.y > b.y + b.h + 2.0
+                {
+                    return self.revoke_accessible_context() || dirty;
+                }
+            }
+        }
+        let target_changed = self.assist.active.as_ref().is_some_and(|a| {
+            a.accessible.as_ref().is_some_and(|t| t.object != snapshot.target.object)
+                || a.origin != snapshot.origin
+                || (!a.native && a.field.sensitive() != snapshot.password)
+        });
+        if target_changed {
+            self.assist.queue = None;
+            self.assist.password_rx = None;
+            self.assist.access_typing = false;
+            self.assist.permit_pending = false;
+            self.assist.native_waiting = false;
+            self.assist.native_deadline = None;
+            self.assist.generation = self.assist.generation.wrapping_add(1);
+            self.assist.bridge.cancel(self.assist.generation);
+        }
+        if !native && self.assist.active.is_none() {
+            self.assist.active = Some(Active {
+                id: surface.id(),
+                surface,
+                field: Field::default(),
+                native: false,
+                accessible: None,
+                bounds: None,
+                origin: None,
+                browser: self.assist.bridge_window.as_ref().is_some_and(|i| i.3),
+            });
+        }
+        let Some(active) = self.assist.active.as_mut() else {
+            return dirty;
+        };
+        // Some clients acknowledge text-input with no surrounding-text update. A fresh,
+        // independently observed AT-SPI state may acknowledge exactly this edit, never a prediction.
+        if active.native
+            && !snapshot.password
+            && self.assist.native_waiting
+            && active.field.text.as_str() == snapshot.text.as_str()
+            && active.field.cursor == snapshot.cursor
+            && active.field.anchor == snapshot.anchor
+        {
+            self.assist.native_waiting = false;
+            self.assist.native_deadline = None;
+        }
+        let merge_text = self.assist.queue.is_none()
+            && !self.assist.access_typing
+            && (!active.native || !active.field.surrounding_reported || !active.field.caret_reported);
+        let text_changed = merge_text
+            && !snapshot.password
+            && (active.field.text.as_str() != snapshot.text.as_str()
+                || active.field.cursor != snapshot.cursor
+                || active.field.anchor != snapshot.anchor);
+        let changed = text_changed
+            || active.bounds != Some(snapshot.field)
+            || (!active.native && active.field.caret != snapshot.caret)
+            || target_changed;
+        active.bounds = Some(snapshot.field);
+        active.origin = snapshot.origin;
+        active.accessible = Some(snapshot.target);
+        if active.field.caret.is_none() {
+            active.field.caret = snapshot.caret;
+        }
+        if merge_text {
+            if !active.native {
+                active.field.purpose =
+                    if snapshot.password { ContentPurpose::Password } else { ContentPurpose::Normal };
+                active.field.caret = snapshot.caret;
+            }
+            if !snapshot.password {
+                active.field.text = snapshot.text;
+                active.field.cursor = snapshot.cursor;
+                active.field.anchor = snapshot.anchor;
+            }
+        }
+        if changed && self.assist.queue.is_none() && !self.assist.access_typing {
+            self.assist.dismissed = false;
+            self.assist.refresh();
+            dirty = true;
+        }
+        dirty
+    }
     pub fn poll_assist(&mut self) -> bool {
         if self.lock.is_locked() || self.assist.active.as_ref().is_some_and(|a| !a.surface.is_alive()) {
             let dirty = self.assist.active.is_some();
             self.assist.clear_focus();
             return dirty;
         }
-        let mut dirty = false;
+        let mut dirty = self.poll_accessibility();
         if let Some(dictionary) = self.assist.dictionary_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.assist.dictionary = dictionary;
             self.assist.dictionary_rx = None;
-            self.assist.refresh();
-            dirty = true;
+            if self.assist.active.as_ref().is_some_and(|a| !a.field.sensitive()) {
+                self.assist.refresh();
+                dirty = true;
+            }
         }
         let result = self.assist.password_rx.as_ref().and_then(|rx| rx.try_recv().ok());
         if let Some(result) = result {
@@ -547,9 +909,48 @@ impl Aqua {
         }
         let mut active = false;
         self.seat.text_input().with_active_text_input(|_, _| active = true);
-        if !active || self.assist.active.is_none() {
+        let Some(field) = self.assist.active.as_ref() else {
+            return false;
+        };
+        // Browser credentials are bound to the verified document before every grapheme.
+        if !field.use_native_delivery() {
+            let Some(mut target) = field.accessible.clone() else {
+                return false;
+            };
+            if !field.field.sensitive() {
+                let f = &field.field;
+                if f.cursor < 0
+                    || f.anchor < 0
+                    || !f.text.is_char_boundary(f.cursor as usize)
+                    || !f.text.is_char_boundary(f.anchor as usize)
+                {
+                    return false;
+                }
+                target.caret = target.text_start + f.text[..f.cursor as usize].chars().count() as i32;
+                target.anchor = target.text_start + f.text[..f.anchor as usize].chars().count() as i32;
+            }
+            let job = aqua_text::accessibility::Job {
+                generation: self.assist.generation,
+                target,
+                text,
+                replace_prefix: self.assist.replace_prefix.take(),
+                origin: field.origin.clone(),
+                expected_before: (!field.field.sensitive())
+                    .then(|| Zeroizing::new(field.field.text[..field.field.cursor as usize].to_owned())),
+                protected: field.field.sensitive(),
+            };
+            self.assist.access_typing = self.assist.bridge.type_text(job);
+            self.assist.dismiss();
+            self.needs_redraw = true;
+            return self.assist.access_typing;
+        }
+        if !active {
             return false;
         }
+        if field.browser && field.field.sensitive() && (field.origin.is_none() || field.accessible.is_none()) {
+            return false;
+        }
+        self.assist.permit_pending = false;
         self.assist.queue = Typing::new(text, self.assist.generation);
         self.assist.dismiss();
         if self.assist.queue.is_some() && !self.assist.timer_running {
@@ -578,6 +979,53 @@ impl Aqua {
             self.assist.queue = None;
             return false;
         }
+        if self.assist.queue.is_none() {
+            return false;
+        }
+        if self.assist.native_waiting {
+            if self.assist.native_deadline.is_none_or(|deadline| std::time::Instant::now() >= deadline) {
+                self.assist.queue = None;
+                self.assist.native_waiting = false;
+                self.assist.native_deadline = None;
+                return false;
+            }
+            return true;
+        }
+        let requires_permit = self.assist.active.as_ref().is_some_and(|field| field.browser && field.field.sensitive());
+        if requires_permit {
+            if self.assist.permit_pending {
+                let Some((generation, ok)) = self.assist.bridge.take_permit() else {
+                    if self.assist.native_deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline) {
+                        self.assist.queue = None;
+                        self.assist.permit_pending = false;
+                        self.assist.native_deadline = None;
+                        return false;
+                    }
+                    return true;
+                };
+                self.assist.permit_pending = false;
+                self.assist.native_waiting = false;
+                self.assist.native_deadline = None;
+                if generation != self.assist.generation || !ok {
+                    self.assist.queue = None;
+                    return false;
+                }
+            } else {
+                let field = self.assist.active.as_ref().unwrap();
+                let (Some(target), Some(origin)) = (&field.accessible, &field.origin) else {
+                    self.assist.queue = None;
+                    return false;
+                };
+                self.assist.permit_pending =
+                    self.assist.bridge.request_permit(self.assist.generation, target.object.clone(), origin.clone());
+                if !self.assist.permit_pending {
+                    self.assist.queue = None;
+                    return false;
+                }
+                self.assist.native_deadline = Some(std::time::Instant::now() + Duration::from_secs(2));
+                return true;
+            }
+        }
         let Some(queue) = self.assist.queue.as_mut() else { return false };
         if queue.generation != self.assist.generation {
             self.assist.queue = None;
@@ -595,8 +1043,12 @@ impl Aqua {
         let surface = active.surface.clone();
         let ti = self.seat.text_input().clone();
         let mut sent = false;
+        let delete = self.assist.pending_delete.take();
         ti.with_active_text_input(|input, current_surface| {
             if input.id() == id && *current_surface == surface && input.is_alive() {
+                if let Some(bytes) = delete {
+                    input.delete_surrounding_text(bytes, 0);
+                }
                 input.commit_string(Some(part.to_string()));
                 sent = true;
             }
@@ -606,7 +1058,11 @@ impl Aqua {
             return false;
         }
         ti.done(false);
+        self.assist.native_waiting = true;
+        self.assist.native_deadline = Some(std::time::Instant::now() + Duration::from_millis(500));
+        self.assist.acknowledgements.remember(&active.field);
         active.field.expect_insertion(&part);
+        self.assist.bridge.refresh();
         self.needs_redraw = true;
         if self.assist.queue.as_ref().is_some_and(Typing::finished) {
             self.assist.queue = None;
@@ -614,10 +1070,10 @@ impl Aqua {
         }
         true
     }
-    /// Global logical caret plus optional exact field contour. Does not guess on unknown surfaces.
+    /// Global placement anchor and field bounds. An unknown caret uses field bounds only for popup placement.
     pub fn assist_geometry(&self) -> Option<(Shape, Option<Shape>)> {
         let active = self.assist.active.as_ref()?;
-        let caret = active.field.caret?;
+        let caret = active.field.caret.or(active.bounds)?;
         let surface = &active.surface;
         let mut origin = None;
         for w in self.space.elements() {
@@ -637,7 +1093,7 @@ impl Aqua {
         }
         let origin = origin?;
         let translate = |shape: Shape| Shape { x: shape.x + origin.x as f32, y: shape.y + origin.y as f32, ..shape };
-        Some((translate(caret), crate::wayland::text_field::geometry(surface).map(translate)))
+        Some((translate(caret), crate::wayland::text_field::geometry(surface).or(active.bounds).map(translate)))
     }
     #[allow(dead_code)] // Shared internal contract for future native overlay consumers.
     pub fn text_context(&self) -> Option<TextContext<'_>> {
@@ -653,12 +1109,28 @@ impl Aqua {
             purpose: a.field.purpose,
             hints: a.field.hint,
             sensitive,
-            surrounding: (!sensitive).then_some(a.field.text.as_str()),
+            surrounding: (!sensitive && self.assist.queue.is_none() && !self.assist.access_typing)
+                .then_some(a.field.text.as_str()),
             cursor: a.field.cursor,
             anchor: a.field.anchor,
-            caret,
+            caret: a.field.caret.map(|local| Shape {
+                x: local.x + caret.x - a.field.caret.or(a.bounds).unwrap().x,
+                y: local.y + caret.y - a.field.caret.or(a.bounds).unwrap().y,
+                ..local
+            }),
             field,
+            field_radius_known: crate::wayland::text_field::geometry(&a.surface).is_some(),
         })
+    }
+    pub fn assist_status(&self) -> String {
+        let Some(active) = self.assist.active.as_ref() else {
+            return "source=none".into();
+        };
+        let geometry = self.text_context();
+        format!("source={} sensitive={} browser={} origin-verified={} caret-known={} field={:?} radius-known={} surrounding-bytes={} cursor={} rows={}",
+            if active.native {"wayland"} else {"atspi"}, active.field.sensitive(), active.browser,
+            active.origin.is_some(), active.field.caret.is_some(), geometry.as_ref().and_then(|g| g.field),
+            geometry.is_some_and(|g| g.field_radius_known), active.field.text.len(), active.field.cursor, self.assist.rows.len())
     }
     pub fn assist_layer(&mut self) -> Option<Layer> {
         if !self.assist_available() || self.assist.rows.is_empty() {
@@ -702,7 +1174,11 @@ impl Aqua {
             let password = self.assist.active.as_ref().is_some_and(|a| a.field.sensitive());
             let app = self.focused_window().map(|w| crate::state::title_of(&w).0).unwrap_or_default();
             let title = if password {
-                format!("{} · {app}", aqua_i18n::tr("Passwords"))
+                format!(
+                    "{} · {}",
+                    aqua_i18n::tr("Passwords"),
+                    self.assist.active.as_ref().and_then(|a| a.origin.as_deref()).unwrap_or(&app)
+                )
             } else {
                 aqua_i18n::tr("Suggestions · Tab to insert").into()
             };
@@ -815,5 +1291,37 @@ mod tests {
         assert!(r.x + r.w <= 2994.0);
         assert!(r.y + r.h < caret.y);
         assert!(r.x >= 1926.0);
+    }
+    #[test]
+    fn acknowledgement_history_is_bounded_and_ignores_secrets() {
+        let mut history = Acknowledgements::default();
+        let mut field = Field::default();
+        for n in 0..32 {
+            field.text = Zeroizing::new(n.to_string());
+            history.remember(&field);
+        }
+        assert_eq!(history.0.len(), 16);
+        assert!(!history.contains(&(Zeroizing::new("0".into()), 0, 0)));
+        assert!(history.contains(&(Zeroizing::new("31".into()), 0, 0)));
+        field.purpose = ContentPurpose::Password;
+        field.text = Zeroizing::new("never retain".into());
+        history.remember(&field);
+        assert!(!history.contains(&(field.text.clone(), 0, 0)));
+        history.clear();
+        assert!(history.0.is_empty());
+    }
+
+    #[test]
+    fn invalid_caret_clears_previous_geometry_and_zero_width_is_valid() {
+        let valid = Shape { x: 10.0, y: 20.0, w: 0.0, h: 18.0, radius: 0.0 }.validated_caret();
+        assert!(valid.is_some());
+        let mut field = Field::default();
+        field.apply(Delta { caret: Some(valid), ..Default::default() });
+        assert!(field.caret_reported);
+        let invalid = Shape { w: -1.0, ..valid.unwrap() }.validated_caret();
+        assert!(invalid.is_none());
+        field.apply(Delta { caret: Some(invalid), ..Default::default() });
+        assert!(!field.caret_reported);
+        assert!(field.caret.is_none());
     }
 }

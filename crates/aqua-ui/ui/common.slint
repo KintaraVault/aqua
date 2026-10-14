@@ -490,6 +490,20 @@ export component Segmented inherits Rectangle {
 }
 
 export component Field inherits Rectangle {
+    private property <length> field-x: self.absolute-position.x;
+    private property <length> field-y: self.absolute-position.y;
+    private property <int> field-epoch: AquaGlass.field-epoch;
+    private property <bool> field-focus: input.has-focus;
+    changed field-x => { AquaGlass.field-dirty(); }
+    changed field-y => { AquaGlass.field-dirty(); }
+    changed width => { AquaGlass.field-dirty(); }
+    changed height => { AquaGlass.field-dirty(); }
+    changed border-radius => { AquaGlass.field-dirty(); }
+    changed field-focus => { AquaGlass.field-dirty(); }
+    changed field-epoch => {
+        if field-focus { AquaGlass.report-field(field-x, field-y, self.width, self.height, self.border-radius); }
+    }
+
     in property <string> placeholder;
     in-out property <string> text <=> input.text;
     in property <bool> password: false;
@@ -619,6 +633,9 @@ export global AquaGlass {
     callback report(length, length, length, length, length, int);
     /// Geometry changed: collect the shapes again.
     callback dirty();
+    in-out property <int> field-epoch: 0;
+    callback report-field(length, length, length, length, length);
+    callback field-dirty();
 }
 
 /// A compositor glass shape covering its parent (only while `AquaGlass.active` and `on`).

@@ -1,4 +1,5 @@
 //! Bounded, Unicode-aware completion and focus-bound text delivery.
+pub mod accessibility;
 pub mod passwords;
 use fst::{automaton::Str, Automaton, IntoStreamer, Map, MapBuilder, Streamer};
 use std::collections::BTreeMap;
@@ -20,6 +21,18 @@ pub struct Shape {
     pub radius: f32,
 }
 impl Shape {
+    /// A caret may have zero width. Invalid rectangles must not be invented or clamped into existence.
+    pub fn validated_caret(self) -> Option<Self> {
+        let Self { x, y, w, h, .. } = self;
+        ([x, y, w, h].iter().all(|v| v.is_finite())
+            && x.abs() <= 100_000.0
+            && y.abs() <= 100_000.0
+            && (0.0..=100_000.0).contains(&w)
+            && h > 0.0
+            && h <= 100_000.0)
+            .then_some(Self { radius: 0.0, ..self })
+    }
+
     pub fn validated(self) -> Option<Self> {
         let Self { x, y, w, h, radius } = self;
         ([x, y, w, h, radius].iter().all(|v| v.is_finite())

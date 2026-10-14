@@ -248,8 +248,9 @@ access!(crate::StoreWindow);
 /// Lives as long as the component.
 pub fn link<C>(ui: &C, body: bool)
 where
-    C: ComponentHandle + WinAccessPub + 'static,
+    C: ComponentHandle + WinAccessPub + crate::text_field::FieldWindow + 'static,
 {
+    crate::text_field::link(ui);
     if !crate::glass_supported() {
         return;
     }

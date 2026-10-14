@@ -131,6 +131,7 @@ impl Aqua {
                 e.data.iter().map(|(m, d)| (m.clone(), d.len())).collect::<Vec<_>>()
             );
         }
+        let _ = writeln!(o, "text-assist={}", self.assist_status());
         let p = if path.is_empty() { "/tmp/aqua-state.txt" } else { path };
         let _ = std::fs::write(p, o);
     }

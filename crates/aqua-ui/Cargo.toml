@@ -7,7 +7,7 @@ license.workspace = true
 description = "Aqua system apps written in Rust + Slint: System Settings, file chooser, authentication agent, greeter, dialogs"
 
 [dependencies]
-slint = { version = "1.13", default-features = false, features = ["std", "compat-1-2", "backend-winit-wayland", "backend-winit-x11", "renderer-software", "renderer-femtovg", "unstable-winit-030"] }
+slint = { version = "1.13", default-features = false, features = ["std", "compat-1-2", "backend-winit-wayland", "backend-winit-x11", "renderer-software", "renderer-femtovg", "unstable-winit-030", "accessibility"] }
 aqua-config.workspace = true
 aqua-log.workspace = true
 tracing.workspace = true

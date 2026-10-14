@@ -1,38 +1,45 @@
 # Text assistance
 
-## Compatibility
+Aqua provides native glass suggestions, spelling correction, optional T9 and explicit password selection. No browser extension, OCR, clipboard injection or learning from typed text is used.
 
-Aqua observes the focused, enabled `text-input-v3` transaction. It knows the surrounding text, UTF-8 cursor/selection offsets, content hints, purpose and caret rectangle supplied by the application. It does not read arbitrary window contents or use OCR.
+## Application support
 
-The standard protocol describes a caret, not the bounds of a field. The optional `aqua-text-field-v1` protocol adds precise surface-local bounds and a corner radius, applied on `wl_surface.commit`. Applications must clear this geometry on blur. A rounded rectangle is supported; arbitrary paths are not represented. Unknown field bounds remain unknown.
+The focused, enabled `text-input-v3` transaction supplies surrounding text, UTF-8 cursor/selection offsets, sensitivity hints and a caret rectangle. An external input method takes precedence. `AQUA_TEXT_ASSIST=0` disables assistance, including accessibility discovery.
 
-Suggestions currently attach to toplevels and their popups. An external input method takes precedence. Applications without text-input-v3, XWayland applications and toolkits that do not report text-input state cannot use native assistance yet. An accessibility bridge is not implemented.
+An off-thread AT-SPI bridge supplements incomplete native context and supports accessible GTK fields without a native input method. Discovery is bounded and restricted to the focused process family, matching active window and focused editable widget. D-Bus failures do not block the compositor. Native delivery is preferred; accessibility-only delivery requires `EditableText` support. Applications that expose neither interface are unsupported. Accessibility must be enabled in the session.
 
-## Controls
+Field bounds and caret position are separate. AT-SPI provides a rectangular field bound, not its CSS outline or corner radius. Unknown geometry stays unknown; a field rectangle may anchor a popup without being reported as a real caret. The optional `aqua-text-field-v1` protocol supplies surface-local rounded bounds and a corner radius, applied on `wl_surface.commit` and cleared on blur. Aqua's shared UI `Field` component reports these bounds. Arbitrary paths and uninstrumented custom canvas fields are not inferred.
 
-- ↑ / ↓: select a suggestion.
-- Tab: accept the selected suggestion. Escape: dismiss.
-- Click a row: accept without moving keyboard focus.
-- Any physical key, focus change, lock or invalidated field cancels pending typing.
+## Suggestions and delivery
 
-Acceptance delivers one Unicode grapheme per timer tick, scheduled at 8 ms intervals (actual delivery depends on event-loop load), without a blocking sleep or clipboard fallback. Spelling correction deletes only the current prefix using UTF-8 byte counts. Selection and mid-word insertion do not trigger suggestions.
+- ↑ / ↓ selects; Tab or a click accepts; Escape dismisses.
+- Physical input, focus changes, locking and invalidated context cancel pending delivery.
+- Accepted text is sent one Unicode grapheme at a time, scheduled at 8 ms intervals. Native clients must acknowledge edits; missing acknowledgements stop delivery rather than allowing an unbounded queue. Scheduling and accessibility calls may increase actual intervals.
+- A bounded, zeroized acknowledgement history tolerates duplicate native acknowledgements without advancing the queue twice. Expected delivery text is not exposed as observed surrounding text while typing.
+- Corrections replace only the validated current prefix. Selection and mid-word insertion do not trigger suggestions.
 
-`AQUA_TEXT_ASSIST=0` hides assistance. `AQUA_T9=1` enables predictions for trailing 2–9 sequences in ordinary text fields. The T9 mapping supports Latin and Russian letters. Numeric and PIN fields are not treated as T9 fields.
+`AQUA_T9=1` enables trailing 2–9 predictions in ordinary text fields. Latin and Russian mappings are supported; numeric and PIN fields are excluded.
 
-A custom frequency dictionary can be placed in `~/.config/aqua/words.txt` (or `$XDG_CONFIG_HOME/aqua/words.txt`). `AQUA_DICTIONARY` overrides its location. Each line contains a word and frequency separated by whitespace. Dictionaries are loaded off the compositor thread and bounded to 100,000 entries and 8 MiB. Completions use an FST; one-edit corrections use SymSpell's Unicode strategy. Aqua never builds a dictionary from your typed text.
+Completions use FST; one-edit corrections use SymSpell's Unicode strategy. A custom word-frequency dictionary can be placed in `~/.config/aqua/words.txt` or selected with `AQUA_DICTIONARY`. Loading runs off-thread and is limited to 100,000 entries and 8 MiB. Aqua never adds words from application input.
 
 ## Passwords and privacy
 
-Aqua uses the existing Secret Service D-Bus API through the Rust `secret-service` library, with an encrypted DH session. It does not create a second password database. No Secret Service daemon is bundled; a compatible service such as GNOME Keyring, KeePassXC or KWallet must already be available on the session bus.
+Aqua uses the system Secret Service through the Rust `secret-service` library and an encrypted DH session. A compatible service such as GNOME Keyring, KeePassXC or KWallet must already be available. No second password database is created; existing untagged passwords are not enumerated or imported.
 
-Only entries explicitly tagged `xdg:schema=org.aqua.Password` and `aqua-app-id=<application-id>` are listed. These tags prevent accidental broad enumeration; application IDs are client claims, not authenticated website origins. Browser-wide autofill is deliberately unsupported. Check the target application shown in the popup before selecting a password. Existing untagged passwords are not automatically imported or searched.
+Listing requires selecting “Passwords…”. Fetching requires selecting an entry. Only records tagged `xdg:schema=org.aqua.Password` and the exact scope are eligible:
 
-Listing requires an explicit click/Tab on “Passwords…”. A secret is fetched only after selecting an entry; a locked store may ask you to unlock it. Work happens off the compositor thread. A response from an old focus/field generation is discarded. Password/PIN and hidden/sensitive surrounding text is not retained, indexed, logged or exposed over IPC. Temporary secret buffers and queued typing are zeroized on drop. The Wayland transport necessarily carries the selected secret to the receiving application; Rust heap zeroization cannot guarantee removal of all transport/library copies.
+- Desktop applications use `aqua-app-id`. Application IDs are client claims, not authenticated identities; check the displayed application before choosing a credential.
+- Supported system-installed browsers use `aqua-origin`, a canonical HTTPS origin including a non-default port. The browser's own AT-SPI connection must belong to its verified system-owned executable. Document ancestry must agree on one origin. HTTP, unavailable document URLs, cross-origin frames and untrusted browser binaries fail closed; they never fall back to an application-wide browser scope.
+- Browser password delivery revalidates the focused protected widget and origin before each grapheme. Permission requests have a deadline and do not block rendering. XWayland password delivery is disabled because its advertised PID is not an authenticated credential identity.
 
-The native IME and virtual-keyboard globals are hidden from sandbox clients. Local unsandboxed processes still share the desktop user's trust boundary.
+Password/PIN and hidden/sensitive surrounding text is not retained, indexed, logged or exposed over IPC. Accessibility event payloads are not decoded. Plain text context is bounded and zeroized; temporary secrets and queued graphemes are zeroized on drop. Focus generations invalidate asynchronous results. Wayland/D-Bus transport and receiving applications necessarily contain copies that heap zeroization cannot erase.
+
+The native IME and virtual-keyboard globals are hidden from sandbox clients. Unsandboxed local processes still share the desktop user's trust boundary. Accessibility is not a security boundary against a compromised desktop session.
 
 ## Testing
 
-`cargo test -p aqua-text -p aqua-compositor` covers offsets, Unicode graphemes, dictionary bounds/ranking, T9, sensitive-state clearing, generation cancellation and popup placement. `tests/input-assist.sh` exercises a real Wayland text-input client in an isolated nested compositor and captures screenshots without changing the live session.
+`cargo test -p aqua-text -p aqua-compositor` covers Unicode offsets and graphemes, dictionary bounds/ranking, T9, sensitive-state clearing, generations, acknowledgement history and geometry.
 
-To test password selection with **test data only**, build `cargo build --release -p aqua-text --example password_fixture` and run `tests/input-assist.sh target/release/aqua /tmp/aqua-input-assist password-fill` (requires `gnome-keyring-daemon`). The script uses a private D-Bus, runtime directory and HOME; it never enumerates your real password store. `password-cancel` verifies cancellation after the first grapheme.
+`tests/input-assist.sh target/release/aqua /tmp/aqua-input-assist MODE` runs an isolated nested compositor with a private HOME, runtime directory and D-Bus, and captures before/after screenshots. Modes cover native Wayland, real GTK (Wayland/X11), Chromium without extensions, Russian input, T9, focus cancellation and Finder field geometry.
+
+Password fixtures require `cargo build --release -p aqua-text --example password_fixture` and `gnome-keyring-daemon`. `password-fill` and `password-cancel` use a private test keyring; browser password modes additionally use an ephemeral local HTTPS fixture and a certificate-specific SPKI pin. They never enumerate the live password store. `browser-password-http` checks refusal of unverifiable website scope.
