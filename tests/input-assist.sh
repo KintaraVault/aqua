@@ -70,10 +70,10 @@ cp "$root/crates/aqua-text/src/seed.txt" "$rt/dictionary"
     printf 'dump %s/state-%s.txt\n' "$out" "$mode" >> "$rt/control"
     printf 'shot %s/before-%s.png\n' "$out" "$mode" >> "$rt/control"
     sleep 1
-    if [[ $mode != password && $mode != invalid && $mode != finder* && $mode != browser-password-http ]]; then
+    if [[ $mode != password && $mode != invalid && $mode != finder* ]]; then
         printf 'hotkey tab\n' >> "$rt/control"
     fi
-    if [[ $mode == password-fill || $mode == password-cancel || $mode == browser-password || $mode == browser-password-cancel || $mode == browser-password-protected-cancel ]]; then
+    if [[ $mode == password-fill || $mode == password-cancel || $mode == browser-password || $mode == browser-password-cancel || $mode == browser-password-protected-cancel || $mode == browser-password-http ]]; then
         sleep 1
         printf 'shot %s/choices-%s.png\n' "$out" "$mode" >> "$rt/control"
         sleep 1
