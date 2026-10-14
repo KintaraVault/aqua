@@ -14,7 +14,7 @@ Field bounds and caret position are separate. AT-SPI provides a rectangular fiel
 
 - ↑ / ↓ selects; Tab or a click accepts; Escape dismisses.
 - Physical input, focus changes, locking and invalidated context cancel pending delivery.
-- Accepted text is sent one Unicode grapheme at a time, scheduled at 8 ms intervals. Native clients must acknowledge edits; missing acknowledgements stop delivery rather than allowing an unbounded queue. Scheduling and accessibility calls may increase actual intervals.
+- Accepted text is sent one Unicode grapheme at a time, scheduled at 8 ms intervals. Plain native edits require an observed matching text state; missing acknowledgement stops delivery rather than allowing an unbounded queue. Protected browser fields may omit text-input updates and instead require a fresh focus/protection/origin permit for every grapheme. Scheduling and accessibility calls may increase actual intervals.
 - A bounded, zeroized acknowledgement history tolerates duplicate native acknowledgements without advancing the queue twice. Expected delivery text is not exposed as observed surrounding text while typing.
 - Corrections replace only the validated current prefix. Selection and mid-word insertion do not trigger suggestions.
 
@@ -30,7 +30,7 @@ Listing requires selecting “Passwords…”. Fetching requires selecting an en
 
 - Desktop applications use `aqua-app-id`. Application IDs are client claims, not authenticated identities; check the displayed application before choosing a credential.
 - Supported system-installed browsers use `aqua-origin`, a canonical HTTPS origin including a non-default port. The browser's own AT-SPI connection must belong to its verified system-owned executable. Document ancestry must agree on one origin. HTTP, unavailable document URLs, cross-origin frames and untrusted browser binaries fail closed; they never fall back to an application-wide browser scope.
-- Browser password delivery revalidates the focused protected widget and origin before each grapheme. Permission requests have a deadline and do not block rendering. XWayland password delivery is disabled because its advertised PID is not an authenticated credential identity.
+- Browser password delivery revalidates the focused protected widget and origin before each grapheme. Permission requests have a deadline and do not block rendering. Chromium’s protected Disable/Enable pairs suspend delivery for at most 250 ms; re-enable preserves no authorization, and the old widget must pass a new generation’s check before another grapheme is sent. XWayland password delivery is disabled because its advertised PID is not an authenticated credential identity.
 
 Password/PIN and hidden/sensitive surrounding text is not retained, indexed, logged or exposed over IPC. Accessibility event payloads are not decoded. Plain text context is bounded and zeroized; temporary secrets and queued graphemes are zeroized on drop. Focus generations invalidate asynchronous results. Wayland/D-Bus transport and receiving applications necessarily contain copies that heap zeroization cannot erase.
 

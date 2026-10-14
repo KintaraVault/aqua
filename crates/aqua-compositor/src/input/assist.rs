@@ -79,6 +79,9 @@ impl Field {
             self.anchor = anchor;
         }
     }
+    fn protected_reenable(&self, delta: &Delta) -> bool {
+        self.sensitive() && delta.enabled == Some(true) && delta.content == Some((self.hint, self.purpose))
+    }
     fn expect_insertion(&mut self, part: &str) {
         if self.sensitive() || self.cursor < 0 || self.anchor < 0 {
             return;
@@ -180,9 +183,9 @@ pub struct Assist {
     access_typing: bool,
     permit_pending: bool,
     native_waiting: bool,
+    native_suspended: bool,
     native_deadline: Option<std::time::Instant>,
     pending_delete: Option<u32>,
-    protected_caret: Option<i32>,
     acknowledgements: Acknowledgements,
     replace_prefix: Option<Zeroizing<String>>,
     pending: HashMap<ObjectId, Delta>,
@@ -234,9 +237,9 @@ impl Default for Assist {
             access_typing: false,
             permit_pending: false,
             native_waiting: false,
+            native_suspended: false,
             native_deadline: None,
             pending_delete: None,
-            protected_caret: None,
             acknowledgements: Acknowledgements::default(),
             replace_prefix: None,
             pending: HashMap::new(),
@@ -265,9 +268,9 @@ impl Assist {
         self.access_typing = false;
         self.permit_pending = false;
         self.native_waiting = false;
+        self.native_suspended = false;
         self.native_deadline = None;
         self.pending_delete = None;
-        self.protected_caret = None;
         self.acknowledgements.clear();
         self.replace_prefix = None;
         self.bridge_window = None;
@@ -381,6 +384,31 @@ impl Aqua {
             }
         });
         let Some(surface) = active else {
+            // Chromium brackets protected edits with Disable/Enable. Suspend delivery, never
+            // send into a disabled text-input, and require fresh object/origin authorization
+            // after re-enable. A real blur, destruction or timeout still cancels immediately.
+            if delta.enabled == Some(false)
+                && self.assist.queue.is_some()
+                && self.assist.active.as_ref().is_some_and(|a| {
+                    a.native
+                        && a.id == input.id()
+                        && a.browser
+                        && a.field.sensitive()
+                        && a.accessible.is_some()
+                        && a.origin.is_some()
+                })
+            {
+                self.assist.generation = self.assist.generation.wrapping_add(1);
+                if let Some(queue) = self.assist.queue.as_mut() {
+                    queue.generation = self.assist.generation;
+                }
+                self.assist.permit_pending = false;
+                self.assist.native_waiting = false;
+                self.assist.native_suspended = true;
+                self.assist.native_deadline = Some(std::time::Instant::now() + Duration::from_millis(250));
+                self.assist.bridge.cancel(self.assist.generation);
+                return;
+            }
             if self.assist.active.as_ref().is_some_and(|a| a.native && a.id == input.id()) {
                 self.assist.clear_focus();
             }
@@ -406,7 +434,32 @@ impl Aqua {
             });
         if acknowledged {
             self.assist.native_waiting = false;
+            self.assist.native_suspended = false;
             self.assist.native_deadline = None;
+        }
+        // Chromium may re-enable the same protected text-input after each commit string.
+        // Native Enable alone cannot prove field identity: keep the old AT-SPI object and
+        // require a new generation's focus/protection/origin permit before another grapheme.
+        let resume_protected = self.assist.queue.is_some()
+            && self.assist.active.as_ref().is_some_and(|a| {
+                a.native
+                    && a.id == input.id()
+                    && a.browser
+                    && a.accessible.is_some()
+                    && a.origin.is_some()
+                    && a.field.protected_reenable(&delta)
+            });
+        if resume_protected {
+            delta.enabled = None;
+            self.assist.generation = self.assist.generation.wrapping_add(1);
+            if let Some(queue) = self.assist.queue.as_mut() {
+                queue.generation = self.assist.generation;
+            }
+            self.assist.permit_pending = false;
+            self.assist.native_waiting = false;
+            self.assist.native_suspended = false;
+            self.assist.native_deadline = None;
+            self.assist.bridge.cancel(self.assist.generation);
         }
         let new_field = delta.enabled == Some(true);
         let changed_type = delta.content.is_some_and(|(hint, purpose)| {
@@ -427,6 +480,7 @@ impl Aqua {
             self.assist.access_typing = false;
             self.assist.permit_pending = false;
             self.assist.native_waiting = false;
+            self.assist.native_suspended = false;
             self.assist.native_deadline = None;
             self.assist.bridge.cancel(self.assist.generation);
         }
@@ -474,9 +528,9 @@ impl Aqua {
         self.assist.access_typing = false;
         self.assist.permit_pending = false;
         self.assist.native_waiting = false;
+        self.assist.native_suspended = false;
         self.assist.native_deadline = None;
         self.assist.pending_delete = None;
-        self.assist.protected_caret = None;
         self.assist.acknowledgements.clear();
         self.assist.bridge.cancel(self.assist.generation);
         if !self.assist_available() {
@@ -561,9 +615,9 @@ impl Aqua {
         self.assist.access_typing = false;
         self.assist.permit_pending = false;
         self.assist.native_waiting = false;
+        self.assist.native_suspended = false;
         self.assist.native_deadline = None;
         self.assist.pending_delete = None;
-        self.assist.protected_caret = None;
         self.assist.acknowledgements.clear();
         self.assist.bridge.cancel(self.assist.generation);
         self.assist.dismiss();
@@ -675,6 +729,7 @@ impl Aqua {
             self.assist.access_typing = false;
             self.assist.permit_pending = false;
             self.assist.native_waiting = false;
+            self.assist.native_suspended = false;
             self.assist.native_deadline = None;
             self.assist.generation = self.assist.generation.wrapping_add(1);
             self.assist.bridge.cancel(self.assist.generation);
@@ -725,6 +780,7 @@ impl Aqua {
                 self.assist.access_typing = false;
                 self.assist.permit_pending = false;
                 self.assist.native_waiting = false;
+                self.assist.native_suspended = false;
                 self.assist.native_deadline = None;
                 self.assist.generation = self.assist.generation.wrapping_add(1);
                 self.assist.bridge.cancel(self.assist.generation);
@@ -746,6 +802,7 @@ impl Aqua {
                 self.assist.access_typing = false;
                 self.assist.permit_pending = false;
                 self.assist.native_waiting = false;
+                self.assist.native_suspended = false;
                 self.assist.native_deadline = None;
                 self.assist.replace_prefix = None;
                 dirty = true;
@@ -798,6 +855,7 @@ impl Aqua {
             self.assist.access_typing = false;
             self.assist.permit_pending = false;
             self.assist.native_waiting = false;
+            self.assist.native_suspended = false;
             self.assist.native_deadline = None;
             self.assist.generation = self.assist.generation.wrapping_add(1);
             self.assist.bridge.cancel(self.assist.generation);
@@ -827,17 +885,8 @@ impl Aqua {
             && active.field.anchor == snapshot.anchor
         {
             self.assist.native_waiting = false;
+            self.assist.native_suspended = false;
             self.assist.native_deadline = None;
-        }
-        if active.native
-            && snapshot.password
-            && self.assist.native_waiting
-            && self.assist.protected_caret == Some(snapshot.target.caret)
-            && snapshot.target.anchor == snapshot.target.caret
-        {
-            self.assist.native_waiting = false;
-            self.assist.native_deadline = None;
-            self.assist.protected_caret = None;
         }
         let merge_text = self.assist.queue.is_none()
             && !self.assist.access_typing
@@ -968,7 +1017,6 @@ impl Aqua {
             return false;
         }
         self.assist.permit_pending = false;
-        self.assist.protected_caret = None;
         self.assist.queue = Typing::new(text, self.assist.generation);
         self.assist.dismiss();
         if self.assist.queue.is_some() && !self.assist.timer_running {
@@ -1000,10 +1048,18 @@ impl Aqua {
         if self.assist.queue.is_none() {
             return false;
         }
+        if self.assist.native_suspended {
+            if self.assist.native_deadline.is_none_or(|deadline| std::time::Instant::now() >= deadline) {
+                self.assist.clear_focus();
+                return false;
+            }
+            return true;
+        }
         if self.assist.native_waiting {
             if self.assist.native_deadline.is_none_or(|deadline| std::time::Instant::now() >= deadline) {
                 self.assist.queue = None;
                 self.assist.native_waiting = false;
+                self.assist.native_suspended = false;
                 self.assist.native_deadline = None;
                 return false;
             }
@@ -1023,8 +1079,12 @@ impl Aqua {
                 };
                 self.assist.permit_pending = false;
                 self.assist.native_waiting = false;
+                self.assist.native_suspended = false;
                 self.assist.native_deadline = None;
-                if generation != self.assist.generation || !ok {
+                if generation != self.assist.generation {
+                    return true;
+                }
+                if !ok {
                     self.assist.queue = None;
                     return false;
                 }
@@ -1057,16 +1117,6 @@ impl Aqua {
             self.assist.queue = None;
             return false;
         };
-        if active.browser && active.field.sensitive() {
-            self.assist.protected_caret = active
-                .accessible
-                .as_ref()
-                .and_then(|target| target.caret.min(target.anchor).checked_add(part.chars().count() as i32));
-            if self.assist.protected_caret.is_none() {
-                self.assist.queue = None;
-                return false;
-            }
-        }
         let id = active.id.clone();
         let surface = active.surface.clone();
         let ti = self.seat.text_input().clone();
@@ -1086,8 +1136,11 @@ impl Aqua {
             return false;
         }
         ti.done(false);
-        self.assist.native_waiting = true;
-        self.assist.native_deadline = Some(std::time::Instant::now() + Duration::from_millis(500));
+        // Protected browser fields may omit every text-input update for privacy. Their
+        // next grapheme is authorized by a fresh focus/protection/origin permit instead.
+        self.assist.native_waiting = !(active.browser && active.field.sensitive());
+        self.assist.native_deadline =
+            self.assist.native_waiting.then(|| std::time::Instant::now() + Duration::from_millis(500));
         self.assist.acknowledgements.remember(&active.field);
         active.field.expect_insertion(&part);
         self.assist.bridge.refresh();
@@ -1125,6 +1178,9 @@ impl Aqua {
     }
     #[allow(dead_code)] // Shared internal contract for future native overlay consumers.
     pub fn text_context(&self) -> Option<TextContext<'_>> {
+        if self.assist.native_suspended {
+            return None;
+        }
         if self.lock.is_locked() {
             return None;
         }
@@ -1296,9 +1352,11 @@ mod tests {
     fn clear_cancels_and_invalidates_workers() {
         let mut assist = Assist::default();
         let generation = assist.generation;
+        assist.native_suspended = true;
         assist.queue = Typing::new(Zeroizing::new("private".into()), generation);
         assist.clear_focus();
         assert!(assist.queue.is_none());
+        assert!(!assist.native_suspended);
         assert_ne!(generation, assist.generation);
     }
     #[test]
@@ -1351,5 +1409,23 @@ mod tests {
         field.apply(Delta { caret: Some(invalid), ..Default::default() });
         assert!(!field.caret_reported);
         assert!(field.caret.is_none());
+    }
+    #[test]
+    fn protected_reenable_requires_explicit_unchanged_sensitivity() {
+        let mut field = Field::default();
+        let same = Delta {
+            enabled: Some(true),
+            content: Some((ContentHint::empty(), ContentPurpose::Password)),
+            ..Default::default()
+        };
+        assert!(!field.protected_reenable(&same));
+        field.purpose = ContentPurpose::Password;
+        assert!(field.protected_reenable(&same));
+        assert!(!field.protected_reenable(&Delta { enabled: Some(true), ..Default::default() }));
+        assert!(!field.protected_reenable(&Delta {
+            enabled: Some(true),
+            content: Some((ContentHint::empty(), ContentPurpose::Normal)),
+            ..Default::default()
+        }));
     }
 }

@@ -73,7 +73,7 @@ cp "$root/crates/aqua-text/src/seed.txt" "$rt/dictionary"
     if [[ $mode != password && $mode != invalid && $mode != finder* && $mode != browser-password-http ]]; then
         printf 'hotkey tab\n' >> "$rt/control"
     fi
-    if [[ $mode == password-fill || $mode == password-cancel || $mode == browser-password || $mode == browser-password-cancel ]]; then
+    if [[ $mode == password-fill || $mode == password-cancel || $mode == browser-password || $mode == browser-password-cancel || $mode == browser-password-protected-cancel ]]; then
         sleep 1
         printf 'shot %s/choices-%s.png\n' "$out" "$mode" >> "$rt/control"
         sleep 1
@@ -97,7 +97,7 @@ case "$mode" in
     unicode|gtk-unicode|browser-unicode) grep -q 'TEXT=привет$' "$out/client-$mode.log" ;;
     t9|browser-t9) grep -q 'TEXT=hello$' "$out/client-$mode.log" ;;
     browser-password) [[ $(grep -c '^INSERT ' "$out/client-$mode.log") == 11 ]]; grep -q 'PASSWORD_LENGTH=11$' "$out/client-$mode.log"; grep -q 'origin-verified=true' "$out/state-$mode.txt" ;;
-    browser-password-cancel) [[ $(grep -c '^INSERT ' "$out/client-$mode.log") == 1 ]]; grep -q INPUT_DISABLED_AFTER_FIRST "$out/client-$mode.log" ;;
+    browser-password-cancel|browser-password-protected-cancel) [[ $(grep -c '^INSERT ' "$out/client-$mode.log") == 1 ]]; grep -q INPUT_DISABLED_AFTER_FIRST "$out/client-$mode.log" ;;
     browser-password-http) ! grep -q '^INSERT ' "$out/client-$mode.log"; grep -q 'origin-verified=false' "$out/state-$mode.txt" ;;
     password-fill) [[ $(grep -c '^INSERT ' "$out/client-$mode.log") == 11 ]]; grep -q FIXTURE_READY "$out/fixture-$mode.log" ;;
     password-cancel) [[ $(grep -c '^INSERT ' "$out/client-$mode.log") == 1 ]]; grep -q INPUT_DISABLED_AFTER_FIRST "$out/client-$mode.log" ;;

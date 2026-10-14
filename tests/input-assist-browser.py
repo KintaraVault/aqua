@@ -20,7 +20,7 @@ body {background:#edf2fa;color:#1d2534;font:18px sans-serif;padding:70px;}
 input {font:24px sans-serif;padding:16px;border:1px solid #789;border-radius:14px;width:580px;}
 </style><h1>Native suggestions, no extension</h1><p>Local browser fixture</p>
 <input id="entry" type="TYPE" value="INITIAL" autofocus><p>Tab accepts the native suggestion.</p>
-<input id="other" placeholder="Cancellation target">
+<input id="other" type="OTHER_KIND" placeholder="Cancellation target">
 <script>const e=document.getElementById('entry'); let last=e.value;
 e.focus();e.setSelectionRange(e.value.length,e.value.length);
 fetch('/ready',{method:'POST'});
@@ -28,6 +28,7 @@ e.addEventListener('input',()=>{fetch('/edit',{method:'POST',body:JSON.stringify
 text:PROTECTED?undefined:e.value,length:[...e.value].length,chars:[...e.value].length-[...last].length,ns:performance.now()})});last=e.value;
 if(CANCEL)document.getElementById('other').focus();});
 </script>'''.replace("TYPE", "password" if protected else "text").replace("INITIAL", initial)
+    .replace("OTHER_KIND", "password" if mode == "browser-password-protected-cancel" else "text")
     .replace("PROTECTED", str(protected).lower()).replace("CANCEL", str(cancel).lower())).encode()
 
 class Handler(BaseHTTPRequestHandler):
