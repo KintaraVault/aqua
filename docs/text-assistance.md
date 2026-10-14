@@ -8,7 +8,7 @@ The focused, enabled `text-input-v3` transaction supplies surrounding text, UTF-
 
 An off-thread AT-SPI bridge supplements incomplete native context and supports accessible GTK fields without a native input method. Discovery is bounded and restricted to the focused process family, matching active window and focused editable widget. D-Bus failures do not block the compositor. Native delivery is preferred; accessibility-only delivery requires `EditableText` support. Applications that expose neither interface are unsupported. Accessibility must be enabled in the session.
 
-Field bounds and caret position are separate. AT-SPI provides a rectangular field bound, not its CSS outline or corner radius. Unknown geometry stays unknown; a field rectangle may anchor a popup without being reported as a real caret. The optional `aqua-text-field-v1` protocol supplies surface-local rounded bounds and a corner radius, applied on `wl_surface.commit` and cleared on blur. Aqua's shared UI `Field` component reports these bounds. Arbitrary paths and uninstrumented custom canvas fields are not inferred.
+Field bounds and caret position are separate. AT-SPI provides a rectangular field bound, not its CSS outline or corner radius. Unknown geometry stays unknown; a field rectangle may anchor a popup without being reported as a real caret. The optional `aqua-text-field-v1` protocol supplies surface-local rounded bounds and a corner radius, applied on `wl_surface.commit` and cleared on blur. Aqua's shared UI `Field` component and its Finder/Store search, rename and address controls report their rendered bounds. Arbitrary paths and uninstrumented custom canvas fields are not inferred.
 
 ## Suggestions and delivery
 
@@ -34,7 +34,7 @@ Listing requires selecting “Passwords…”. Fetching requires selecting an en
 
 Password/PIN and hidden/sensitive surrounding text is not retained, indexed, logged or exposed over IPC. Accessibility event payloads are not decoded. Plain text context is bounded and zeroized; temporary secrets and queued graphemes are zeroized on drop. Focus generations invalidate asynchronous results. Wayland/D-Bus transport and receiving applications necessarily contain copies that heap zeroization cannot erase.
 
-The native IME and virtual-keyboard globals are hidden from sandbox clients. Unsandboxed local processes still share the desktop user's trust boundary. Accessibility is not a security boundary against a compromised desktop session.
+The native IME and virtual-keyboard globals are hidden from sandbox clients. Unsandboxed local processes still share the desktop user's trust boundary. Accessibility is not a security boundary against a compromised desktop session. AT-SPI exposes document URLs, not TLS certificate validation state; an HTTPS scope must not be mistaken for certificate attestation.
 
 ## Testing
 

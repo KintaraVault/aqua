@@ -326,7 +326,11 @@ fn document_origin(conn: &Connection, obj: &Object) -> Option<String> {
     let mut origins = Vec::new();
     for _ in 0..24 {
         let node = accessible(conn, &ancestor).ok()?;
-        if matches!(node.get_role().ok()?, Role::DocumentWeb | Role::DocumentFrame) {
+        let role = node.get_role().ok()?;
+        if matches!(role, Role::Frame | Role::Dialog | Role::Window) {
+            break;
+        }
+        if matches!(role, Role::DocumentWeb | Role::DocumentFrame) {
             let document = atspi_proxies::document::DocumentProxyBlocking::builder(conn)
                 .destination(ancestor.bus.as_str())
                 .ok()?
@@ -335,10 +339,12 @@ fn document_origin(conn: &Connection, obj: &Object) -> Option<String> {
                 .build()
                 .ok()?;
             let attributes = document.get_attributes().ok()?;
-            let value = ["DocURL", "doc-url", "document-uri", "uri", "URL"]
-                .iter()
-                .find_map(|key| attributes.get(*key))
-                .and_then(|value| canonical_origin(value))?;
+            let value = consistent_origins(
+                ["DocURL", "doc-url", "document-uri", "uri", "URI", "URL"]
+                    .iter()
+                    .filter_map(|key| attributes.get(*key))
+                    .map(String::as_str),
+            )?;
             origins.push(value);
         }
         let Some(parent) = object(node.parent().ok()?) else { break };
@@ -349,8 +355,12 @@ fn document_origin(conn: &Connection, obj: &Object) -> Option<String> {
         ancestor = parent;
     }
     // Cross-origin embedded frames require user/browser integration; never guess a top-level origin.
-    let origin = origins.first()?.clone();
-    origins.iter().all(|value| *value == origin).then_some(origin)
+    consistent_origins(origins.iter().map(String::as_str))
+}
+fn consistent_origins<'a>(values: impl IntoIterator<Item = &'a str>) -> Option<String> {
+    let mut values = values.into_iter();
+    let first = canonical_origin(values.next()?)?;
+    values.all(|value| canonical_origin(value).as_ref() == Some(&first)).then_some(first)
 }
 /// Credential origins require the browser's own accessibility connection and a system-owned binary.
 /// Descendant processes may describe ordinary fields, but cannot assert website credential scope.
@@ -759,5 +769,16 @@ mod tests {
     fn unknown_executables_are_not_browser_identity() {
         assert!(is_browser_executable("firefox"));
         assert!(!is_browser_executable("firefox-lookalike"));
+    }
+    #[test]
+    fn document_scopes_require_consensus_and_never_invent_an_origin() {
+        assert!(consistent_origins([]).is_none());
+        assert_eq!(
+            consistent_origins(["https://EXAMPLE.org/login", "https://example.org:443/frame"]),
+            Some("https://example.org".into())
+        );
+        assert!(consistent_origins(["https://example.org", "https://other.org"]).is_none());
+        assert!(consistent_origins(["https://example.org", "https://example.org:8443"]).is_none());
+        assert!(consistent_origins(["https://example.org", "http://example.org"]).is_none());
     }
 }

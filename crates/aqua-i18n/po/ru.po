@@ -3923,3 +3923,9 @@ msgstr "Пароль не получен"
 
 msgid "Suggestions · Tab to insert"
 msgstr "Подсказки · Tab для вставки"
+
+msgid "Input target could not be verified"
+msgstr "Не удалось проверить поле ввода"
+
+msgid "Website could not be verified"
+msgstr "Не удалось проверить сайт"

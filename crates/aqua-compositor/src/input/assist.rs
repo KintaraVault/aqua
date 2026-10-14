@@ -182,6 +182,7 @@ pub struct Assist {
     native_waiting: bool,
     native_deadline: Option<std::time::Instant>,
     pending_delete: Option<u32>,
+    protected_caret: Option<i32>,
     acknowledgements: Acknowledgements,
     replace_prefix: Option<Zeroizing<String>>,
     pending: HashMap<ObjectId, Delta>,
@@ -235,6 +236,7 @@ impl Default for Assist {
             native_waiting: false,
             native_deadline: None,
             pending_delete: None,
+            protected_caret: None,
             acknowledgements: Acknowledgements::default(),
             replace_prefix: None,
             pending: HashMap::new(),
@@ -265,6 +267,7 @@ impl Assist {
         self.native_waiting = false;
         self.native_deadline = None;
         self.pending_delete = None;
+        self.protected_caret = None;
         self.acknowledgements.clear();
         self.replace_prefix = None;
         self.bridge_window = None;
@@ -397,7 +400,9 @@ impl Aqua {
         }
         let acknowledged = !old_ack
             && current.is_some_and(|a| {
-                a.field.sensitive() || exact || !a.field.surrounding_reported && delta.caret.flatten().is_some()
+                a.field.sensitive() && !a.browser
+                    || exact
+                    || !a.field.surrounding_reported && delta.caret.flatten().is_some()
             });
         if acknowledged {
             self.assist.native_waiting = false;
@@ -471,6 +476,7 @@ impl Aqua {
         self.assist.native_waiting = false;
         self.assist.native_deadline = None;
         self.assist.pending_delete = None;
+        self.assist.protected_caret = None;
         self.assist.acknowledgements.clear();
         self.assist.bridge.cancel(self.assist.generation);
         if !self.assist_available() {
@@ -557,6 +563,7 @@ impl Aqua {
         self.assist.native_waiting = false;
         self.assist.native_deadline = None;
         self.assist.pending_delete = None;
+        self.assist.protected_caret = None;
         self.assist.acknowledgements.clear();
         self.assist.bridge.cancel(self.assist.generation);
         self.assist.dismiss();
@@ -822,6 +829,16 @@ impl Aqua {
             self.assist.native_waiting = false;
             self.assist.native_deadline = None;
         }
+        if active.native
+            && snapshot.password
+            && self.assist.native_waiting
+            && self.assist.protected_caret == Some(snapshot.target.caret)
+            && snapshot.target.anchor == snapshot.target.caret
+        {
+            self.assist.native_waiting = false;
+            self.assist.native_deadline = None;
+            self.assist.protected_caret = None;
+        }
         let merge_text = self.assist.queue.is_none()
             && !self.assist.access_typing
             && (!active.native || !active.field.surrounding_reported || !active.field.caret_reported);
@@ -951,6 +968,7 @@ impl Aqua {
             return false;
         }
         self.assist.permit_pending = false;
+        self.assist.protected_caret = None;
         self.assist.queue = Typing::new(text, self.assist.generation);
         self.assist.dismiss();
         if self.assist.queue.is_some() && !self.assist.timer_running {
@@ -1039,6 +1057,16 @@ impl Aqua {
             self.assist.queue = None;
             return false;
         };
+        if active.browser && active.field.sensitive() {
+            self.assist.protected_caret = active
+                .accessible
+                .as_ref()
+                .and_then(|target| target.caret.min(target.anchor).checked_add(part.chars().count() as i32));
+            if self.assist.protected_caret.is_none() {
+                self.assist.queue = None;
+                return false;
+            }
+        }
         let id = active.id.clone();
         let surface = active.surface.clone();
         let ti = self.seat.text_input().clone();
