@@ -47,6 +47,19 @@ Options: `--size WxH`, `--scale S`, `-c CMD` (repeatable), `--screenshot PATH --
 prints its JSON Schema (installed as `/usr/share/aqua/config.schema.json` and referenced from the
 `#:schema` line of `config.toml`, so TOML editors complete and check the keys).
 
+## Worktrees and build isolation
+
+Keep a separate physical `target` directory for each Git worktree. Do not symlink one
+worktree's `target` to another or reuse the same `CARGO_TARGET_DIR` for source trees with
+different local changes. Restored source timestamps can make stale local libraries look
+fresh and produce misleading missing-field or missing-method errors.
+
+If this has happened, stop builds in the other tree and invalidate the affected local
+packages in **both** profiles (`cargo clean -p PACKAGE` and
+`cargo clean --release -p PACKAGE`) before rebuilding. Cleaning the development profile
+alone does not remove release artifacts. Ordinary development uses the workspace's own
+`target` directory; no global dependency-cache cleanup is needed.
+
 ## Development
 - Formatting: `cargo fmt --all` (settings in `rustfmt.toml`, width 120); check with `cargo fmt --all -- --check`.
 - Lints: `cargo clippy --workspace --all-targets --all-features` — kept warning-free; `clippy.toml`
