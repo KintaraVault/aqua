@@ -95,10 +95,9 @@ impl Aqua {
             }
             self.stage_window(&w);
         }
-        self.stage
-            .staged
-            .iter()
-            .any(|w| meta(w).borrow().stage_from.map(|(_, t)| t.elapsed().as_secs_f32() < sm::ANIM_SECS).unwrap_or(false))
+        self.stage.staged.iter().any(|w| {
+            meta(w).borrow().stage_from.map(|(_, t)| t.elapsed().as_secs_f32() < sm::ANIM_SECS).unwrap_or(false)
+        })
     }
 
     fn stage_window(&mut self, w: &Window) {

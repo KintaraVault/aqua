@@ -76,8 +76,13 @@ mod tests {
     #[test]
     fn crowds_tiny_areas_and_degenerate_frames_stay_valid() {
         let odd = [RectF::new(0.0, 0.0, 0.0, 0.0), RectF::new(f64::NAN, 1.0, f64::INFINITY, -5.0)];
-        for (n, area) in [(150, RectF::new(50.0, 96.0, 1340.0, 674.0)), (7, RectF::new(50.0, 300.0, -20.0, -90.0)), (500, RectF::new(0.0, 0.0, 300.0, 200.0))] {
-            let frames: Vec<RectF> = (0..n).map(|i| if i < 2 { odd[i] } else { RectF::new(i as f64, 3.0, 640.0, 480.0) }).collect();
+        for (n, area) in [
+            (150, RectF::new(50.0, 96.0, 1340.0, 674.0)),
+            (7, RectF::new(50.0, 300.0, -20.0, -90.0)),
+            (500, RectF::new(0.0, 0.0, 300.0, 200.0)),
+        ] {
+            let frames: Vec<RectF> =
+                (0..n).map(|i| if i < 2 { odd[i] } else { RectF::new(i as f64, 3.0, 640.0, 480.0) }).collect();
             let g = grid(&frames, area);
             assert_eq!(g.len(), n);
             for r in &g {

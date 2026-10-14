@@ -248,7 +248,8 @@ impl Aqua {
         // stops at the menu bar (drawn below the popover, it must stay sharp)
         let (x0, y0) = (b.x - m, (b.y - m).max(mb));
         let (x1, y1) = (b.right() + m, b.bottom() + m);
-        let r = Rectangle::<f64, Logical>::new((x0 as f64, y0 as f64).into(), ((x1 - x0) as f64, (y1 - y0) as f64).into());
+        let r =
+            Rectangle::<f64, Logical>::new((x0 as f64, y0 as f64).into(), ((x1 - x0) as f64, (y1 - y0) as f64).into());
         let g = self.cfg.glass.material(Material::Overlay, false).with_radius(m + 20.0);
         let mut p = glass_params(&g, scale as f32);
         p.variant = 210;

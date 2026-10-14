@@ -30,7 +30,11 @@ fn push_start(out: &mut Vec<String>, path: &str, save: bool) {
     if p.is_dir() || path.ends_with('/') {
         let dir = p.canonicalize().map(|d| d.to_string_lossy().into_owned()).unwrap_or_else(|_| {
             let t = path.trim_end_matches('/');
-            if t.is_empty() { "/".into() } else { t.to_string() }
+            if t.is_empty() {
+                "/".into()
+            } else {
+                t.to_string()
+            }
         });
         out.extend(["--folder".into(), dir]);
         return;
@@ -116,13 +120,7 @@ fn kdialog_filter(f: &str) -> Vec<(String, Vec<String>)> {
 /// kdialog: `--getopenfilename [START] [FILTER]`, `--getsavefilename`, `--getexistingdirectory`,
 /// `--getopenurl` / `--getsaveurl`, with `--multiple`, `--separate-output`, `--title T`.
 pub fn kdialog(args: &[String]) -> Option<Compat> {
-    let modes = [
-        "--getopenfilename",
-        "--getsavefilename",
-        "--getexistingdirectory",
-        "--getopenurl",
-        "--getsaveurl",
-    ];
+    let modes = ["--getopenfilename", "--getsavefilename", "--getexistingdirectory", "--getopenurl", "--getsaveurl"];
     let mode = args.iter().find(|a| modes.contains(&a.as_str()))?.clone();
     let save = mode.contains("save");
     let (mut out, mut sep, mut pos) = (vec![], " ".to_string(), vec![]);
@@ -170,7 +168,9 @@ pub fn real_program(prog: &str) -> Option<std::path::PathBuf> {
     std::env::var_os("PATH").iter().flat_map(std::env::split_paths).map(|d| d.join(prog)).find(|c| {
         c.is_file()
             && c.canonicalize().ok() != me
-            && std::fs::metadata(c).map(|m| std::os::unix::fs::PermissionsExt::mode(&m.permissions()) & 0o111 != 0).unwrap_or(false)
+            && std::fs::metadata(c)
+                .map(|m| std::os::unix::fs::PermissionsExt::mode(&m.permissions()) & 0o111 != 0)
+                .unwrap_or(false)
     })
 }
 
@@ -202,8 +202,8 @@ mod tests {
         let c = kdialog(&s(&["--title", "Open", "--getopenfilename", "/tmp", "*.png *.jpg|Images"])).unwrap();
         assert_eq!(c.args, s(&["--title", "Open", "--filter", "Images:*.png;*.jpg", "--folder", "/tmp"]));
         assert_eq!(c.sep, " ");
-        let c = kdialog(&s(&["--getopenfilename", ".", "Text (*.txt *.md)", "--multiple", "--separate-output"]))
-            .unwrap();
+        let c =
+            kdialog(&s(&["--getopenfilename", ".", "Text (*.txt *.md)", "--multiple", "--separate-output"])).unwrap();
         assert_eq!(c.sep, "\n");
         assert!(c.args.contains(&"--multiple".to_string()));
         assert!(c.args.contains(&"Text:*.txt;*.md".to_string()));

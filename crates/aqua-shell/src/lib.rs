@@ -25,8 +25,8 @@ pub use types::*;
 pub use bar::{clock, menu, menubar, sysinfo, tray};
 pub use kit::{scroll, soft, style};
 pub use panels::{
-    alert, charviewer, clipboard, control, desktop, launchpad, lockscreen, mission, notifications, screenshot, spotlight,
-    switcher, widgets,
+    alert, charviewer, clipboard, control, desktop, launchpad, lockscreen, mission, notifications, screenshot,
+    spotlight, switcher, widgets,
 };
 
 use aqua_config::{Config, GlassStyle};

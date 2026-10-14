@@ -234,7 +234,8 @@ fn rescan(sh: &mut Shell) {
         fresh.push(items.len());
         items.push(Item { path, label, kind, mtime, app, pos: (0.0, 0.0) });
     }
-    let mut taken: Vec<(f32, f32)> = items.iter().enumerate().filter(|(i, _)| !fresh.contains(i)).map(|(_, it)| it.pos).collect();
+    let mut taken: Vec<(f32, f32)> =
+        items.iter().enumerate().filter(|(i, _)| !fresh.contains(i)).map(|(_, it)| it.pos).collect();
     for &i in &fresh {
         let saved = sh.desktop.places.get(&file_name(&items[i].path)).copied();
         let p = match saved {
@@ -408,7 +409,10 @@ pub fn release(sh: &mut Shell, x: f32, y: f32) -> Vec<Action> {
             .map(|(j, _)| aqua_apps::shell_quote(&sh.desktop.items[*j].path.to_string_lossy()))
             .collect();
         sh.desktop.last_check = None;
-        return vec![Action::Launch(format!("mv -n -- {} {}", srcs.join(" "), aqua_apps::shell_quote(&dest))), Action::Redraw];
+        return vec![
+            Action::Launch(format!("mv -n -- {} {}", srcs.join(" "), aqua_apps::shell_quote(&dest))),
+            Action::Redraw,
+        ];
     }
     if sh.cfg.desktop_snap {
         let mut taken: Vec<(f32, f32)> =
@@ -529,7 +533,8 @@ fn request_thumb(d: &Desktop, path: &Path, px: u32) {
             let Some(pm) = pm else { return };
             let k = (px as f32 / pm.width().max(pm.height()) as f32).min(1.0);
             let small = if k < 1.0 {
-                let (w, h) = ((pm.width() as f32 * k).round().max(1.0) as u32, (pm.height() as f32 * k).round().max(1.0) as u32);
+                let (w, h) =
+                    ((pm.width() as f32 * k).round().max(1.0) as u32, (pm.height() as f32 * k).round().max(1.0) as u32);
                 aqua_gfx::resample(&pm, k, k, 0.0, 0.0, w, h)
             } else {
                 pm
@@ -556,10 +561,9 @@ fn icon_for(sh: &mut Shell, i: usize, px: u32) -> (Arc<Pixmap>, bool) {
         }
     }
     let pm = match (it.kind, &it.app) {
-        (Kind::Dir, _) => sh.icons.get(
-            &IconRequest { id: "folder".into(), name: "Folder".into(), icon: "builtin:folder".into() },
-            px,
-        ),
+        (Kind::Dir, _) => {
+            sh.icons.get(&IconRequest { id: "folder".into(), name: "Folder".into(), icon: "builtin:folder".into() }, px)
+        }
         (Kind::App, Some(a)) => {
             let req = IconRequest { id: a.id.clone(), name: a.name.clone(), icon: a.icon.clone() };
             sh.icons.get(&req, px)

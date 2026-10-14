@@ -15,11 +15,11 @@
 //! baked contact shadow) so they line up, and keep full alpha so the
 //! compositor's icon shaders can operate on them.
 
+pub mod apple_fx;
+pub mod backdrop;
 pub mod builtin;
 pub mod equiv;
 mod fetch;
-pub mod apple_fx;
-pub mod backdrop;
 pub mod glass;
 pub mod glyph;
 pub mod icns;

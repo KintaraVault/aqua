@@ -222,9 +222,8 @@ pub fn validate(c: &mut Config, issues: &mut Vec<Issue>) {
     range(issues, "glass.roundness", &mut c.glass.roundness, 2.0, 7.0);
     range(issues, "glass.radius", &mut c.glass.radius, 0.0, 64.0);
     range(issues, "glass.shadow", &mut c.glass.shadow, 0.0, 1.0);
-    for (i, v) in [&mut c.glass.tint.0, &mut c.glass.tint.1, &mut c.glass.tint.2, &mut c.glass.tint.3]
-        .into_iter()
-        .enumerate()
+    for (i, v) in
+        [&mut c.glass.tint.0, &mut c.glass.tint.1, &mut c.glass.tint.2, &mut c.glass.tint.3].into_iter().enumerate()
     {
         range(issues, &format!("glass.tint[{i}]"), v, 0.0, 1.0);
     }
@@ -320,14 +319,33 @@ mod tests {
             .lines()
             .filter_map(|l| l.split_once(" = ").map(|(k, _)| k.trim().to_string()))
             .collect();
-        let values = ["-1", "1e400", "\"\"", "true", "[]", "[1, \"x\"]", "{ a = 1 }", "1979-05-27T07:32:00Z", "-0.0", "9223372036854775807"];
+        let values = [
+            "-1",
+            "1e400",
+            "\"\"",
+            "true",
+            "[]",
+            "[1, \"x\"]",
+            "{ a = 1 }",
+            "1979-05-27T07:32:00Z",
+            "-0.0",
+            "9223372036854775807",
+        ];
         for k in &keys {
             for v in values {
                 let _ = check(&format!("{k} = {v}\n"));
                 let _ = check(&format!("[glass]\n{k} = {v}\n"));
             }
         }
-        for src in ["[[outputs]]\n", "[[dock]]\n[[dock]]\nname = 1\n", "version = -5\n", "version = 99999999999\n", "[keyboard]\nlayouts = [[]]\n", "bindings = 3\n", "\u{feff}menubar_height = 30\n"] {
+        for src in [
+            "[[outputs]]\n",
+            "[[dock]]\n[[dock]]\nname = 1\n",
+            "version = -5\n",
+            "version = 99999999999\n",
+            "[keyboard]\nlayouts = [[]]\n",
+            "bindings = 3\n",
+            "\u{feff}menubar_height = 30\n",
+        ] {
             let _ = check(src);
         }
     }

@@ -543,8 +543,7 @@ impl Aqua {
             .iter()
             .filter(|w| {
                 let id = id_of(w);
-                !id.is_empty()
-                    && (id == want || id.ends_with(&format!(".{want}")) || want.ends_with(&format!(".{id}")))
+                !id.is_empty() && (id == want || id.ends_with(&format!(".{want}")) || want.ends_with(&format!(".{id}")))
             })
             .cloned()
             .collect();
@@ -561,7 +560,12 @@ impl Aqua {
         // Loose fallback for names that only resemble the app id (notification senders,
         // MPRIS players). Never used when real matches exist: "Quit" on a Steam game
         // (steam_app_570) also closed the Steam client because "steam" is a substring.
-        all.into_iter().filter(|w| { let id = id_of(w); !id.is_empty() && want.contains(&id) }).collect()
+        all.into_iter()
+            .filter(|w| {
+                let id = id_of(w);
+                !id.is_empty() && want.contains(&id)
+            })
+            .collect()
     }
 
     /// Activation requested by a client (xdg-activation, `_NET_ACTIVE_WINDOW`). Apps may only
@@ -786,12 +790,16 @@ impl Aqua {
 
     /// Pace native text-input; manual insertion into unsupported apps uses paste.
     pub fn type_text(&mut self, text: &str) {
-        if self.queue_assist_text(zeroize::Zeroizing::new(text.to_owned())) { return; }
+        if self.queue_assist_text(zeroize::Zeroizing::new(text.to_owned())) {
+            return;
+        }
         use smithay::wayland::text_input::TextInputSeat;
         let mut active = false;
         self.seat.text_input().with_active_text_input(|_, _| active = true);
         // Never bypass a focus-bound queue or put text-input content on the clipboard.
-        if active { return; }
+        if active {
+            return;
+        }
         self.clipboard_put_text(text);
         let term = self.focused_window().map(|w| {
             let (id, _) = title_of(&w);

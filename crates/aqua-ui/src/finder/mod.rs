@@ -33,8 +33,8 @@ mod thumbs;
 pub mod transfer;
 pub mod undo;
 
-pub use run::{run, OUTPUT_SEP};
 use run::{finish, hostname, open_path, open_terminal, record_recent, spawn_finder, trunc};
+pub use run::{run, OUTPUT_SEP};
 
 use crate::{
     FColumn, FCrit, FCrumb, FItem, FLCol, FMenuItem, FOpt, FPlace, FRow, FSpot, FTab, FTagDef, FinderWindow, F, FKV,
@@ -983,15 +983,15 @@ impl App {
         if let Some(t) = self.tabs.get_mut(self.tab) {
             t.loc = self.loc.clone();
         }
-        let titles: Vec<FTab> =
-            self.tabs
-                .iter()
-                .enumerate()
-                .map(|(i, t)| FTab {
-                    title: if i == self.tab { self.title() } else { self.loc_title(&t.loc) }.into(),
-                    path: t.loc.key().into(),
-                })
-                .collect();
+        let titles: Vec<FTab> = self
+            .tabs
+            .iter()
+            .enumerate()
+            .map(|(i, t)| FTab {
+                title: if i == self.tab { self.title() } else { self.loc_title(&t.loc) }.into(),
+                path: t.loc.key().into(),
+            })
+            .collect();
         f.set_show_tabbar(self.st.tab_bar || titles.len() > 1);
         f.set_tabs(model(titles));
         f.set_tab_idx(self.tab as i32);

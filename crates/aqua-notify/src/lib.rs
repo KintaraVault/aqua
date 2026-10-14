@@ -284,7 +284,10 @@ mod tests {
         assert_eq!(strip_markup("<a href=\"x\">link</a>"), "link");
         assert_eq!(strip_markup("plain"), "plain");
         assert_eq!(strip_markup("I <3 you, a < b > c"), "I <3 you, a < b > c");
-        assert_eq!(strip_markup("&amp;lt;b&amp;gt; &#39;x&#39; &#x41; &bogus; & alone"), "&lt;b&gt; 'x' A &bogus; & alone");
+        assert_eq!(
+            strip_markup("&amp;lt;b&amp;gt; &#39;x&#39; &#x41; &bogus; & alone"),
+            "&lt;b&gt; 'x' A &bogus; & alone"
+        );
         assert_eq!(strip_markup("<img src=\"a.png\" alt=\"pic\"/>после <b>жирный</b>"), "после жирный");
         assert_eq!(strip_markup("unterminated <b"), "unterminated <b");
         assert_eq!(strip_markup("&жжжжжжжжжж; &ж;"), "&жжжжжжжжжж; &ж;");

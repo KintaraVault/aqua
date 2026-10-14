@@ -93,7 +93,11 @@ fn key_glyph(k: &str) -> String {
 
 fn shortcut_prop(v: &Value) -> String {
     let chords: Vec<Vec<String>> = elements(v)
-        .map(|cs| cs.iter().map(|c| elements(c).map(|ks| ks.iter().filter_map(as_str).collect()).unwrap_or_default()).collect())
+        .map(|cs| {
+            cs.iter()
+                .map(|c| elements(c).map(|ks| ks.iter().filter_map(as_str).collect()).unwrap_or_default())
+                .collect()
+        })
         .unwrap_or_default();
     shortcut_label(&chords)
 }
@@ -212,7 +216,9 @@ mod tests {
 
     #[test]
     fn shortcuts() {
-        let c = |v: &[&[&str]]| shortcut_label(&v.iter().map(|k| k.iter().map(|s| s.to_string()).collect()).collect::<Vec<_>>());
+        let c = |v: &[&[&str]]| {
+            shortcut_label(&v.iter().map(|k| k.iter().map(|s| s.to_string()).collect()).collect::<Vec<_>>())
+        };
         assert_eq!(c(&[&["Control", "s"]]), "⌘S");
         assert_eq!(c(&[&["Control", "Shift", "z"]]), "⇧⌘Z");
         assert_eq!(c(&[&["Shift", "Alt", "Control", "Super", "Return"]]), "⌃⌥⇧⌘↩");
@@ -229,7 +235,10 @@ mod tests {
                 1,
                 &[
                     ("label", Value::from("Save")),
-                    ("shortcut", Value::from(Array::from(vec![Value::from(vec!["Control".to_string(), "s".to_string()])]))),
+                    (
+                        "shortcut",
+                        Value::from(Array::from(vec![Value::from(vec!["Control".to_string(), "s".to_string()])])),
+                    ),
                 ],
                 vec![],
             )],

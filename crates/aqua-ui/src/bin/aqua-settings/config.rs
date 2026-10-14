@@ -110,7 +110,11 @@ pub fn load_into(ui: &SettingsWindow, cfg: &Config) {
     s.set_mb_search(!hid("search"));
     s.set_alert_sound(cfg.alert_sound);
     s.set_window_radius(lerp_inv(cfg.window_radius as f64, 0.0, 30.0));
-    s.set_sidebar_style(match cfg.sidebar_style.as_str() { "floating" => 1, "solid" => 2, _ => 0 });
+    s.set_sidebar_style(match cfg.sidebar_style.as_str() {
+        "floating" => 1,
+        "solid" => 2,
+        _ => 0,
+    });
     s.set_glass_controls(cfg.glass_controls);
     s.set_glass_lights(cfg.glass_traffic_lights);
     s.set_window_glass(cfg.window_glass);
@@ -204,7 +208,12 @@ pub fn store_from(ui: &SettingsWindow, cfg: &mut Config) {
     .collect();
     cfg.alert_sound = s.get_alert_sound();
     cfg.window_radius = lerp(s.get_window_radius(), 0.0, 30.0).round() as f32;
-    cfg.sidebar_style = match s.get_sidebar_style() { 1 => "floating", 2 => "solid", _ => "aqua" }.into();
+    cfg.sidebar_style = match s.get_sidebar_style() {
+        1 => "floating",
+        2 => "solid",
+        _ => "aqua",
+    }
+    .into();
     cfg.glass_controls = s.get_glass_controls();
     cfg.glass_traffic_lights = s.get_glass_lights();
     cfg.window_glass = s.get_window_glass();

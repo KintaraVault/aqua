@@ -118,7 +118,10 @@ pub enum Rim {
     Additive,
     /// `white`: straight white mixed over the soft-light result (0.15–0.30);
     /// `shade`: darkening of the edge facing away from the light.
-    SoftLight { white: f32, shade: f32 },
+    SoftLight {
+        white: f32,
+        shade: f32,
+    },
 }
 
 impl Highlight {
@@ -520,8 +523,13 @@ unsafe fn aloc(gl: &ffi::Gles2, p: u32, n: &str) -> i32 {
 impl Programs {
     pub fn new(r: &mut GlesRenderer) -> Result<Self, GlesError> {
         let res = r.with_context(|gl| unsafe {
-            let glass = link(gl, include_str!("shaders/apple/glass.vert"), include_str!("shaders/apple/glass_background_sdf.frag"))?;
-            let pyramid = link(gl, include_str!("shaders/apple/pyramid.vert"), include_str!("shaders/apple/pyramid.frag"))?;
+            let glass = link(
+                gl,
+                include_str!("shaders/apple/glass.vert"),
+                include_str!("shaders/apple/glass_background_sdf.frag"),
+            )?;
+            let pyramid =
+                link(gl, include_str!("shaders/apple/pyramid.vert"), include_str!("shaders/apple/pyramid.frag"))?;
             for (name, slot) in [("Buf1", 0u32), ("Buf6", 1u32)] {
                 let c = CString::new(name).unwrap();
                 let idx = gl.GetUniformBlockIndex(glass, c.as_ptr());
@@ -586,7 +594,15 @@ impl Pyramid {
 ///
 /// # Safety
 /// A GL context must be current; caller saves/restores GL state.
-pub unsafe fn build_pyramid(gl: &ffi::Gles2, pr: &Programs, p: &mut Pyramid, src_tex: u32, w: i32, h: i32, levels: usize) {
+pub unsafe fn build_pyramid(
+    gl: &ffi::Gles2,
+    pr: &Programs,
+    p: &mut Pyramid,
+    src_tex: u32,
+    w: i32,
+    h: i32,
+    levels: usize,
+) {
     let max_levels = 1 + (w.min(h).max(1) as f32).log2().floor() as usize;
     let levels = levels.clamp(1, max_levels.max(1));
     if p.tex == 0 || p.w != w || p.h != h || p.levels != levels {
@@ -776,7 +792,15 @@ mod tests {
         let v = Variant::from_code(std::env::var("LTX_VARIANT").ok().and_then(|v| v.parse().ok()).unwrap_or(0));
         let g = GlassInputs::mac(v, dark, 400.0, 140.0);
         // test harness: 400×140 px at scale 1, fb y-up (displacement y flipped)
-        let b = pack(&g, &Frame { half: [200.0, 70.0], radius: 36.0, displacement: [1.0 / 400.0, 0.0, 0.0, -1.0 / 140.0], scale: 1.0 });
+        let b = pack(
+            &g,
+            &Frame {
+                half: [200.0, 70.0],
+                radius: 36.0,
+                displacement: [1.0 / 400.0, 0.0, 0.0, -1.0 / 140.0],
+                scale: 1.0,
+            },
+        );
         std::fs::write(path, b).unwrap();
     }
 }

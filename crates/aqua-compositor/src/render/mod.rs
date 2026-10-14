@@ -457,7 +457,9 @@ impl Aqua {
         let fs_front = !self.mission_visible() && self.front_is_fullscreen();
         self.shell.fullscreen = fs_front;
         let mut layers = if self.lock.mode == LockMode::Internal { vec![] } else { self.shell.layers() };
-        if let Some(layer) = self.assist_layer() { layers.push(layer); }
+        if let Some(layer) = self.assist_layer() {
+            layers.push(layer);
+        }
         {
             let rc = &mut self.render_cache;
             let mut freed = 0;
@@ -610,8 +612,13 @@ impl Aqua {
 
     /// Drop caches belonging to windows that no longer exist.
     pub fn prune_render_cache(&mut self) {
-        let ids: std::collections::HashSet<u64> =
-            self.space.elements().chain(self.minimized.iter()).chain(self.stage.staged.iter()).map(|w| meta(w).borrow().id).collect();
+        let ids: std::collections::HashSet<u64> = self
+            .space
+            .elements()
+            .chain(self.minimized.iter())
+            .chain(self.stage.staged.iter())
+            .map(|w| meta(w).borrow().id)
+            .collect();
         // genie cards live exactly as long as the minimise / restore they were made for
         let anims: std::collections::HashMap<u64, Instant> = self
             .space

@@ -156,7 +156,9 @@ impl App {
                 return;
             }
         }
-        if !q.is_empty() && self.chooser.is_none() && matches!(self.loc, Loc::Dir(_) | Loc::Recents | Loc::Apps | Loc::Tag(_))
+        if !q.is_empty()
+            && self.chooser.is_none()
+            && matches!(self.loc, Loc::Dir(_) | Loc::Recents | Loc::Apps | Loc::Tag(_))
         {
             self.pending_q = Some((std::time::Instant::now(), q.clone()));
         } else {

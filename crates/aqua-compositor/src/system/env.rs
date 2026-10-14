@@ -161,7 +161,9 @@ pub fn export_session(wayland_display: &str) {
     if let Some(path) = path_with_shims() {
         v.push(("PATH".into(), path));
     }
-    if let Some(m) = gtk_modules_with_appmenu(std::env::var("GTK_MODULES").ok().as_deref(), appmenu_gtk_module_installed()) {
+    if let Some(m) =
+        gtk_modules_with_appmenu(std::env::var("GTK_MODULES").ok().as_deref(), appmenu_gtk_module_installed())
+    {
         v.push(("GTK_MODULES".into(), m));
     }
     for (k, val) in &v {

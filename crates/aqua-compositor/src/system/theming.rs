@@ -382,7 +382,9 @@ fn write_appearance(dark: bool) {
     let current = read_ini_key(&conf.join("gtk-3.0/settings.ini"), "gtk-theme-name");
     let theme = gtk_theme_for_mode(current.as_deref(), dark);
     let css4 = GTK_CSS.to_string();
-    let css3 = GTK_CSS.replace("windowcontrols { border-spacing: 8px; margin: 0 6px; }\n", "").replace(" -gtk-icon-size: 8px;", "");
+    let css3 = GTK_CSS
+        .replace("windowcontrols { border-spacing: 8px; margin: 0 6px; }\n", "")
+        .replace(" -gtk-icon-size: 8px;", "");
     for (v, css) in [("gtk-3.0", &css3), ("gtk-4.0", &css4)] {
         let ini = conf.join(v).join("settings.ini");
         let mut kv = vec![

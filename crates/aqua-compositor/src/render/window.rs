@@ -252,11 +252,7 @@ impl Aqua {
             aqua_shell_hash(&(shadow_rect.loc.x, shadow_rect.loc.y, shadow_rect.size.w, shadow_rect.size.h, focused));
         let rc = &mut self.render_cache;
         if rc.shadows.get(&id).map(|(k, _)| *k != key).unwrap_or(true) {
-            let (sigma, dy, strength) = if menu_popup {
-                (12.0, 6.0, 0.30)
-            } else {
-                mac_window_shadow(focused)
-            };
+            let (sigma, dy, strength) = if menu_popup { (12.0, 6.0, 0.30) } else { mac_window_shadow(focused) };
             let el = shaders.shadow(shadow_rect, radius, sigma, dy, strength, scale);
             rc.shadows.insert(id, (key, el));
         }
@@ -321,7 +317,10 @@ impl Aqua {
             );
             let re = RoundedElement::new(te, fp, radius * scale as f32, &shaders, scale);
             out.push(AquaElement::Ghost(RescaleRenderElement::from_element(re, origin, zoom)));
-            out.push(AquaElement::Shader({ let (sg, dy, st) = mac_window_shadow(true); shaders.shadow(g.frame, radius, sg, dy, st * alpha * alpha, scale) }));
+            out.push(AquaElement::Shader({
+                let (sg, dy, st) = mac_window_shadow(true);
+                shaders.shadow(g.frame, radius, sg, dy, st * alpha * alpha, scale)
+            }));
         }
     }
 
@@ -470,10 +469,8 @@ impl Aqua {
         let (tw, th) = (win.size.w * k, win.size.h * k);
         let fcx = (mx + card.frame.size.w / 2.0) * k;
         let fcy = (my + card.frame.size.h / 2.0) * k;
-        let tgt = Rectangle::<f64, Logical>::new(
-            (target.0 as f64 - fcx, target.1 as f64 - fcy).into(),
-            (tw, th).into(),
-        );
+        let tgt =
+            Rectangle::<f64, Logical>::new((target.0 as f64 - fcx, target.1 as f64 - fcy).into(), (tw, th).into());
         let x0 = win.loc.x.min(tgt.loc.x).floor();
         let y0 = win.loc.y.min(tgt.loc.y).floor();
         let x1 = (win.loc.x + win.size.w).max(tgt.loc.x + tgt.size.w).ceil();

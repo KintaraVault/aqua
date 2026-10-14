@@ -461,13 +461,7 @@ impl XwmHandler for Aqua {
             self.client_activation(&w, false);
         }
     }
-    fn active_window_request(
-        &mut self,
-        _xwm: XwmId,
-        window: X11Surface,
-        _timestamp: u32,
-        current: Option<X11Surface>,
-    ) {
+    fn active_window_request(&mut self, _xwm: XwmId, window: X11Surface, _timestamp: u32, current: Option<X11Surface>) {
         if let Some(w) = self.window_for_x11(&window) {
             let from_focused = current
                 .and_then(|c| self.window_for_x11(&c))

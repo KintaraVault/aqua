@@ -88,7 +88,9 @@ fn launch_key(raw: u32) -> Option<&'static str> {
         keysyms::KEY_XF86LaunchA => "mission-control",
         keysyms::KEY_XF86LaunchB => "launchpad",
         keysyms::KEY_XF86Explorer | keysyms::KEY_XF86MyComputer => "exec:xdg-open ~",
-        keysyms::KEY_XF86HomePage | keysyms::KEY_XF86WWW => "exec:gtk-launch \"$(xdg-settings get default-web-browser)\"",
+        keysyms::KEY_XF86HomePage | keysyms::KEY_XF86WWW => {
+            "exec:gtk-launch \"$(xdg-settings get default-web-browser)\""
+        }
         keysyms::KEY_XF86Mail => "exec:xdg-open mailto:",
         keysyms::KEY_XF86Calculator => "exec:gnome-calculator || kcalc || qalculate-gtk || galculator",
         keysyms::KEY_XF86Tools => "settings",
@@ -609,7 +611,9 @@ impl Aqua {
         let (x, y) = (pos.x as f32, pos.y as f32);
         self.needs_redraw = true;
 
-        if button == BTN_LEFT && self.assist_button(x, y, state == ButtonState::Pressed) { return; }
+        if button == BTN_LEFT && self.assist_button(x, y, state == ButtonState::Pressed) {
+            return;
+        }
         let others_held = self.render_cache.held_buttons.iter().any(|b| *b != button);
         match state {
             ButtonState::Pressed => {

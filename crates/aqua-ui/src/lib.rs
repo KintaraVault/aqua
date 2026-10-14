@@ -2,8 +2,8 @@
 slint::include_modules!();
 pub mod finder;
 pub mod glass;
-pub mod text_field;
 pub mod sysdata;
+pub mod text_field;
 
 pub use aqua_i18n::{ntr, plural, tr, trf};
 

@@ -415,7 +415,10 @@ mod tests {
     #[test]
     fn preferred_representations() {
         let m = |v: &[&str]| wanted(&v.iter().map(|s| s.to_string()).collect::<Vec<_>>());
-        assert_eq!(m(&["TEXT", "text/plain;charset=utf-8", "image/png"]), vec!["image/png", "text/plain;charset=utf-8", "TEXT"]);
+        assert_eq!(
+            m(&["TEXT", "text/plain;charset=utf-8", "image/png"]),
+            vec!["image/png", "text/plain;charset=utf-8", "TEXT"]
+        );
         assert_eq!(m(&["image/webp", "application/x-foo"]), vec!["image/webp"]);
         assert!(m(&["application/x-foo"]).is_empty());
     }

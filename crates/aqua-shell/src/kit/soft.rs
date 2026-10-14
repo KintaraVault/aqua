@@ -208,7 +208,11 @@ impl LensModel {
         let (dx, dy) = (-gx * edge * self.refraction, -gy * edge * self.refraction);
         let k = 0.02 * self.dispersion;
         let chan = |sharp: bool| -> [f32; 3] {
-            [tap(dx * (1.0 + k), dy * (1.0 + k), sharp)[0], tap(dx, dy, sharp)[1], tap(dx * (1.0 - k), dy * (1.0 - k), sharp)[2]]
+            [
+                tap(dx * (1.0 + k), dy * (1.0 + k), sharp)[0],
+                tap(dx, dy, sharp)[1],
+                tap(dx * (1.0 - k), dy * (1.0 - k), sharp)[2],
+            ]
         };
         let bl = chan(false);
         let back = if self.sharp_rim { mix(chan(true), bl, depth / self.thick) } else { bl };
@@ -316,7 +320,12 @@ mod lens_tests {
 
     #[test]
     fn rim_refracts_and_lights_the_edge() {
-        let g = GlassStyle { blur: 0.0, tint: aqua_config::Rgba(1.0, 1.0, 1.0, 0.0), saturation: 1.0, ..Default::default() };
+        let g = GlassStyle {
+            blur: 0.0,
+            tint: aqua_config::Rgba(1.0, 1.0, 1.0, 0.0),
+            saturation: 1.0,
+            ..Default::default()
+        };
         let m = LensModel::new(&g, 200.0, 100.0, 1.0);
         // flat top: the backdrop straight through
         let (c, cov) = m.shade(100.5, 50.5, |dx, dy, _| [0.5 + dx * 0.0, 0.5 + dy * 0.0, 0.5]).unwrap();

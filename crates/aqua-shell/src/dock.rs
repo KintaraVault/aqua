@@ -169,10 +169,7 @@ pub(crate) fn owner_ids(it: &DockItem, apps: &[aqua_apps::App]) -> Vec<String> {
     let bin = aqua_apps::program_key(&it.exec);
     let mut v = vec![canon(&bin)];
     v.extend(it.aliases.iter().map(|a| canon(a)));
-    if let Some(a) = apps
-        .iter()
-        .find(|a| aqua_apps::program_key(&a.exec) == bin)
-    {
+    if let Some(a) = apps.iter().find(|a| aqua_apps::program_key(&a.exec) == bin) {
         v.push(canon(&a.id));
         v.push(canon(&a.icon));
         if let Some(w) = &a.wm_class {
@@ -366,8 +363,7 @@ fn fallback_icon(app_id: &str) -> String {
 
 /// Does a Dock app item stand for this installed app (its desktop id or WM class)?
 fn owns_app(it: &DockItem, a: &aqua_apps::App) -> bool {
-    it.kind == Kind::App
-        && (it.matches(&a.id) || a.wm_class.as_deref().is_some_and(|c| !c.is_empty() && it.matches(c)))
+    it.kind == Kind::App && (it.matches(&a.id) || a.wm_class.as_deref().is_some_and(|c| !c.is_empty() && it.matches(c)))
 }
 
 /// Visible items: pinned items plus running unpinned apps (inserted before the separator).
@@ -795,7 +791,8 @@ pub fn layer(sh: &mut Shell) -> Layer {
                 dy = -((ph * std::f32::consts::PI).sin().abs()) * s * 0.4 * (1.0 - ph / 3.0);
             }
             let icon = if it.kind == Kind::Trash && trash_full_cached() {
-                let full = IconRequest { id: "trash-full".into(), name: it.name.clone(), icon: "builtin:trash-full".into() };
+                let full =
+                    IconRequest { id: "trash-full".into(), name: it.name.clone(), icon: "builtin:trash-full".into() };
                 sh.icons.get(&full, px)
             } else {
                 sh.icons.get(&it.icon, px)
@@ -818,7 +815,8 @@ pub fn layer(sh: &mut Shell) -> Layer {
             let e = geo.pres[i];
             // the Dock never restyles the Trash and folder stacks (genuine Mac icons, no plate)
             let unstyled = matches!(it.kind, Kind::Folder | Kind::Trash) && aqua_icons::mac::available();
-            if it.kind == Kind::Separator || matches!(it.kind, Kind::Minimized(_)) || unstyled || !draw[i] || e <= 0.05 {
+            if it.kind == Kind::Separator || matches!(it.kind, Kind::Minimized(_)) || unstyled || !draw[i] || e <= 0.05
+            {
                 continue;
             }
             let slot = slot.translate(geo.dx[i], 0.0);
@@ -1016,10 +1014,8 @@ pub fn release(sh: &mut Shell, x: f32, y: f32) -> Option<Vec<Action>> {
         // A running-only app dropped among the other running-only apps: just reorder
         // them (macOS keeps it unpinned); dropped among the kept icons, it gets kept.
         let at = order.iter().position(|(k, _)| *k == p.key).unwrap_or(0);
-        let kept_after = order[at + 1..]
-            .iter()
-            .take_while(|(_, it)| it.kind != Kind::Separator)
-            .any(|(_, it)| it.pinned);
+        let kept_after =
+            order[at + 1..].iter().take_while(|(_, it)| it.kind != Kind::Separator).any(|(_, it)| it.pinned);
         if !kept_after {
             let seq: Vec<String> = order
                 .iter()

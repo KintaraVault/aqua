@@ -393,11 +393,8 @@ mod layout_tests {
                 .filter(|(it, _)| matches!(it, Item::Apple | Item::AppName | Item::Menu(_)))
                 .map(|(_, r)| r.x + r.w)
                 .fold(0.0f32, f32::max);
-            let status_start = items
-                .iter()
-                .filter(|(it, _)| matches!(it, Item::Status(_)))
-                .map(|(_, r)| r.x)
-                .fold(f32::MAX, f32::min);
+            let status_start =
+                items.iter().filter(|(it, _)| matches!(it, Item::Status(_))).map(|(_, r)| r.x).fold(f32::MAX, f32::min);
             let menus = items.iter().filter(|(it, _)| matches!(it, Item::Menu(_))).count();
             if w >= 900.0 {
                 assert_eq!(menus, menu_titles(&shell(w)).len(), "all menus fit at {w}");

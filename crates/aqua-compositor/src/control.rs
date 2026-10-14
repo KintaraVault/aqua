@@ -99,7 +99,16 @@ impl Aqua {
         let rows: Vec<String> = aqua_shell::tray::app_menu_entries(0)
             .unwrap_or_default()
             .into_iter()
-            .map(|e| e.map(|e| format!("{}{}", e.label, if e.shortcut.is_empty() { String::new() } else { format!(" [{}]", e.shortcut) })).unwrap_or("-".into()))
+            .map(|e| {
+                e.map(|e| {
+                    format!(
+                        "{}{}",
+                        e.label,
+                        if e.shortcut.is_empty() { String::new() } else { format!(" [{}]", e.shortcut) }
+                    )
+                })
+                .unwrap_or("-".into())
+            })
             .collect();
         let _ = writeln!(o, "appmenu_first={rows:?}");
         let _ = writeln!(
@@ -111,8 +120,7 @@ impl Aqua {
             self.stage.staged.len()
         );
         for it in aqua_shell::dock::visible_items(&self.shell) {
-            let wins: Vec<u64> =
-                self.shell.windows.iter().filter(|w| it.matches(&w.app_id)).map(|w| w.id).collect();
+            let wins: Vec<u64> = self.shell.windows.iter().filter(|w| it.matches(&w.app_id)).map(|w| w.id).collect();
             let _ = writeln!(
                 o,
                 "dock kind={:?} name={:?} app={:?} pinned={} icon_id={:?} icon={:?} windows={wins:?}",

@@ -110,7 +110,8 @@ fn fill_holes(m: &[bool], w: usize, h: usize) -> Vec<bool> {
     }
     while let Some(i) = stack.pop() {
         let (x, y) = (i % w, i / w);
-        let nb = [(x > 0).then(|| i - 1), (x + 1 < w).then(|| i + 1), (y > 0).then(|| i - w), (y + 1 < h).then(|| i + w)];
+        let nb =
+            [(x > 0).then(|| i - 1), (x + 1 < w).then(|| i + 1), (y > 0).then(|| i - w), (y + 1 < h).then(|| i + w)];
         for j in nb.into_iter().flatten() {
             if !outside[j] && !m[j] {
                 outside[j] = true;
@@ -479,7 +480,12 @@ fn remove(l: &mut Layer, plate: &dyn Fn(usize) -> Option<[f32; 3]>, b: &Backdrop
         while let Some(i) = stack.pop() {
             comp.push(i);
             let (x, y) = (i % w, i / w);
-            let nb = [(x > 0).then(|| i - 1), (x + 1 < w).then(|| i + 1), (y > 0).then(|| i - w), (y + 1 < h).then(|| i + w)];
+            let nb = [
+                (x > 0).then(|| i - 1),
+                (x + 1 < w).then(|| i + 1),
+                (y > 0).then(|| i - w),
+                (y + 1 < h).then(|| i + w),
+            ];
             for j in nb.into_iter().flatten() {
                 if !seen[j] && b.shape[j] && !b.region[j] && l.keep[j] < 0.5 {
                     seen[j] = true;
@@ -507,8 +513,7 @@ pub fn strip(
     body: f32,
 ) -> Option<[f32; 3]> {
     let unit = body.sqrt();
-    let mut scope: Vec<bool> =
-        (0..l.w * l.h).map(|i| l.alpha[i] > 0.5 && clip.is_none_or(|c| c[i] > 0.5)).collect();
+    let mut scope: Vec<bool> = (0..l.w * l.h).map(|i| l.alpha[i] > 0.5 && clip.is_none_or(|c| c[i] > 0.5)).collect();
     let mut found = None;
     for level in 0..3 {
         let Some(b) = find(l, &scope, unit, body, level > 0) else { break };
@@ -528,7 +533,8 @@ pub fn strip_pixmap(pm: &aqua_gfx::Pixmap) -> Option<(aqua_gfx::Pixmap, [f32; 3]
     let mut col: Vec<[f32; 3]> = (0..w * h)
         .map(|i| {
             let a = alpha[i].max(1e-3);
-            [d[i * 4] as f32 / 255.0 / a, d[i * 4 + 1] as f32 / 255.0 / a, d[i * 4 + 2] as f32 / 255.0 / a].map(|v| v.min(1.0))
+            [d[i * 4] as f32 / 255.0 / a, d[i * 4 + 1] as f32 / 255.0 / a, d[i * 4 + 2] as f32 / 255.0 / a]
+                .map(|v| v.min(1.0))
         })
         .collect();
     let (mut x0, mut y0, mut x1, mut y1) = (w, h, 0, 0);

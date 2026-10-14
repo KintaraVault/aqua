@@ -409,7 +409,8 @@ fn dock_groups_app_id_spellings_and_numbers_same_titles() {
             let owners: Vec<_> = apps.iter().filter(|i| i.matches(&win.app_id)).map(|i| i.name.clone()).collect();
             assert_eq!(owners.len(), 1, "pinned={pinned}: window {} ({}) belongs to {owners:?}", win.id, win.app_id);
         }
-        let tg: Vec<_> = apps.iter().filter(|i| i.matches("TelegramDesktop") || i.matches("org.telegram.desktop")).collect();
+        let tg: Vec<_> =
+            apps.iter().filter(|i| i.matches("TelegramDesktop") || i.matches("org.telegram.desktop")).collect();
         assert_eq!(tg.len(), 1, "pinned={pinned}: one Telegram icon");
         assert_eq!(tg[0].pinned, pinned);
         assert!(!apps.iter().any(|i| i.matches("org.example.Chat") && i.matches("org.gnome.Nautilus")));

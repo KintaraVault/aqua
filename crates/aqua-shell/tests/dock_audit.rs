@@ -48,8 +48,10 @@ fn installed_apps_map_to_their_own_dock_icon() {
                     if owner.as_deref() != Some(app.id.as_str()) {
                         problems.push(format!("{} ({id}): window attributed to {:?}", app.name, owner));
                     } else if !it.pinned && it.icon.icon != app.icon {
-                        problems.push(format!("{} ({id}): icon {:?} instead of {:?}", app.name, it.icon.icon, app.icon));
-                    } else if it.pinned && !it.matches(&stem) && !app.wm_class.as_deref().is_some_and(|c| it.matches(c)) {
+                        problems
+                            .push(format!("{} ({id}): icon {:?} instead of {:?}", app.name, it.icon.icon, app.icon));
+                    } else if it.pinned && !it.matches(&stem) && !app.wm_class.as_deref().is_some_and(|c| it.matches(c))
+                    {
                         problems.push(format!("{} ({id}): grabbed by pinned {:?}", app.name, it.app));
                     }
                 }

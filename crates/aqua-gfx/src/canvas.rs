@@ -176,7 +176,16 @@ impl Canvas {
     /// One line of text clipped to `r`; when it does not fit it is drawn shifted by `offset`
     /// (see [`marquee_offset`]) with a second copy following, and fades out at the edges.
     #[allow(clippy::too_many_arguments)]
-    pub fn marquee(&mut self, fonts: &Fonts, r: Rect, size: f32, w: Weight, color: Color, s: &str, offset: Option<f32>) {
+    pub fn marquee(
+        &mut self,
+        fonts: &Fonts,
+        r: Rect,
+        size: f32,
+        w: Weight,
+        color: Color,
+        s: &str,
+        offset: Option<f32>,
+    ) {
         let Some(off) = offset else {
             self.text_in(fonts, r, 0.0, size, w, color, s);
             return;

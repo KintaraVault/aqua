@@ -131,7 +131,8 @@ pub struct Highlight {
 }
 
 impl Highlight {
-    pub const ICON: Highlight = Highlight { width: 8.0, inset: 0.0, angle_threshold: -0.15, falloff: 3.0, gradient: 1.0 };
+    pub const ICON: Highlight =
+        Highlight { width: 8.0, inset: 0.0, angle_threshold: -0.15, falloff: 3.0, gradient: 1.0 };
 
     /// Antialiased band `0 < d < width` (shader block %9 with `solid == false`).
     pub fn band(&self, d_in: f32) -> f32 {

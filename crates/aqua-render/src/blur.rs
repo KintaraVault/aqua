@@ -169,8 +169,7 @@ static DROPPED: Mutex<Vec<(u32, u32)>> = Mutex::new(Vec::new());
 
 impl Drop for BlurCache {
     fn drop(&mut self) {
-        let mut objs: Vec<(u32, u32)> =
-            self.levels.iter().filter(|l| l.tex != 0).map(|l| (l.tex, l.fbo)).collect();
+        let mut objs: Vec<(u32, u32)> = self.levels.iter().filter(|l| l.tex != 0).map(|l| (l.tex, l.fbo)).collect();
         let (ptex, pfbos) = self.pyramid.gl_objects();
         if ptex != 0 {
             objs.push((ptex, 0));

@@ -272,9 +272,7 @@ fn specular_full(m: &Cov, width: f32, lit: f32, back: f32, amb: f32) -> Cov {
                 continue;
             }
             let (d, n) = sdf.inside(x, y);
-            let v = lit * p.eval(d, n, (lx, ly))
-                + back * p.eval(d, n, (-lx, -ly))
-                + amb * p.band(d);
+            let v = lit * p.eval(d, n, (lx, ly)) + back * p.eval(d, n, (-lx, -ly)) + amb * p.band(d);
             out.a[i] = (m.a[i] * v).min(1.0);
         }
     }

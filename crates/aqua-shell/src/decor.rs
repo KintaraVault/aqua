@@ -103,7 +103,16 @@ pub fn draw_traffic_lights(c: &mut Canvas, focused: bool, hover: bool, dark: boo
 }
 
 /// Titlebar content (transparent background – the compositor draws glass behind it).
-pub fn titlebar(fonts: &Fonts, w: f32, scale: f32, title: &str, focused: bool, hover: bool, dark: bool, glass: bool) -> Pixmap {
+pub fn titlebar(
+    fonts: &Fonts,
+    w: f32,
+    scale: f32,
+    title: &str,
+    focused: bool,
+    hover: bool,
+    dark: bool,
+    glass: bool,
+) -> Pixmap {
     let h = metrics::TITLEBAR_HEIGHT;
     let mut c = Canvas::new(w, h, scale);
     draw_traffic_lights(&mut c, focused, hover, dark, glass);

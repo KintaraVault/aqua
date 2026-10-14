@@ -186,18 +186,16 @@ pub fn layer(sh: &mut Shell) -> Option<Layer> {
     }
     let clock = sh.control.marquee_t0.elapsed().as_secs_f32();
     let tile_w = |want: T| ts.iter().find(|t| t.0 == want).map(|t| t.1.w).unwrap_or(0.0);
-    let net_scroll = aqua_gfx::canvas::marquee_offset(
-        f.measure(&wifi_name, 12.0, Weight::Regular),
-        tile_w(T::Wifi) - 68.0,
-        clock,
-    )
-    .filter(|_| !ethernet && wifi_name != "Connected");
+    let net_scroll =
+        aqua_gfx::canvas::marquee_offset(f.measure(&wifi_name, 12.0, Weight::Regular), tile_w(T::Wifi) - 68.0, clock)
+            .filter(|_| !ethernet && wifi_name != "Connected");
     let has_track = !media.player.is_empty() && !media.title.is_empty();
     let text_w = tile_w(T::Playing) - 28.0;
     let title_scroll = aqua_gfx::canvas::marquee_offset(f.measure(&media.title, 13.5, Weight::Semibold), text_w, clock)
         .filter(|_| has_track);
-    let artist_scroll = aqua_gfx::canvas::marquee_offset(f.measure(&media.artist, 12.0, Weight::Regular), text_w, clock)
-        .filter(|_| has_track);
+    let artist_scroll =
+        aqua_gfx::canvas::marquee_offset(f.measure(&media.artist, 12.0, Weight::Regular), text_w, clock)
+            .filter(|_| has_track);
     sh.control.marquee_on = net_scroll.is_some() || title_scroll.is_some() || artist_scroll.is_some();
     let art_pm = cover_art(&mut sh.control, &media.art);
     let q = |o: Option<f32>| o.map(|v| (v * 4.0).round() as i32);
@@ -558,9 +556,15 @@ fn generic_wired_name(n: &str) -> bool {
     let base = n.trim_end_matches(|c: char| c.is_ascii_digit() || c == ' ');
     let l = base.to_lowercase();
     l.is_empty()
-        || ["wired connection", "проводное подключение", "проводное соединение", "ethernet", "kabelgebundene verbindung"]
-            .iter()
-            .any(|g| l == *g)
+        || [
+            "wired connection",
+            "проводное подключение",
+            "проводное соединение",
+            "ethernet",
+            "kabelgebundene verbindung",
+        ]
+        .iter()
+        .any(|g| l == *g)
         || l.starts_with("enp")
         || l.starts_with("eth")
         || l.starts_with("eno")

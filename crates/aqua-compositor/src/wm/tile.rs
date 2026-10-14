@@ -79,7 +79,8 @@ impl Aqua {
             let mut m = meta(w).borrow_mut();
             if m.tiled.is_none() {
                 let before = if was_max { m.saved.take() } else { None };
-                m.pre_tile = before.or_else(|| self.space.element_location(w).map(|loc| Rectangle::new(loc, w.geometry().size)));
+                m.pre_tile =
+                    before.or_else(|| self.space.element_location(w).map(|loc| Rectangle::new(loc, w.geometry().size)));
             }
             m.tiled = Some(t);
         }
@@ -88,7 +89,9 @@ impl Aqua {
         if let Some(top) = w.toplevel() {
             top.with_pending_state(|s| {
                 s.states.unset(State::Maximized);
-                for (on, st) in [(l, State::TiledLeft), (tp, State::TiledTop), (r, State::TiledRight), (b, State::TiledBottom)] {
+                for (on, st) in
+                    [(l, State::TiledLeft), (tp, State::TiledTop), (r, State::TiledRight), (b, State::TiledBottom)]
+                {
                     if on {
                         s.states.set(st);
                     } else {

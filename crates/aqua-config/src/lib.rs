@@ -715,9 +715,7 @@ impl Config {
         let s = match std::fs::read_to_string(&p) {
             Ok(s) => s,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(None),
-            Err(e) => {
-                return Err(Some(schema::Issue { path: String::new(), message: format!("cannot be read: {e}") }))
-            }
+            Err(e) => return Err(Some(schema::Issue { path: String::new(), message: format!("cannot be read: {e}") })),
         };
         if s.trim().is_empty() {
             return Err(None);
@@ -798,7 +796,6 @@ pub mod metrics {
     pub const ICON_BODY: f32 = 824.0 / 1024.0;
 }
 
-
 pub fn accent_rgb(name: &str) -> (f32, f32, f32) {
     match name {
         "purple" => (0.58, 0.24, 0.59),
@@ -830,7 +827,12 @@ pub fn auto_dark_now() -> bool {
 pub fn anim_slow() -> f32 {
     static SLOW: std::sync::OnceLock<f32> = std::sync::OnceLock::new();
     *SLOW.get_or_init(|| {
-        std::env::var("AQUA_ANIM_SLOW").ok().and_then(|v| v.parse::<f32>().ok()).filter(|v| v.is_finite()).unwrap_or(1.0).clamp(0.05, 100.0)
+        std::env::var("AQUA_ANIM_SLOW")
+            .ok()
+            .and_then(|v| v.parse::<f32>().ok())
+            .filter(|v| v.is_finite())
+            .unwrap_or(1.0)
+            .clamp(0.05, 100.0)
     })
 }
 

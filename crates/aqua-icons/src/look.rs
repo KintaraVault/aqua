@@ -300,14 +300,8 @@ fn restyle(pm: &mut Pixmap, look: &Look) -> Option<crate::glass::Cov> {
     }
     let mut backdrop = None;
     if look.glass_plate {
-        let mut l = crate::backdrop::Layer {
-            w,
-            h,
-            col: &mut col,
-            alpha: &alpha,
-            keep: &mut keep,
-            touched: &mut touched,
-        };
+        let mut l =
+            crate::backdrop::Layer { w, h, col: &mut col, alpha: &alpha, keep: &mut keep, touched: &mut touched };
         let rows = |y: usize| if has_plate { plate[y] } else { None };
         backdrop = crate::backdrop::strip(&mut l, &rows, has_plate.then_some(&clipc.a[..]), b.w * b.h);
     }

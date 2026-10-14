@@ -196,7 +196,13 @@ pub fn global_menu_rows(menu: &MenuNode) -> Vec<Option<Entry>> {
         out.pop();
     }
     if out.is_empty() {
-        out.push(Some(Entry { label: crate::tr("No Items").to_string(), shortcut: "", action: None, enabled: false, extra: Extra::None }));
+        out.push(Some(Entry {
+            label: crate::tr("No Items").to_string(),
+            shortcut: "",
+            action: None,
+            enabled: false,
+            extra: Extra::None,
+        }));
     }
     out
 }

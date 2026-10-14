@@ -110,8 +110,12 @@ pub fn composite(dst: &mut Pixmap, fg: &Pixmap, look: &Look, cx: &Ctx) {
         match (look.style, look.dark) {
             // glass plate: the logo's light parts are solid, its dark ones thinner glass
             (Style::Clear, false) if look.glass_plate => (mix([0.84, 0.85, 0.88], white, t), 0.5 + 0.5 * t),
-            (Style::Clear, true) if look.glass_plate => (mix([0.72, 0.73, 0.77], [0.98, 0.98, 0.99], t), 0.48 + 0.52 * t),
-            (Style::Tinted, false) if look.glass_plate => (mix(scale(tint, 0.8), mix(tint, white, 0.45), t), 0.52 + 0.48 * t),
+            (Style::Clear, true) if look.glass_plate => {
+                (mix([0.72, 0.73, 0.77], [0.98, 0.98, 0.99], t), 0.48 + 0.52 * t)
+            }
+            (Style::Tinted, false) if look.glass_plate => {
+                (mix(scale(tint, 0.8), mix(tint, white, 0.45), t), 0.52 + 0.48 * t)
+            }
             (Style::Tinted, true) if look.glass_plate => (mix(tint, mix(tint, white, 0.6), t), 0.52 + 0.48 * t),
             (Style::Clear, false) => ([1.0, 1.0, 1.0], if cx.plate { 0.42 + 0.58 * t } else { 0.45 + 0.40 * t }),
             (Style::Clear, true) => (

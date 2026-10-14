@@ -43,12 +43,7 @@ pub fn parse_title(title: &str) -> Option<Req> {
 
 /// Screen position of a `size` menu asked for at `(x, y, alt_x)` relative to `origin`,
 /// kept inside `area` (the output minus the menu bar).
-pub fn place(
-    origin: (i32, i32),
-    req: Req,
-    size: (i32, i32),
-    area: Rectangle<i32, Logical>,
-) -> (i32, i32) {
+pub fn place(origin: (i32, i32), req: Req, size: (i32, i32), area: Rectangle<i32, Logical>) -> (i32, i32) {
     let Req { x, y, alt_x: alt, .. } = req;
     let (w, h) = size;
     let right = area.loc.x + area.size.w - EDGE;
@@ -86,9 +81,8 @@ impl Aqua {
         let (_, title) = title_of(window);
         let Some(req) = parse_title(&title) else { return false };
         let client = t.wl_surface().client();
-        let same_client = |w: &Window| {
-            w.wl_surface().and_then(|s| s.client()).is_some_and(|c| Some(c) == client.clone())
-        };
+        let same_client =
+            |w: &Window| w.wl_surface().and_then(|s| s.client()).is_some_and(|c| Some(c) == client.clone());
         let focused = self.seat.get_keyboard().and_then(|k| k.current_focus()).and_then(|f| match f {
             crate::input::focus::KeyboardFocusTarget::Window(w) => Some(w),
             _ => None,
@@ -101,11 +95,7 @@ impl Aqua {
                 .cloned()
         });
         let menu = if req.sub {
-            self.space
-                .elements()
-                .rev()
-                .find(|w| w != &window && same_client(w) && is_menu_popup(w))
-                .cloned()
+            self.space.elements().rev().find(|w| w != &window && same_client(w) && is_menu_popup(w)).cloned()
         } else {
             None
         };
@@ -169,9 +159,7 @@ impl Aqua {
             return;
         }
         if let Some(p) = pos {
-            let over = pops.iter().any(|w| {
-                self.space.element_geometry(w).is_some_and(|r| r.to_f64().contains(p))
-            });
+            let over = pops.iter().any(|w| self.space.element_geometry(w).is_some_and(|r| r.to_f64().contains(p)));
             if over {
                 return;
             }

@@ -401,13 +401,25 @@ mod tests {
 
     #[test]
     fn right_and_bottom_edges_grow_in_place() {
-        let r = resized_rect(rect(100, 50, 400, 300), ResizeEdge::BOTTOM_RIGHT, (60.0, 20.0).into(), (1, 1).into(), (0, 0).into());
+        let r = resized_rect(
+            rect(100, 50, 400, 300),
+            ResizeEdge::BOTTOM_RIGHT,
+            (60.0, 20.0).into(),
+            (1, 1).into(),
+            (0, 0).into(),
+        );
         assert_eq!(r, rect(100, 50, 460, 320));
     }
 
     #[test]
     fn left_and_top_edges_keep_the_opposite_edge() {
-        let r = resized_rect(rect(100, 50, 400, 300), ResizeEdge::TOP_LEFT, (-30.0, 10.0).into(), (1, 1).into(), (0, 0).into());
+        let r = resized_rect(
+            rect(100, 50, 400, 300),
+            ResizeEdge::TOP_LEFT,
+            (-30.0, 10.0).into(),
+            (1, 1).into(),
+            (0, 0).into(),
+        );
         assert_eq!(r, rect(70, 60, 430, 290));
         assert_eq!(r.loc.x + r.size.w, 500);
         assert_eq!(r.loc.y + r.size.h, 350);
@@ -415,12 +427,30 @@ mod tests {
 
     #[test]
     fn hints_clamp_without_moving_the_anchor() {
-        let r = resized_rect(rect(100, 50, 400, 300), ResizeEdge::LEFT, (390.0, 0.0).into(), (200, 100).into(), (0, 0).into());
+        let r = resized_rect(
+            rect(100, 50, 400, 300),
+            ResizeEdge::LEFT,
+            (390.0, 0.0).into(),
+            (200, 100).into(),
+            (0, 0).into(),
+        );
         assert_eq!(r, rect(300, 50, 200, 300));
-        let r = resized_rect(rect(100, 50, 400, 300), ResizeEdge::RIGHT, (900.0, 0.0).into(), (1, 1).into(), (640, 480).into());
+        let r = resized_rect(
+            rect(100, 50, 400, 300),
+            ResizeEdge::RIGHT,
+            (900.0, 0.0).into(),
+            (1, 1).into(),
+            (640, 480).into(),
+        );
         assert_eq!(r.size.w, 640);
         // A size hint of min > max must not panic (clamp would).
-        let r = resized_rect(rect(0, 0, 400, 300), ResizeEdge::RIGHT, (5.0, 0.0).into(), (500, 400).into(), (300, 200).into());
+        let r = resized_rect(
+            rect(0, 0, 400, 300),
+            ResizeEdge::RIGHT,
+            (5.0, 0.0).into(),
+            (500, 400).into(),
+            (300, 200).into(),
+        );
         assert_eq!(r.size, (300, 200).into());
     }
 

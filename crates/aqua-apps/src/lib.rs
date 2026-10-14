@@ -4,8 +4,8 @@
 use std::path::{Path, PathBuf};
 
 pub mod terminal;
-pub use terminal::{open_terminal, open_terminal_in, resolve_terminal, terminal_in_dir, terminal_run};
 use terminal::exec_separator;
+pub use terminal::{open_terminal, open_terminal_in, resolve_terminal, terminal_in_dir, terminal_run};
 
 /// Category of the Applications panel (freedesktop main categories, names).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -829,7 +829,9 @@ fn spawn_now(cmd: &str) -> bool {
 /// Note abnormal app exits in the session log, pointing at the app's own output.
 fn report_exit(prog: &str, st: std::process::ExitStatus, ran: std::time::Duration) {
     use std::os::unix::process::ExitStatusExt;
-    let log = dirs::cache_dir().map(|d| d.join("aqua/logs").join(format!("{prog}.log")).display().to_string()).unwrap_or_default();
+    let log = dirs::cache_dir()
+        .map(|d| d.join("aqua/logs").join(format!("{prog}.log")).display().to_string())
+        .unwrap_or_default();
     if let Some(sig) = st.signal().or_else(|| st.code().filter(|c| *c > 128 && *c < 160).map(|c| c - 128)) {
         // SIGTERM/SIGINT/SIGKILL/SIGHUP are normal ways to be closed.
         if ![1, 2, 9, 15].contains(&sig) {

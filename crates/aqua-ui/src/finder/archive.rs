@@ -16,10 +16,23 @@ pub struct ArcEntry {
 }
 
 /// Compressed tarballs: 7z would show the inner `.tar`, libarchive lists the members.
-const TARBALL: &[&str] = &[".tar.gz", ".tgz", ".tar.bz2", ".tbz", ".tbz2", ".tar.xz", ".txz", ".tar.zst", ".tzst", ".tar.lz", ".tar.lzma", ".tar.z"];
+const TARBALL: &[&str] = &[
+    ".tar.gz",
+    ".tgz",
+    ".tar.bz2",
+    ".tbz",
+    ".tbz2",
+    ".tar.xz",
+    ".txz",
+    ".tar.zst",
+    ".tzst",
+    ".tar.lz",
+    ".tar.lzma",
+    ".tar.z",
+];
 const ARCHIVE: &[&str] = &[
-    ".zip", ".7z", ".rar", ".tar", ".iso", ".cab", ".jar", ".war", ".apk", ".xpi", ".cbz", ".cbr", ".cb7", ".lzh", ".lha",
-    ".arj", ".cpio", ".wim", ".deb", ".rpm", ".xar", ".pkg", ".dmg", ".vhd",
+    ".zip", ".7z", ".rar", ".tar", ".iso", ".cab", ".jar", ".war", ".apk", ".xpi", ".cbz", ".cbr", ".cb7", ".lzh",
+    ".lha", ".arj", ".cpio", ".wim", ".deb", ".rpm", ".xar", ".pkg", ".dmg", ".vhd",
 ];
 
 fn lower(p: &Path) -> String {
@@ -186,7 +199,8 @@ fn list_uncached(p: &Path) -> Result<Vec<ArcEntry>, String> {
     let seven = seven();
     if !is_tarball(p) {
         if let Some(z) = seven {
-            return run(Command::new(z).args(["l", "-slt", "-sccUTF-8", "-p-"]).arg("--").arg(p)).map(|o| parse_7z_slt(&o));
+            return run(Command::new(z).args(["l", "-slt", "-sccUTF-8", "-p-"]).arg("--").arg(p))
+                .map(|o| parse_7z_slt(&o));
         }
     }
     if have("bsdtar") {
@@ -211,9 +225,9 @@ fn stamp(p: &Path) -> (i64, u64) {
 /// Members of archive `p` (cached while the file is unchanged).
 pub fn list(p: &Path) -> Result<Vec<ArcEntry>, String> {
     let (mt, len) = stamp(p);
-    if let Some(v) = CACHE.with(|c| {
-        c.borrow().as_ref().filter(|(q, m, l, _)| q == p && *m == mt && *l == len).map(|(.., v)| v.clone())
-    }) {
+    if let Some(v) = CACHE
+        .with(|c| c.borrow().as_ref().filter(|(q, m, l, _)| q == p && *m == mt && *l == len).map(|(.., v)| v.clone()))
+    {
         return Ok(v);
     }
     let v = list_uncached(p)?;
@@ -295,7 +309,8 @@ pub fn extract_here(p: &Path) -> Result<PathBuf, String> {
         let _ = std::fs::remove_dir_all(&tmp);
         return Err(e);
     }
-    let made: Vec<PathBuf> = std::fs::read_dir(&tmp).map(|r| r.flatten().map(|e| e.path()).collect()).unwrap_or_default();
+    let made: Vec<PathBuf> =
+        std::fs::read_dir(&tmp).map(|r| r.flatten().map(|e| e.path()).collect()).unwrap_or_default();
     let res = if made.len() == 1 && tops.len() <= 1 {
         let name = made[0].file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         let dst = super::fs::unique(&dir, &name, "");
@@ -424,7 +439,8 @@ Modified = 2024-05-02 08:00:00
         std::fs::write(src.join("a.txt"), "hello").unwrap();
         std::fs::write(src.join("sub/b.txt"), "world").unwrap();
         let arc = root.join("proj.tar.gz");
-        let ok = Command::new("tar").arg("-czf").arg(&arc).arg("-C").arg(root.join("src")).arg("proj").status().unwrap();
+        let ok =
+            Command::new("tar").arg("-czf").arg(&arc).arg("-C").arg(root.join("src")).arg("proj").status().unwrap();
         assert!(ok.success());
         let v = list(&arc).unwrap();
         assert!(v.iter().any(|e| e.path == "proj/sub/b.txt"), "{v:?}");
@@ -444,7 +460,14 @@ Modified = 2024-05-02 08:00:00
         assert_eq!(std::fs::read_to_string(&tmp).unwrap(), "hello");
         if let Some(z) = seven() {
             let zip = root.join("p.zip");
-            let ok = Command::new(z).arg("a").arg("-tzip").arg(&zip).arg(root.join("proj")).stdout(std::process::Stdio::null()).status().unwrap();
+            let ok = Command::new(z)
+                .arg("a")
+                .arg("-tzip")
+                .arg(&zip)
+                .arg(root.join("proj"))
+                .stdout(std::process::Stdio::null())
+                .status()
+                .unwrap();
             assert!(ok.success());
             let v = list(&zip).unwrap();
             assert!(v.iter().any(|e| e.path == "proj/sub/b.txt" && !e.is_dir), "{v:?}");
@@ -454,7 +477,11 @@ Modified = 2024-05-02 08:00:00
             assert_eq!(got, vec![dest.join("sub")]);
             assert_eq!(std::fs::read_to_string(dest.join("sub/b.txt")).unwrap(), "world");
         }
-        let leftovers = std::fs::read_dir(&root).unwrap().flatten().filter(|e| e.file_name().to_string_lossy().starts_with(".aqua-extract")).count();
+        let leftovers = std::fs::read_dir(&root)
+            .unwrap()
+            .flatten()
+            .filter(|e| e.file_name().to_string_lossy().starts_with(".aqua-extract"))
+            .count();
         assert_eq!(leftovers, 0);
         let _ = std::fs::remove_dir_all(&root);
     }

@@ -430,7 +430,11 @@ fn context_entries(sh: &Shell, kind: &MenuKind) -> Vec<Option<Entry>> {
                 e("Open Desktop Folder", "", open_dir(desk)),
                 e("Open Terminal", "", Some(Action::OpenTerminal)),
                 None,
-                e(if icons { "Hide Desktop Items" } else { "Show Desktop Items" }, "", Some(Action::ToggleDesktopIcons)),
+                e(
+                    if icons { "Hide Desktop Items" } else { "Show Desktop Items" },
+                    "",
+                    Some(Action::ToggleDesktopIcons),
+                ),
                 x("Snap to Grid", Extra::Check(sh.cfg.desktop_snap), icons, Some(Action::ToggleDesktopSnap)),
                 arrange("Clean Up", Action::DesktopCleanUp),
                 arrange("Sort by Name", Action::DesktopSortByName),

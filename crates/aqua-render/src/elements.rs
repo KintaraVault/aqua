@@ -378,10 +378,7 @@ impl RenderElement<GlesRenderer> for GlassElement {
                 Uniform::new("fb_rect", c.fb_rect),
                 Uniform::new("axes", c.axes),
                 Uniform::new("shape", [extent, n, thickness, 1.0 / p.ior.max(1.0)]),
-                Uniform::new(
-                    "refr",
-                    [p.refraction, p.dispersion, if p.sharp_rim { 1.0 } else { 0.0 }, p.saturation],
-                ),
+                Uniform::new("refr", [p.refraction, p.dispersion, if p.sharp_rim { 1.0 } else { 0.0 }, p.saturation]),
                 Uniform::new("fres", [p.fresnel_k, p.fresnel_hardness, p.fresnel, p.rim]),
                 Uniform::new("glare", [p.glare_k, p.glare_hardness, p.glare, p.glare_convergence]),
                 Uniform::new("glare2", [p.glare_opposite, p.glare_angle, p.max_luma, NORMAL_GAIN]),

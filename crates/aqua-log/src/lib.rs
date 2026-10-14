@@ -52,7 +52,8 @@ pub fn crash_dir() -> PathBuf {
 
 /// Sanitised file stem for a program name.
 pub fn file_stem(name: &str) -> String {
-    let s: String = name.chars().map(|c| if c.is_ascii_alphanumeric() || "-_.".contains(c) { c } else { '_' }).collect();
+    let s: String =
+        name.chars().map(|c| if c.is_ascii_alphanumeric() || "-_.".contains(c) { c } else { '_' }).collect();
     if s.is_empty() {
         "aqua".into()
     } else {
@@ -222,7 +223,11 @@ fn trim_crashes(dir: &Path, stem: &str) {
     let mut v: Vec<PathBuf> = rd
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with(&format!("{stem}-")) && n.ends_with(".txt")))
+        .filter(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with(&format!("{stem}-")) && n.ends_with(".txt"))
+        })
         .collect();
     v.sort();
     while v.len() > KEEP_CRASHES {
@@ -317,7 +322,8 @@ extern "C" fn on_fatal_signal(sig: libc::c_int) {
 }
 
 fn install_signal_handlers() {
-    let dir = STATE.get().map(|m| m.lock().unwrap_or_else(|e| e.into_inner()).dir.join("crashes")).unwrap_or_else(crash_dir);
+    let dir =
+        STATE.get().map(|m| m.lock().unwrap_or_else(|e| e.into_inner()).dir.join("crashes")).unwrap_or_else(crash_dir);
     if std::fs::create_dir_all(&dir).is_err() {
         return;
     }
