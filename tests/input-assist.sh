@@ -37,11 +37,11 @@ Xvfb -displayfd 3 -screen 0 1280x800x24 3>"$rt/display" >"$out/xvfb-$mode.log" 2
 for _ in $(seq 1 50); do [[ ! -s "$rt/display" ]] || break; sleep 0.1; done
 [[ -s "$rt/display" ]]
 for _ in $(seq 1 50); do
-    if DISPLAY=":$(cat "$rt/display")" xdpyinfo >/dev/null 2>&1; then break; fi
+    if DISPLAY=":$(cat "$rt/display")" xdotool getdisplaygeometry >/dev/null 2>&1; then break; fi
     kill -0 "$xp" 2>/dev/null || { cat "$out/xvfb-$mode.log"; exit 1; }
     sleep 0.1
 done
-DISPLAY=":$(cat "$rt/display")" xdpyinfo >/dev/null
+DISPLAY=":$(cat "$rt/display")" xdotool getdisplaygeometry >/dev/null
 : > "$rt/control"
 client_command="$rt/client $mode"
 if [[ $mode == password-fill || $mode == password-cancel ]]; then
@@ -55,7 +55,7 @@ if [[ $mode == gtk* || $mode == browser* ]]; then
     fixture="$root/tests/input-assist-gtk.py"; [[ $mode != browser* ]] || fixture="$root/tests/input-assist-browser.py"
     client_command="gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus --method org.freedesktop.DBus.Properties.Set org.a11y.Status IsEnabled '<true>' >/dev/null; GDK_BACKEND=$backend GTK_IM_MODULE=gtk-im-context-simple NO_AT_BRIDGE=0 python '$fixture' '$mode' >'$rt/cache/aqua/logs/client.log' 2>&1"
 fi
-if [[ $mode == finder ]]; then
+if [[ $mode == finder* ]]; then
     client_command="gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus --method org.freedesktop.DBus.Properties.Set org.a11y.Status IsEnabled '<true>' >/dev/null; (sleep 3; echo INPUT_ENABLED >'$rt/cache/aqua/logs/client.log') & '$root/target/release/aqua-finder' '$rt/home'"
 fi
 # A seed-only dictionary makes acceptance assertions deterministic.
@@ -63,11 +63,14 @@ cp "$root/crates/aqua-text/src/seed.txt" "$rt/dictionary"
 (
     for _ in $(seq 1 120); do grep -q INPUT_ENABLED "$rt/cache/aqua/logs/client.log" 2>/dev/null && break; sleep 0.1; done
     sleep 2
-    if [[ $mode == finder ]]; then printf 'hotkey ctrl+k\n' >> "$rt/control"; sleep 2; fi
+    if [[ $mode == finder* ]]; then
+        key=ctrl+k; [[ $mode != finder-goto ]] || key=ctrl+shift+g
+        printf 'hotkey %s\n' "$key" >> "$rt/control"; sleep 2
+    fi
     printf 'dump %s/state-%s.txt\n' "$out" "$mode" >> "$rt/control"
     printf 'shot %s/before-%s.png\n' "$out" "$mode" >> "$rt/control"
     sleep 1
-    if [[ $mode != password && $mode != invalid && $mode != finder && $mode != browser-password-http ]]; then
+    if [[ $mode != password && $mode != invalid && $mode != finder* && $mode != browser-password-http ]]; then
         printf 'hotkey tab\n' >> "$rt/control"
     fi
     if [[ $mode == password-fill || $mode == password-cancel || $mode == browser-password || $mode == browser-password-cancel ]]; then
@@ -98,7 +101,7 @@ case "$mode" in
     browser-password-http) ! grep -q '^INSERT ' "$out/client-$mode.log"; grep -q 'origin-verified=false' "$out/state-$mode.txt" ;;
     password-fill) [[ $(grep -c '^INSERT ' "$out/client-$mode.log") == 11 ]]; grep -q FIXTURE_READY "$out/fixture-$mode.log" ;;
     password-cancel) [[ $(grep -c '^INSERT ' "$out/client-$mode.log") == 1 ]]; grep -q INPUT_DISABLED_AFTER_FIRST "$out/client-$mode.log" ;;
-    finder) grep -q 'radius-known=true' "$out/state-$mode.txt"; grep -q 'caret-known=true' "$out/state-$mode.txt" ;;
+    finder|finder-goto) grep -q 'radius-known=true' "$out/state-$mode.txt"; grep -q 'caret-known=true' "$out/state-$mode.txt" ;;
     password|invalid) ! grep -q '^INSERT ' "$out/client-$mode.log" ;;
 esac
 printf 'PASS %s — screenshots in %s\n' "$mode" "$out"

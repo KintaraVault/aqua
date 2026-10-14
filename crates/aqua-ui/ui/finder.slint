@@ -1,4 +1,4 @@
-import { Theme, Glyphs, Field, PillButton, Checkbox, TrafficLights, PopupSelect, GlassSurround, Backdrop, SliderBar, GlassCapsule, NavArrows, GlassSel, AquaGlass, GlassShape } from "common.slint";
+import { FieldContour, Theme, Glyphs, Field, PillButton, Checkbox, TrafficLights, PopupSelect, GlassSurround, Backdrop, SliderBar, GlassCapsule, NavArrows, GlassSel, AquaGlass, GlassShape } from "common.slint";
 import { F, FItem, FPlace, FColumn, FMenuItem, FKV, FTagDef, FRow, FTab, FCrumb, FLCol, FOpt, FSpot, FCrit, FileIcon, FolderIcon, TagDots } from "finder-model.slint";
 import { IconView, ListViewV, ColumnViewV, GalleryV } from "finder-views.slint";
 import { MenuOverlay, FinderMenuWindow, AlertSheet, GotoPanel, ProgressCard, QuickLook, ViewOptions, PrefsPanel, RenamePanel, CustomizePanel } from "finder-panels.slint";
@@ -763,6 +763,7 @@ export component FinderWindow inherits Window {
                 border-width: sf.has-focus ? 3px : 0.5px;
                 border-color: sf.has-focus ? Theme.accent.with-alpha(0.55) : (Theme.dark ? #ffffff1f : #0000000f);
                 Image { x: 12px; width: 14px; height: 14px; source: F.i-search; colorize: Theme.text-secondary; }
+                FieldContour { width: parent.width; height: parent.height; radius: parent.border-radius; focused: sf.has-focus; }
                 sf := TextInput {
                     x: 34px; width: parent.width - 62px; height: 100%; text <=> F.query; font-size: 13px; color: Theme.text;
                     vertical-alignment: center; single-line: true;

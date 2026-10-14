@@ -1,4 +1,4 @@
-import { Theme, Glyphs, GlassSel } from "common.slint";
+import { FieldContour, Theme, Glyphs, GlassSel } from "common.slint";
 import { F, FItem, FileIcon, TagDots } from "finder-model.slint";
 import { ListView } from "std-widgets.slint";
 
@@ -82,6 +82,7 @@ component RenameField inherits Rectangle {
     in property <length> fs: 12px;
     in property <bool> centered;
     background: Theme.window-bg; border-width: 2px; border-color: Theme.accent.with-alpha(0.6); border-radius: 4px;
+    FieldContour { width: parent.width; height: parent.height; radius: parent.border-radius; focused: ti.has-focus; }
     ti := TextInput {
         x: 4px; width: parent.width - 8px; text: item.name; font-size: fs; color: Theme.text;
         horizontal-alignment: centered ? TextHorizontalAlignment.center : TextHorizontalAlignment.left;

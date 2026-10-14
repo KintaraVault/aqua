@@ -1,4 +1,4 @@
-import { Theme, Glyphs, Field, PillButton, Checkbox, Segmented, PopupSelect, SliderBar, GlassMenu, GlassPanel, GroupBox, GlassSel } from "common.slint";
+import { FieldContour, Theme, Glyphs, Field, PillButton, Checkbox, Segmented, PopupSelect, SliderBar, GlassMenu, GlassPanel, GroupBox, GlassSel } from "common.slint";
 import { F, FMenuItem, FOpt, FileIcon, FolderIcon } from "finder-model.slint";
 
 component MenuList inherits VerticalLayout {
@@ -155,6 +155,7 @@ export component GotoPanel inherits Rectangle {
             x: 18px; y: 16px; width: 18px; height: 18px;
             source: F.goto-kind == 1 ? F.glyph("network") : F.i-search; colorize: Theme.text-secondary;
         }
+        FieldContour { x: input.x; y: input.y; width: input.width; height: input.height; radius: 0px; focused: input.has-focus; }
         input := TextInput {
             x: 46px; y: 0; width: parent.width - 46px - 40px; height: 50px;
             text <=> F.goto-text; font-size: 16px; color: Theme.text; vertical-alignment: center; single-line: true;

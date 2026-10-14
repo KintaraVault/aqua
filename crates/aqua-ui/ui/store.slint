@@ -1,4 +1,4 @@
-import { Theme, TrafficLights, GlassSurround, GlassMenu, Backdrop, NavArrows, GlassCapsule, GlassSel, AquaGlass, GlassShape } from "common.slint";
+import { FieldContour, Theme, TrafficLights, GlassSurround, GlassMenu, Backdrop, NavArrows, GlassCapsule, GlassSel, AquaGlass, GlassShape } from "common.slint";
 import { SG } from "store/glyphs.slint";
 import { AS, SApp, SShelf, SHero, SCat, SShot, SRelease, SReview, SInfo, SPerm, SUpd, SSetup, SMenu, SHist, SDetail } from "store/model.slint";
 import { Hairline, AppIcon, RoundButton, Badge } from "store/parts.slint";
@@ -224,6 +224,7 @@ export component StoreWindow inherits Window {
             border-width: search.has-focus ? 2.5px : 0px;
             border-color: Theme.accent.with-alpha(0.45);
             Image { x: 10px; width: 14px; height: 14px; source: SG.search; colorize: Theme.text-secondary; }
+            FieldContour { width: parent.width; height: parent.height; radius: parent.border-radius; focused: search.has-focus; }
             search := TextInput {
                 x: 31px;
                 width: parent.width - 31px - (AS.search-text != "" ? 26px : 10px);
