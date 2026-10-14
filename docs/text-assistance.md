@@ -15,7 +15,7 @@ Suggestions currently attach to toplevels and their popups. An external input me
 - Click a row: accept without moving keyboard focus.
 - Any physical key, focus change, lock or invalidated field cancels pending typing.
 
-Acceptance delivers one Unicode grapheme every 8 ms, without a blocking sleep or clipboard fallback. Spelling correction deletes only the current prefix using UTF-8 byte counts. Selection and mid-word insertion do not trigger suggestions.
+Acceptance delivers one Unicode grapheme per timer tick, scheduled at 8 ms intervals (actual delivery depends on event-loop load), without a blocking sleep or clipboard fallback. Spelling correction deletes only the current prefix using UTF-8 byte counts. Selection and mid-word insertion do not trigger suggestions.
 
 `AQUA_TEXT_ASSIST=0` hides assistance. `AQUA_T9=1` enables predictions for trailing 2–9 sequences in ordinary text fields. The T9 mapping supports Latin and Russian letters. Numeric and PIN fields are not treated as T9 fields.
 
@@ -34,3 +34,5 @@ The native IME and virtual-keyboard globals are hidden from sandbox clients. Loc
 ## Testing
 
 `cargo test -p aqua-text -p aqua-compositor` covers offsets, Unicode graphemes, dictionary bounds/ranking, T9, sensitive-state clearing, generation cancellation and popup placement. `tests/input-assist.sh` exercises a real Wayland text-input client in an isolated nested compositor and captures screenshots without changing the live session.
+
+To test password selection with **test data only**, build `cargo build --release -p aqua-text --example password_fixture` and run `tests/input-assist.sh target/release/aqua /tmp/aqua-input-assist password-fill` (requires `gnome-keyring-daemon`). The script uses a private D-Bus, runtime directory and HOME; it never enumerates your real password store. `password-cancel` verifies cancellation after the first grapheme.

@@ -235,7 +235,7 @@ impl Aqua {
                 }
                 return FilterResult::Forward;
             }
-            if st.assist_key(raw, m.ctrl, m.alt, m.logo) {
+            if st.assist_key(raw, m.ctrl, m.alt, m.logo, m.shift) {
                 st.render_cache.suppressed.push(code);
                 return FilterResult::Intercept(KeyAction::Nothing);
             }
@@ -489,7 +489,8 @@ impl Aqua {
             self.hot_corner(pos);
         }
         self.shell.pointer_motion(x, y);
-        let in_shell = !pointer.is_grabbed() && self.shell.wants_pointer(x, y);
+        self.assist_pointer_motion(x, y);
+        let in_shell = !pointer.is_grabbed() && (self.shell.wants_pointer(x, y) || self.assist_wants_pointer(x, y));
         self.pointer_in_shell = in_shell;
         let mut hover_changed = false;
         let hovered = if in_shell { None } else { self.window_frame_under(pos) };

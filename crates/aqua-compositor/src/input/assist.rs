@@ -97,7 +97,7 @@ impl Row {
     fn label(&self) -> &str {
         match self {
             Self::Word(s) | Self::Info(s) => s,
-            Self::Passwords => "Passwords…",
+            Self::Passwords => aqua_i18n::tr("Passwords…"),
             Self::Secret(e) => &e.label,
         }
     }
@@ -106,6 +106,21 @@ enum PasswordResult {
     List(u64, Result<Vec<aqua_text::passwords::Entry>, ()>),
     Secret(u64, Result<Option<Zeroizing<String>>, ()>),
 }
+/// Compositor-only, borrowed snapshot. Sensitive fields never expose surrounding text.
+#[allow(dead_code)]
+pub struct TextContext<'a> {
+    pub surface: &'a WlSurface,
+    pub generation: u64,
+    pub purpose: ContentPurpose,
+    pub hints: ContentHint,
+    pub sensitive: bool,
+    pub surrounding: Option<&'a str>,
+    pub cursor: i32,
+    pub anchor: i32,
+    pub caret: Shape,
+    pub field: Option<Shape>,
+}
+
 pub struct Assist {
     pending: HashMap<ObjectId, Delta>,
     active: Option<Active>,
@@ -322,7 +337,7 @@ impl Aqua {
             && !self.mission_visible()
             && !self.seat.input_method().has_instance()
     }
-    pub fn assist_key(&mut self, raw: u32, ctrl: bool, alt: bool, logo: bool) -> bool {
+    pub fn assist_key(&mut self, raw: u32, ctrl: bool, alt: bool, logo: bool, shift: bool) -> bool {
         use smithay::input::keyboard::keysyms;
         self.assist.queue = None;
         self.assist.password_rx = None;
@@ -331,7 +346,9 @@ impl Aqua {
             self.assist.dismiss();
             return false;
         }
-        if ctrl || alt || logo || self.assist.rows.is_empty() {
+        if ctrl || alt || logo || shift || self.assist.rows.is_empty() {
+            self.assist.dismiss();
+            self.needs_redraw = true;
             return false;
         }
         match raw {
@@ -357,7 +374,29 @@ impl Aqua {
                 self.needs_redraw = true;
                 true
             }
-            _ => false,
+            _ => {
+                self.assist.dismiss();
+                self.needs_redraw = true;
+                false
+            }
+        }
+    }
+    pub fn assist_wants_pointer(&self, x: f32, y: f32) -> bool {
+        self.assist_available()
+            && self.assist.popup.is_some_and(|r| x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h)
+    }
+    pub fn assist_pointer_motion(&mut self, x: f32, y: f32) {
+        if !self.assist_wants_pointer(x, y) {
+            return;
+        }
+        let Some(r) = self.assist.popup else {
+            return;
+        };
+        let row = ((y - r.y - 30.0) / 30.0).floor() as isize;
+        if row >= 0 && (row as usize) < self.assist.rows.len() && self.assist.selected != row as usize {
+            self.assist.selected = row as usize;
+            self.assist.serial = self.assist.serial.wrapping_add(1);
+            self.needs_redraw = true;
         }
     }
     pub fn assist_button(&mut self, x: f32, y: f32, pressed: bool) -> bool {
@@ -430,7 +469,7 @@ impl Aqua {
                 let generation = self.assist.generation;
                 let (tx, rx) = mpsc::channel();
                 self.assist.password_rx = Some(rx);
-                self.assist.rows = vec![Row::Info("Opening password store…".into())];
+                self.assist.rows = vec![Row::Info(aqua_i18n::tr("Opening password store…").into())];
                 self.assist.serial = self.assist.serial.wrapping_add(1);
                 std::thread::spawn(move || {
                     let result = if let Some(path) = selected_path {
@@ -467,8 +506,8 @@ impl Aqua {
                 {
                     self.assist.rows = match result {
                         Ok(entries) if !entries.is_empty() => entries.into_iter().take(5).map(Row::Secret).collect(),
-                        Ok(_) => vec![Row::Info("No passwords saved for this app".into())],
-                        Err(()) => vec![Row::Info("Password store unavailable".into())],
+                        Ok(_) => vec![Row::Info(aqua_i18n::tr("No passwords saved for this app").into())],
+                        Err(()) => vec![Row::Info(aqua_i18n::tr("Password store unavailable").into())],
                     };
                     self.assist.selected = 0;
                 }
@@ -478,7 +517,7 @@ impl Aqua {
                     self.queue_assist_text(secret);
                 }
                 PasswordResult::Secret(generation, _) if generation == self.assist.generation => {
-                    self.assist.rows = vec![Row::Info("Password was not supplied".into())];
+                    self.assist.rows = vec![Row::Info(aqua_i18n::tr("Password was not supplied").into())];
                 }
                 _ => {}
             }
@@ -592,12 +631,33 @@ impl Aqua {
         let translate = |shape: Shape| Shape { x: shape.x + origin.x as f32, y: shape.y + origin.y as f32, ..shape };
         Some((translate(caret), crate::wayland::text_field::geometry(surface).map(translate)))
     }
+    #[allow(dead_code)] // Shared internal contract for future native overlay consumers.
+    pub fn text_context(&self) -> Option<TextContext<'_>> {
+        if self.lock.is_locked() {
+            return None;
+        }
+        let a = self.assist.active.as_ref()?;
+        let (caret, field) = self.assist_geometry()?;
+        let sensitive = a.field.sensitive();
+        Some(TextContext {
+            surface: &a.surface,
+            generation: self.assist.generation,
+            purpose: a.field.purpose,
+            hints: a.field.hint,
+            sensitive,
+            surrounding: (!sensitive).then_some(a.field.text.as_str()),
+            cursor: a.field.cursor,
+            anchor: a.field.anchor,
+            caret,
+            field,
+        })
+    }
     pub fn assist_layer(&mut self) -> Option<Layer> {
         if !self.assist_available() || self.assist.rows.is_empty() {
             self.assist.popup = None;
             return None;
         }
-        let (caret, _) = self.assist_geometry()?;
+        let (caret, field) = self.assist_geometry()?;
         let bounds = self
             .outputs
             .list
@@ -606,8 +666,9 @@ impl Aqua {
             .find(|r| r.to_f64().contains((caret.x as f64, caret.y as f64)))?;
         let w = 256.0f32.min((bounds.size.w - 12).max(1) as f32);
         let h = 38.0 + self.assist.rows.len() as f32 * 30.0;
+        let anchor = field.map(|f| Shape { x: caret.x, w: caret.w, ..f }).unwrap_or(caret);
         let rect = place_popup(
-            caret,
+            anchor,
             Shape {
                 x: bounds.loc.x as f32,
                 y: bounds.loc.y as f32,
@@ -632,7 +693,11 @@ impl Aqua {
             let muted = if dark { rgba(215, 215, 225, 0.75) } else { rgba(45, 45, 55, 0.75) };
             let password = self.assist.active.as_ref().is_some_and(|a| a.field.sensitive());
             let app = self.focused_window().map(|w| crate::state::title_of(&w).0).unwrap_or_default();
-            let title = if password { format!("Passwords · {app}") } else { "Suggestions · Tab to insert".into() };
+            let title = if password {
+                format!("{} · {app}", aqua_i18n::tr("Passwords"))
+            } else {
+                aqua_i18n::tr("Suggestions · Tab to insert").into()
+            };
             canvas.text_in(
                 &self.shell.fonts,
                 Rect::new(12.0, 6.0, w - 24.0, 19.0),

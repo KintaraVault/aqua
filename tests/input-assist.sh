@@ -36,6 +36,13 @@ Xvfb -displayfd 3 -screen 0 1280x800x24 3>"$rt/display" >"$out/xvfb-$mode.log" 2
 for _ in $(seq 1 50); do [[ ! -s "$rt/display" ]] || break; sleep 0.1; done
 [[ -s "$rt/display" ]]
 : > "$rt/control"
+client_command="$rt/client $mode"
+if [[ $mode == password-fill || $mode == password-cancel ]]; then
+    command -v gnome-keyring-daemon >/dev/null
+    fixture="$root/target/release/examples/password_fixture"
+    [[ -x "$fixture" ]] || { echo "Build: cargo build --release -p aqua-text --example password_fixture"; exit 1; }
+    client_command="printf aqua-test-keyring | gnome-keyring-daemon --unlock --components=secrets >'$rt/keyring.log' 2>&1; AQUA_TEST_KEYRING=1 '$fixture' >'$out/fixture-$mode.log' 2>&1 && '$rt/client' '$mode' 2>'$rt/cache/aqua/logs/client.log'"
+fi
 # A seed-only dictionary makes acceptance assertions deterministic.
 cp "$root/crates/aqua-text/src/seed.txt" "$rt/dictionary"
 (
@@ -46,6 +53,12 @@ cp "$root/crates/aqua-text/src/seed.txt" "$rt/dictionary"
     if [[ $mode != password && $mode != invalid ]]; then
         printf 'hotkey tab\n' >> "$rt/control"
     fi
+    if [[ $mode == password-fill || $mode == password-cancel ]]; then
+        sleep 1
+        printf 'shot %s/choices-%s.png\n' "$out" "$mode" >> "$rt/control"
+        sleep 1
+        printf 'hotkey tab\n' >> "$rt/control"
+    fi
     sleep 1
     printf 'shot %s/after-%s.png\n' "$out" "$mode" >> "$rt/control"
 ) & controller=$!
@@ -54,7 +67,7 @@ env -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS -u AQUA_SOCKET -u AQUA_NESTED
     DISPLAY=":$(cat "$rt/display")" LIBGL_ALWAYS_SOFTWARE=1 AQUA_CTL="$rt/control" \
     AQUA_DICTIONARY="$rt/dictionary" AQUA_T9=1 AQUA_TEXT_ASSIST=1 AQUA_NO_AUTOSTART=1 AQUA_NO_POLKIT=1 \
     timeout 25 dbus-run-session -- "$bin" --winit --size 1280x800 --quit-after 12 \
-    -c "$rt/client $mode" > "$out/session-$mode.log" 2>&1
+    -c "$client_command" > "$out/session-$mode.log" 2>&1
 cp "$rt/cache/aqua/logs/client.log" "$out/client-$mode.log"
 cp "$rt/cache/aqua/logs/compositor.log" "$out/compositor-$mode.log"
 [[ -s "$out/before-$mode.png" && -s "$out/after-$mode.png" ]]
@@ -63,6 +76,8 @@ case "$mode" in
     cancel) [[ $(grep -c '^INSERT ' "$out/client-$mode.log") == 1 ]]; grep -q INPUT_DISABLED_AFTER_FIRST "$out/client-$mode.log" ;;
     unicode) grep -q 'TEXT=привет$' "$out/client-$mode.log" ;;
     t9) grep -q 'TEXT=hello$' "$out/client-$mode.log" ;;
+    password-fill) [[ $(grep -c '^INSERT ' "$out/client-$mode.log") == 11 ]]; grep -q FIXTURE_READY "$out/fixture-$mode.log" ;;
+    password-cancel) [[ $(grep -c '^INSERT ' "$out/client-$mode.log") == 1 ]]; grep -q INPUT_DISABLED_AFTER_FIRST "$out/client-$mode.log" ;;
     password|invalid) ! grep -q '^INSERT ' "$out/client-$mode.log" ;;
 esac
 printf 'PASS %s — screenshots in %s\n' "$mode" "$out"

@@ -3902,3 +3902,24 @@ msgstr "Нет элементов"
 
 msgid "{name} (group)"
 msgstr "{name} (группа)"
+
+msgid "Passwords…"
+msgstr "Пароли…"
+
+msgid "Passwords"
+msgstr "Пароли"
+
+msgid "Opening password store…"
+msgstr "Открываем хранилище паролей…"
+
+msgid "No passwords saved for this app"
+msgstr "Нет паролей для этого приложения"
+
+msgid "Password store unavailable"
+msgstr "Хранилище паролей недоступно"
+
+msgid "Password was not supplied"
+msgstr "Пароль не получен"
+
+msgid "Suggestions · Tab to insert"
+msgstr "Подсказки · Tab для вставки"

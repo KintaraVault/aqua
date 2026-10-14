@@ -123,8 +123,9 @@ static void removed(void*d,struct wl_registry*r,uint32_t n){(void)d;(void)r;(voi
 static const struct wl_registry_listener registry_listener={.global=global,.global_remove=removed};
 int main(int argc,char**argv){
     const char*mode=argc>1?argv[1]:"plain";
-    password=!strcmp(mode,"password");cancel_after_first=!strcmp(mode,"cancel");invalid_offset=!strcmp(mode,"invalid");
+    password=!strncmp(mode,"password",8);cancel_after_first=!strcmp(mode,"cancel")||!strcmp(mode,"password-cancel");invalid_offset=!strcmp(mode,"invalid");
     if(password)snprintf(text,sizeof text,"test-only");
+    if(!strcmp(mode,"password-fill")||!strcmp(mode,"password-cancel"))text[0]=0;
     if(!strcmp(mode,"unicode"))snprintf(text,sizeof text,"при");
     if(!strcmp(mode,"t9"))snprintf(text,sizeof text,"43556");
     display=wl_display_connect(NULL);assert(display);
